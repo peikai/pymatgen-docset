@@ -1,0 +1,433 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8"/>
+<title>pymatgen.apps.battery.battery_abc module — pymatgen 2021.2.8.1 documentation</title>
+<link href="_static/basic.css" rel="stylesheet" type="text/css"/>
+<link href="_static/pygments.css" rel="stylesheet" type="text/css"/>
+<script data-url_root="./" id="documentation_options" src="_static/documentation_options.js" type="text/javascript"></script>
+<script src="_static/jquery.js" type="text/javascript"></script>
+<script src="_static/underscore.js" type="text/javascript"></script>
+<script src="_static/doctools.js" type="text/javascript"></script>
+<script src="_static/language_data.js" type="text/javascript"></script>
+<script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+<link href="genindex.html" rel="index" title="Index"/>
+<link href="search.html" rel="search" title="Search"/>
+<link href="pymatgen.apps.battery.conversion_battery.html" rel="next" title="pymatgen.apps.battery.conversion_battery module"/>
+<link href="pymatgen.apps.battery.analyzer.html" rel="prev" title="pymatgen.apps.battery.analyzer module"/>
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-33990148-1']);
+  _gaq.push(['_trackPageview']);
+</script>
+</head><body>
+<div aria-label="related navigation" class="related" role="navigation">
+<h3>Navigation</h3>
+<ul>
+<li class="right" style="margin-right: 10px">
+<a accesskey="I" href="genindex.html" title="General Index">index</a></li>
+<li class="right">
+<a href="py-modindex.html" title="Python Module Index">modules</a> |</li>
+<li class="right">
+<a accesskey="N" href="pymatgen.apps.battery.conversion_battery.html" title="pymatgen.apps.battery.conversion_battery module">next</a> |</li>
+<li class="right">
+<a accesskey="P" href="pymatgen.apps.battery.analyzer.html" title="pymatgen.apps.battery.analyzer module">previous</a> |</li>
+<li class="nav-item nav-item-0"><a href="index.html">pymatgen 2021.2.8.1 documentation</a> »</li>
+<li class="nav-item nav-item-1"><a href="modules.html">pymatgen</a> »</li>
+<li class="nav-item nav-item-2"><a href="pymatgen.html">pymatgen namespace</a> »</li>
+<li class="nav-item nav-item-3"><a href="pymatgen.apps.html">pymatgen.apps package</a> »</li>
+<li class="nav-item nav-item-4"><a accesskey="U" href="pymatgen.apps.battery.html">pymatgen.apps.battery package</a> »</li>
+</ul>
+</div>
+<div class="document">
+<div class="documentwrapper">
+<div class="body" role="main">
+<div class="section" id="module-pymatgen.apps.battery.battery_abc">
+<span id="pymatgen-apps-battery-battery-abc-module"></span><h1><a name="//apple_ref/cpp/Module/pymatgen.apps.battery.battery_abc"></a>pymatgen.apps.battery.battery_abc module<a class="headerlink" href="#module-pymatgen.apps.battery.battery_abc" title="Permalink to this headline">¶</a></h1>
+<p>This module defines the abstract base classes for battery-related classes.
+Regardless of the kind of electrode, conversion or insertion, there are many
+common definitions and properties, e.g., average voltage, capacity, etc. which
+can be defined in a general way. The Abc for battery classes implements some of
+these common definitions to allow sharing of common logic between them.</p>
+<dl class="class">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode"><a name="//apple_ref/cpp/Class/pymatgen.apps.battery.battery_abc.AbstractElectrode"></a>
+<em class="property">class </em><code class="sig-name descname">AbstractElectrode</code><span class="sig-paren">(</span><em class="sig-param">voltage_pairs: Tuple[pymatgen.apps.battery.battery_abc.AbstractVoltagePair], working_ion_entry: pymatgen.entries.computed_entries.ComputedEntry, _framework_formula: str</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pymatgen/apps/battery/battery_abc.html#AbstractElectrode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">collections.abc.Sequence</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">monty.json.MSONable</span></code></p>
+<p>An Abstract Base Class representing an Electrode. It is essentially a
+sequence of VoltagePairs. Generally, subclasses only need to implement
+three abstract properties: voltage_pairs, working_ion and
+working_ion_entry.</p>
+<p>The general concept is that all other battery properties such as capacity,
+etc. are derived from voltage pairs.</p>
+<p>One of the major challenges with representing battery materials is keeping
+track of the normalization between different entries. For example, one
+entry might be TiO2 with one unit cell whereas another is LiTi2O4 with two
+unit cells. When computing battery properties, it is needed to always use
+a universal reference state otherwise you have normalization errors (e.g.,
+the energy of LiTi2O4 must be divided by two to be compared with TiO2).</p>
+<p>For properties such as volume, mass, or mAh transferred within the voltage
+pair, a universal convention is necessary. AbstractElectrode can query for
+extrinsic properties of several different AbstractVoltagePairs belonging to
+a single charge/discharge path and be confident that the normalization is
+being carried out properly throughout, even if more AbstractVoltagePairs
+are added later.</p>
+<p>The universal normalization is defined by the reduced structural framework
+of the entries, which is common along the entire charge/discharge path. For
+example, LiTi2O4 has a reduced structural framework of TiO2. Another
+example is Li9V6P16O58 which would have a reduced structural framework of
+V3P8O29. Note that reduced structural frameworks need not be
+charge-balanced or physical, e.g. V3P8O29 is not charge-balanced, they are
+just a tool for normalization.</p>
+<p>Example: for a LiTi2O4 -&gt; TiO2 AbstractVoltagePair, extrinsic quantities
+like mAh or cell volumes are given per TiO2 formula unit.</p>
+<p>Developers implementing a new battery (other than the two general ones
+already implemented) need to implement a VoltagePair and an Electrode.
+.. attribute:: voltage_pairs</p>
+<blockquote>
+<div><p>Objects that represent each voltage step</p>
+</div></blockquote>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.working_ion"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractElectrode.working_ion"></a>
+<code class="sig-name descname">working_ion</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.working_ion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Representation of the working ion that only contains element type</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.working_ion_entry"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractElectrode.working_ion_entry"></a>
+<code class="sig-name descname">working_ion_entry</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.working_ion_entry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Representation of the working_ion that contains the energy</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.framework"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractElectrode.framework"></a>
+<code class="sig-name descname">framework</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.framework" title="Permalink to this definition">¶</a></dt>
+<dd><p>The compositions of one formula unit of the host material</p>
+</dd></dl>
+<dl class="method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">framework</code></dt>
+<dd><p>The composition object representing the framework</p>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.get_average_voltage"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.get_average_voltage"></a>
+<code class="sig-name descname">get_average_voltage</code><span class="sig-paren">(</span><em class="sig-param">min_voltage=None</em>, <em class="sig-param">max_voltage=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pymatgen/apps/battery/battery_abc.html#AbstractElectrode.get_average_voltage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.get_average_voltage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Average voltage for path satisfying between a min and max voltage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>min_voltage</strong> (<em>float</em>) – The minimum allowable voltage for a given
+step.</p></li>
+<li><p><strong>max_voltage</strong> (<em>float</em>) – The maximum allowable voltage allowable for a
+given step.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Average voltage in V across the insertion path (a subset of the
+path can be chosen by the optional arguments)</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.get_capacity_grav"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.get_capacity_grav"></a>
+<code class="sig-name descname">get_capacity_grav</code><span class="sig-paren">(</span><em class="sig-param">min_voltage=None</em>, <em class="sig-param">max_voltage=None</em>, <em class="sig-param">use_overall_normalization=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pymatgen/apps/battery/battery_abc.html#AbstractElectrode.get_capacity_grav"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.get_capacity_grav" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the gravimetric capacity of the electrode.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>min_voltage</strong> (<em>float</em>) – The minimum allowable voltage for a given
+step.</p></li>
+<li><p><strong>max_voltage</strong> (<em>float</em>) – The maximum allowable voltage allowable for a
+given step.</p></li>
+<li><p><strong>use_overall_normalization</strong> (<em>booL</em>) – If False, normalize by the
+discharged state of only the voltage pairs matching the voltage
+criteria. if True, use default normalization of the full
+electrode path.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Gravimetric capacity in mAh/g across the insertion path (a subset
+of the path can be chosen by the optional arguments).</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.get_capacity_vol"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.get_capacity_vol"></a>
+<code class="sig-name descname">get_capacity_vol</code><span class="sig-paren">(</span><em class="sig-param">min_voltage=None</em>, <em class="sig-param">max_voltage=None</em>, <em class="sig-param">use_overall_normalization=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pymatgen/apps/battery/battery_abc.html#AbstractElectrode.get_capacity_vol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.get_capacity_vol" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the volumetric capacity of the electrode.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>min_voltage</strong> (<em>float</em>) – The minimum allowable voltage for a given
+step.</p></li>
+<li><p><strong>max_voltage</strong> (<em>float</em>) – The maximum allowable voltage allowable for a
+given step.</p></li>
+<li><p><strong>use_overall_normalization</strong> (<em>booL</em>) – If False, normalize by the
+discharged state of only the voltage pairs matching the voltage
+criteria. if True, use default normalization of the full
+electrode path.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Volumetric capacity in mAh/cc across the insertion path (a subset
+of the path can be chosen by the optional arguments)</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.get_energy_density"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.get_energy_density"></a>
+<code class="sig-name descname">get_energy_density</code><span class="sig-paren">(</span><em class="sig-param">min_voltage=None</em>, <em class="sig-param">max_voltage=None</em>, <em class="sig-param">use_overall_normalization=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pymatgen/apps/battery/battery_abc.html#AbstractElectrode.get_energy_density"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.get_energy_density" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>min_voltage</strong> (<em>float</em>) – The minimum allowable voltage for a given
+step.</p></li>
+<li><p><strong>max_voltage</strong> (<em>float</em>) – The maximum allowable voltage allowable for a
+given step.</p></li>
+<li><p><strong>use_overall_normalization</strong> (<em>booL</em>) – If False, normalize by the
+discharged state of only the voltage pairs matching the voltage
+criteria. if True, use default normalization of the full
+electrode path.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Energy density in Wh/L across the insertion path (a subset of the
+path can be chosen by the optional arguments).</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.get_specific_energy"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.get_specific_energy"></a>
+<code class="sig-name descname">get_specific_energy</code><span class="sig-paren">(</span><em class="sig-param">min_voltage=None</em>, <em class="sig-param">max_voltage=None</em>, <em class="sig-param">use_overall_normalization=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pymatgen/apps/battery/battery_abc.html#AbstractElectrode.get_specific_energy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.get_specific_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the specific energy of the battery in mAh/g.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>min_voltage</strong> (<em>float</em>) – The minimum allowable voltage for a given
+step.</p></li>
+<li><p><strong>max_voltage</strong> (<em>float</em>) – The maximum allowable voltage allowable for a
+given step.</p></li>
+<li><p><strong>use_overall_normalization</strong> (<em>booL</em>) – If False, normalize by the
+discharged state of only the voltage pairs matching the voltage
+criteria. if True, use default normalization of the full
+electrode path.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Specific energy in Wh/kg across the insertion path (a subset of
+the path can be chosen by the optional arguments)</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.get_sub_electrodes"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.get_sub_electrodes"></a>
+<code class="sig-name descname">get_sub_electrodes</code><span class="sig-paren">(</span><em class="sig-param">adjacent_only=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pymatgen/apps/battery/battery_abc.html#AbstractElectrode.get_sub_electrodes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.get_sub_electrodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>If this electrode contains multiple voltage steps, then it is possible
+to use only a subset of the voltage steps to define other electrodes.
+Must be implemented for each electrode object.
+:param adjacent_only: Only return electrodes from compounds that are</p>
+<blockquote>
+<div><p>adjacent on the convex hull, i.e. no electrodes returned
+will have multiple voltage steps if this is set true</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>A list of Electrode objects</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.get_summary_dict"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.get_summary_dict"></a>
+<code class="sig-name descname">get_summary_dict</code><span class="sig-paren">(</span><em class="sig-param">print_subelectrodes=True</em><span class="sig-paren">)</span> → Dict<a class="reference internal" href="_modules/pymatgen/apps/battery/battery_abc.html#AbstractElectrode.get_summary_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.get_summary_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a summary dict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>print_subelectrodes</strong> – Also print data on all the possible
+subelectrodes.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A summary of this electrode”s properties in dict format.</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.max_delta_volume"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.max_delta_volume"></a>
+<em class="property">property </em><code class="sig-name descname">max_delta_volume</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.max_delta_volume" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maximum volume change along insertion</p>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.max_voltage"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.max_voltage"></a>
+<em class="property">property </em><code class="sig-name descname">max_voltage</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.max_voltage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Highest voltage along insertion</p>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.max_voltage_step"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.max_voltage_step"></a>
+<em class="property">property </em><code class="sig-name descname">max_voltage_step</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.max_voltage_step" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maximum absolute difference in adjacent voltage steps</p>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.min_voltage"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.min_voltage"></a>
+<em class="property">property </em><code class="sig-name descname">min_voltage</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.min_voltage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lowest voltage along insertion</p>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.normalization_mass"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.normalization_mass"></a>
+<em class="property">property </em><code class="sig-name descname">normalization_mass</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.normalization_mass" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mass used for normalization. This is the mass of the discharged
+electrode of the last voltage pair.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Returns</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.normalization_volume"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.normalization_volume"></a>
+<em class="property">property </em><code class="sig-name descname">normalization_volume</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.normalization_volume" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mass used for normalization. This is the vol of the discharged
+electrode of the last voltage pair.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Returns</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.num_steps"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.num_steps"></a>
+<em class="property">property </em><code class="sig-name descname">num_steps</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.num_steps" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of distinct voltage steps in from fully charge to discharge
+based on the stable intermediate states</p>
+</dd></dl>
+<dl class="method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">working_ion</code></dt>
+<dd><p>working ion as pymatgen Element object</p>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.x_charge"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.x_charge"></a>
+<em class="property">property </em><code class="sig-name descname">x_charge</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.x_charge" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of working ions per formula unit of host in the charged state</p>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractElectrode.x_discharge"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractElectrode.x_discharge"></a>
+<em class="property">property </em><code class="sig-name descname">x_discharge</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractElectrode.x_discharge" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of working ions per formula unit of host in the discharged state</p>
+</dd></dl>
+</dd></dl>
+<dl class="class">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair"><a name="//apple_ref/cpp/Class/pymatgen.apps.battery.battery_abc.AbstractVoltagePair"></a>
+<em class="property">class </em><code class="sig-name descname">AbstractVoltagePair</code><span class="sig-paren">(</span><em class="sig-param">voltage: float</em>, <em class="sig-param">mAh: float</em>, <em class="sig-param">mass_charge: float</em>, <em class="sig-param">mass_discharge: float</em>, <em class="sig-param">vol_charge: float</em>, <em class="sig-param">vol_discharge: float</em>, <em class="sig-param">frac_charge: float</em>, <em class="sig-param">frac_discharge: float</em>, <em class="sig-param">working_ion_entry: pymatgen.entries.computed_entries.ComputedEntry</em>, <em class="sig-param">_framework_formula: str</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pymatgen/apps/battery/battery_abc.html#AbstractVoltagePair"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">monty.json.MSONable</span></code></p>
+<p>An Abstract Base Class for a Voltage Pair.</p>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.voltage"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.voltage"></a>
+<code class="sig-name descname">voltage</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.voltage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Voltage of voltage pair.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.mAh"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.mAh"></a>
+<code class="sig-name descname">mAh</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.mAh" title="Permalink to this definition">¶</a></dt>
+<dd><p>Energy in mAh.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.mass_charge"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.mass_charge"></a>
+<code class="sig-name descname">mass_charge</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.mass_charge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mass of charged pair.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.mass_discharge"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.mass_discharge"></a>
+<code class="sig-name descname">mass_discharge</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.mass_discharge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mass of discharged pair.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.vol_charge"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.vol_charge"></a>
+<code class="sig-name descname">vol_charge</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.vol_charge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Vol of charged pair.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.vol_discharge"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.vol_discharge"></a>
+<code class="sig-name descname">vol_discharge</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.vol_discharge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Vol of discharged pair.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.frac_charge"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.frac_charge"></a>
+<code class="sig-name descname">frac_charge</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.frac_charge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Frac of working ion in charged pair.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.frac_discharge"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.frac_discharge"></a>
+<code class="sig-name descname">frac_discharge</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.frac_discharge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Frac of working ion in discharged pair.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.working_ion_entry"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.working_ion_entry"></a>
+<code class="sig-name descname">working_ion_entry</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.working_ion_entry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Working ion as an entry.</p>
+</dd></dl>
+<dl class="attribute">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.framework"><a name="//apple_ref/cpp/Attribute/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.framework"></a>
+<code class="sig-name descname">framework</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.framework" title="Permalink to this definition">¶</a></dt>
+<dd><p>The compositions of one formula unit of the host material</p>
+</dd></dl>
+<dl class="method">
+<dt>
+<em class="property">property </em><code class="sig-name descname">framework</code></dt>
+<dd><p>The composition object representing the framework</p>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.working_ion"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.working_ion"></a>
+<em class="property">property </em><code class="sig-name descname">working_ion</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.working_ion" title="Permalink to this definition">¶</a></dt>
+<dd><p>working ion as pymatgen Element object</p>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.x_charge"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.x_charge"></a>
+<em class="property">property </em><code class="sig-name descname">x_charge</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.x_charge" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of working ions per formula unit of host in the charged state</p>
+</dd></dl>
+<dl class="method">
+<dt id="pymatgen.apps.battery.battery_abc.AbstractVoltagePair.x_discharge"><a name="//apple_ref/cpp/Method/pymatgen.apps.battery.battery_abc.AbstractVoltagePair.x_discharge"></a>
+<em class="property">property </em><code class="sig-name descname">x_discharge</code><a class="headerlink" href="#pymatgen.apps.battery.battery_abc.AbstractVoltagePair.x_discharge" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of working ions per formula unit of host in the discharged state</p>
+</dd></dl>
+</dd></dl>
+</div>
+</div>
+</div>
+<div class="clearer"></div>
+</div>
+<div aria-label="related navigation" class="related" role="navigation">
+<h3>Navigation</h3>
+<ul>
+<li class="right" style="margin-right: 10px">
+<a href="genindex.html" title="General Index">index</a></li>
+<li class="right">
+<a href="py-modindex.html" title="Python Module Index">modules</a> |</li>
+<li class="right">
+<a href="pymatgen.apps.battery.conversion_battery.html" title="pymatgen.apps.battery.conversion_battery module">next</a> |</li>
+<li class="right">
+<a href="pymatgen.apps.battery.analyzer.html" title="pymatgen.apps.battery.analyzer module">previous</a> |</li>
+<li class="nav-item nav-item-0"><a href="index.html">pymatgen 2021.2.8.1 documentation</a> »</li>
+<li class="nav-item nav-item-1"><a href="modules.html">pymatgen</a> »</li>
+<li class="nav-item nav-item-2"><a href="pymatgen.html">pymatgen namespace</a> »</li>
+<li class="nav-item nav-item-3"><a href="pymatgen.apps.html">pymatgen.apps package</a> »</li>
+<li class="nav-item nav-item-4"><a href="pymatgen.apps.battery.html">pymatgen.apps.battery package</a> »</li>
+</ul>
+</div>
+<div class="footer" role="contentinfo">
+        © Copyright 2011, Pymatgen Development Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+<div class="footer">This page uses <a href="http://analytics.google.com/">
+Google Analytics</a> to collect statistics. You can disable it by blocking
+the JavaScript coming from www.google-analytics.com.
+<script type="text/javascript">
+  (function() {
+    var ga = document.createElement('script');
+    ga.src = ('https:' == document.location.protocol ?
+              'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    ga.setAttribute('async', 'true');
+    document.documentElement.firstChild.appendChild(ga);
+  })();
+</script>
+</div>
+</body>
+</html>
