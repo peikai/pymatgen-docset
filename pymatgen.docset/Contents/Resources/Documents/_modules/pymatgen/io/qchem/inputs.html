@@ -1,18 +1,19 @@
 
 <!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
   <head>
     <meta charset="utf-8" />
-    <title>pymatgen.io.qchem.inputs &#8212; pymatgen 2021.2.8.1 documentation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pymatgen.io.qchem.inputs &#8212; pymatgen 2020.7.3 documentation</title>
     <link rel="stylesheet" href="../../../../_static/basic.css" type="text/css" />
     <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../../../_static/language_data.js"></script>
-    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
  
@@ -32,8 +33,10 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2021.2.8.1 documentation</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2020.7.3 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../pymatgen.html" accesskey="U">pymatgen</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.qchem.inputs</a></li> 
       </ul>
     </div>  
 
@@ -49,18 +52,15 @@
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Classes for reading/manipulating/writing QChem input files.</span>
 <span class="sd">&quot;&quot;&quot;</span>
+
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
-<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="k">import</span> <span class="n">Literal</span>
+<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
+<span class="kn">from</span> <span class="nn">monty.io</span> <span class="kn">import</span> <span class="n">zopen</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">Molecule</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">read_table_pattern</span><span class="p">,</span> <span class="n">read_pattern</span><span class="p">,</span> <span class="n">lower_and_check_unique</span>
 
-<span class="kn">from</span> <span class="nn">monty.io</span> <span class="k">import</span> <span class="n">zopen</span>
-<span class="kn">from</span> <span class="nn">monty.json</span> <span class="k">import</span> <span class="n">MSONable</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="k">import</span> <span class="n">Molecule</span>
-
-<span class="kn">from</span> <span class="nn">.utils</span> <span class="k">import</span> <span class="n">lower_and_check_unique</span><span class="p">,</span> <span class="n">read_pattern</span><span class="p">,</span> <span class="n">read_table_pattern</span>
-
-<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Brandon Wood, Samuel Blau, Shyam Dwaraknath, Julian Self, Evan Spotte-Smith&quot;</span>
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Brandon Wood, Samuel Blau, Shyam Dwaraknath, Julian Self&quot;</span>
 <span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2018, The Materials Project&quot;</span>
 <span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.1&quot;</span>
 <span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;b.wood@berkeley.edu&quot;</span>
@@ -78,17 +78,7 @@
 <span class="sd">    separate error handling software.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">molecule</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Molecule</span><span class="p">,</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">]],</span>
-        <span class="n">rem</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
-        <span class="n">opt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">pcm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">solvent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">smx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">scan</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">plots</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">molecule</span><span class="p">,</span> <span class="n">rem</span><span class="p">,</span> <span class="n">opt</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pcm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">solvent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">smx</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            molecule (pymatgen Molecule object or &quot;read&quot;):</span>
@@ -103,24 +93,6 @@
 <span class="sd">                values are a list of strings. Stings must be formatted as instructed by the QChem manual.</span>
 <span class="sd">                The different opt sections are: CONSTRAINT, FIXED, DUMMY, and CONNECT</span>
 <span class="sd">                Ex. opt = {&quot;CONSTRAINT&quot;: [&quot;tors 2 3 4 5 25.0&quot;, &quot;tors 2 5 7 9 80.0&quot;], &quot;FIXED&quot;: [&quot;2 XY&quot;]}</span>
-<span class="sd">            pcm (dict):</span>
-<span class="sd">                A dictionary of the PCM section, defining behavior for use of the polarizable continuum model.</span>
-<span class="sd">                Ex: pcm = {&quot;theory&quot;: &quot;cpcm&quot;, &quot;hpoints&quot;: 194}</span>
-<span class="sd">            solvent (dict):</span>
-<span class="sd">                A dictionary defining the solvent parameters used with PCM.</span>
-<span class="sd">                Ex: solvent = {&quot;dielectric&quot;: 78.39, &quot;temperature&quot;: 298.15}</span>
-<span class="sd">            smx (dict):</span>
-<span class="sd">                A dictionary defining solvent parameters used with the SMD method, a solvent method that adds</span>
-<span class="sd">                short-range terms to PCM.</span>
-<span class="sd">                Ex: smx = {&quot;solvent&quot;: &quot;water&quot;}</span>
-<span class="sd">            scan (dict of lists):</span>
-<span class="sd">                A dictionary of scan variables. Because two constraints of the same type are allowed (for instance, two</span>
-<span class="sd">                torsions or two bond stretches), each TYPE of variable (stre, bend, tors) should be its own key in the</span>
-<span class="sd">                dict, rather than each variable. Note that the total number of variable (sum of lengths of all lists)</span>
-<span class="sd">                CANNOT be</span>
-<span class="sd">                more than two.</span>
-<span class="sd">                Ex. scan = {&quot;stre&quot;: [&quot;3 6 1.5 1.9 0.1&quot;], &quot;tors&quot;: [&quot;1 2 3 4 -180 180 15&quot;]}</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">molecule</span> <span class="o">=</span> <span class="n">molecule</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">rem</span> <span class="o">=</span> <span class="n">lower_and_check_unique</span><span class="p">(</span><span class="n">rem</span><span class="p">)</span>
@@ -128,8 +100,18 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">pcm</span> <span class="o">=</span> <span class="n">lower_and_check_unique</span><span class="p">(</span><span class="n">pcm</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">solvent</span> <span class="o">=</span> <span class="n">lower_and_check_unique</span><span class="p">(</span><span class="n">solvent</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">smx</span> <span class="o">=</span> <span class="n">lower_and_check_unique</span><span class="p">(</span><span class="n">smx</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">scan</span> <span class="o">=</span> <span class="n">lower_and_check_unique</span><span class="p">(</span><span class="n">scan</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">plots</span> <span class="o">=</span> <span class="n">lower_and_check_unique</span><span class="p">(</span><span class="n">plots</span><span class="p">)</span>
+
+        <span class="c1"># Make sure molecule is valid: either the string &quot;read&quot; or a pymatgen molecule object</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">molecule</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">molecule</span> <span class="o">!=</span> <span class="s2">&quot;read&quot;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s1">&#39;The only acceptable text value for molecule is &quot;read&quot;&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The molecule must either be the string &#39;read&#39; or be a pymatgen Molecule object&quot;</span>
+            <span class="p">)</span>
 
         <span class="c1"># Make sure rem is valid:</span>
         <span class="c1">#   - Has a basis</span>
@@ -137,26 +119,22 @@
         <span class="c1">#   - Has a valid job_type or jobtype</span>
 
         <span class="n">valid_job_types</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="s2">&quot;opt&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;optimization&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;sp&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;freq&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;frequency&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;force&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;nmr&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;ts&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;pes_scan&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;opt&quot;</span><span class="p">,</span> <span class="s2">&quot;optimization&quot;</span><span class="p">,</span> <span class="s2">&quot;sp&quot;</span><span class="p">,</span> <span class="s2">&quot;freq&quot;</span><span class="p">,</span> <span class="s2">&quot;frequency&quot;</span><span class="p">,</span> <span class="s2">&quot;force&quot;</span><span class="p">,</span> <span class="s2">&quot;nmr&quot;</span>
         <span class="p">]</span>
 
         <span class="k">if</span> <span class="s2">&quot;basis&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">rem</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The rem dictionary must contain a &#39;basis&#39; entry&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;method&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">rem</span><span class="p">:</span>
             <span class="k">if</span> <span class="s2">&quot;exchange&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">rem</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The rem dictionary must contain either a &#39;method&#39; entry or an &#39;exchange&#39; entry&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;The rem dictionary must contain either a &#39;method&#39; entry or an &#39;exchange&#39; entry&quot;</span>
+                <span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;job_type&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">rem</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The rem dictionary must contain a &#39;job_type&#39; entry&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The rem dictionary must contain a &#39;job_type&#39; entry&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rem</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;job_type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">valid_job_types</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The rem dictionary must contain a valid &#39;job_type&#39; entry&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The rem dictionary must contain a valid &#39;job_type&#39; entry&quot;</span><span class="p">)</span>
 
         <span class="c1"># Still to do:</span>
         <span class="c1">#   - Check that the method or functional is valid</span>
@@ -165,7 +143,7 @@
         <span class="c1">#   - Validity checks specific to job type?</span>
         <span class="c1">#   - Check OPT and PCM sections?</span>
 
-    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">combined_list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="c1"># molecule section</span>
         <span class="n">combined_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">molecule_template</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="p">))</span>
@@ -188,18 +166,10 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">smx</span><span class="p">:</span>
             <span class="n">combined_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">smx_template</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">smx</span><span class="p">))</span>
             <span class="n">combined_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="c1"># section for pes_scan</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan</span><span class="p">:</span>
-            <span class="n">combined_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_template</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scan</span><span class="p">))</span>
-            <span class="n">combined_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="c1"># plots section</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">plots</span><span class="p">:</span>
-            <span class="n">combined_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plots_template</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plots</span><span class="p">))</span>
-            <span class="n">combined_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">combined_list</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">combined_list</span><span class="p">)</span>
 
 <div class="viewcode-block" id="QCInput.multi_job_string"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.multi_job_string">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">multi_job_string</span><span class="p">(</span><span class="n">job_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;QCInput&quot;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">multi_job_string</span><span class="p">(</span><span class="n">job_list</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            job_list (): List of jobs</span>
@@ -216,7 +186,7 @@
         <span class="k">return</span> <span class="n">multi_job_string</span></div>
 
 <div class="viewcode-block" id="QCInput.from_string"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.from_string">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_string</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;QCInput&quot;</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">from_string</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read QcInput from string.</span>
 
@@ -234,8 +204,6 @@
         <span class="n">pcm</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">solvent</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">smx</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">scan</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">plots</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="s2">&quot;opt&quot;</span> <span class="ow">in</span> <span class="n">sections</span><span class="p">:</span>
             <span class="n">opt</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">read_opt</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;pcm&quot;</span> <span class="ow">in</span> <span class="n">sections</span><span class="p">:</span>
@@ -244,24 +212,20 @@
             <span class="n">solvent</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">read_solvent</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;smx&quot;</span> <span class="ow">in</span> <span class="n">sections</span><span class="p">:</span>
             <span class="n">smx</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">read_smx</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
-        <span class="k">if</span> <span class="s2">&quot;scan&quot;</span> <span class="ow">in</span> <span class="n">sections</span><span class="p">:</span>
-            <span class="n">scan</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">read_scan</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
-        <span class="k">if</span> <span class="s2">&quot;plots&quot;</span> <span class="ow">in</span> <span class="n">sections</span><span class="p">:</span>
-            <span class="n">plots</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">read_plots</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">molecule</span><span class="p">,</span> <span class="n">rem</span><span class="p">,</span> <span class="n">opt</span><span class="o">=</span><span class="n">opt</span><span class="p">,</span> <span class="n">pcm</span><span class="o">=</span><span class="n">pcm</span><span class="p">,</span> <span class="n">solvent</span><span class="o">=</span><span class="n">solvent</span><span class="p">,</span> <span class="n">smx</span><span class="o">=</span><span class="n">smx</span><span class="p">,</span> <span class="n">scan</span><span class="o">=</span><span class="n">scan</span><span class="p">,</span> <span class="n">plots</span><span class="o">=</span><span class="n">plots</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">molecule</span><span class="p">,</span> <span class="n">rem</span><span class="p">,</span> <span class="n">opt</span><span class="o">=</span><span class="n">opt</span><span class="p">,</span> <span class="n">pcm</span><span class="o">=</span><span class="n">pcm</span><span class="p">,</span> <span class="n">solvent</span><span class="o">=</span><span class="n">solvent</span><span class="p">,</span> <span class="n">smx</span><span class="o">=</span><span class="n">smx</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="QCInput.write_file"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.write_file">[docs]</a>    <span class="k">def</span> <span class="nf">write_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<div class="viewcode-block" id="QCInput.write_file"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.write_file">[docs]</a>    <span class="k">def</span> <span class="nf">write_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Write QcInput to file.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            filename (str): Filename</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;wt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;wt&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="fm">__str__</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="QCInput.write_multi_job_file"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.write_multi_job_file">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">write_multi_job_file</span><span class="p">(</span><span class="n">job_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;QCInput&quot;</span><span class="p">],</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">write_multi_job_file</span><span class="p">(</span><span class="n">job_list</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Write a multijob file.</span>
 
@@ -269,11 +233,11 @@
 <span class="sd">            job_list (): List of jobs.</span>
 <span class="sd">            filename (): Filename</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;wt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;wt&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">QCInput</span><span class="o">.</span><span class="n">multi_job_string</span><span class="p">(</span><span class="n">job_list</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="QCInput.from_file"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.from_file">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;QCInput&quot;</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create QcInput from file.</span>
 <span class="sd">        Args:</span>
@@ -282,11 +246,11 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            QcInput</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;rt&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">QCInput</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="QCInput.from_multi_jobs_file"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.from_multi_jobs_file">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_multi_jobs_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;QCInput&quot;</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">from_multi_jobs_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create list of QcInput from a file.</span>
 <span class="sd">        Args:</span>
@@ -295,7 +259,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            List of QCInput objects</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;rt&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="c1"># the delimiter between QChem jobs is @@@</span>
             <span class="n">multi_job_strings</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@@@&quot;</span><span class="p">)</span>
             <span class="c1"># list of individual QChem jobs</span>
@@ -303,7 +267,7 @@
             <span class="k">return</span> <span class="n">input_list</span></div>
 
 <div class="viewcode-block" id="QCInput.molecule_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.molecule_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">molecule_template</span><span class="p">(</span><span class="n">molecule</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Molecule</span><span class="p">,</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">molecule_template</span><span class="p">(</span><span class="n">molecule</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            molecule (Molecule): molecule</span>
@@ -320,20 +284,19 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;The only acceptable text value for molecule is &quot;read&quot;&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">mol_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="s2">&quot; </span><span class="si">{charge}</span><span class="s2"> </span><span class="si">{spin_mult}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">charge</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">charge</span><span class="p">),</span> <span class="n">spin_mult</span><span class="o">=</span><span class="n">molecule</span><span class="o">.</span><span class="n">spin_multiplicity</span><span class="p">)</span>
-            <span class="p">)</span>
+            <span class="n">mol_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot; </span><span class="si">{charge}</span><span class="s2"> </span><span class="si">{spin_mult}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">charge</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">charge</span><span class="p">),</span>
+                <span class="n">spin_mult</span><span class="o">=</span><span class="n">molecule</span><span class="o">.</span><span class="n">spin_multiplicity</span><span class="p">))</span>
             <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="n">molecule</span><span class="o">.</span><span class="n">sites</span><span class="p">:</span>
                 <span class="n">mol_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="s2">&quot; </span><span class="si">{atom}</span><span class="s2">     </span><span class="si">{x: .10f}</span><span class="s2">     </span><span class="si">{y: .10f}</span><span class="s2">     </span><span class="si">{z: .10f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                        <span class="n">atom</span><span class="o">=</span><span class="n">site</span><span class="o">.</span><span class="n">species_string</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">site</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">site</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="n">site</span><span class="o">.</span><span class="n">z</span>
-                    <span class="p">)</span>
-                <span class="p">)</span>
+                        <span class="n">atom</span><span class="o">=</span><span class="n">site</span><span class="o">.</span><span class="n">species_string</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">site</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">site</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+                        <span class="n">z</span><span class="o">=</span><span class="n">site</span><span class="o">.</span><span class="n">z</span><span class="p">))</span>
         <span class="n">mol_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$end&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">mol_list</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">mol_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.rem_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.rem_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">rem_template</span><span class="p">(</span><span class="n">rem</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">rem_template</span><span class="p">(</span><span class="n">rem</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            rem ():</span>
@@ -346,10 +309,10 @@
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">rem</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">rem_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;   </span><span class="si">{key}</span><span class="s2"> = </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
         <span class="n">rem_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$end&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">rem_list</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">rem_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.opt_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.opt_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">opt_template</span><span class="p">(</span><span class="n">opt</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">opt_template</span><span class="p">(</span><span class="n">opt</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Optimization template.</span>
 
@@ -372,10 +335,10 @@
         <span class="c1"># this deletes the empty space after the last section</span>
         <span class="k">del</span> <span class="n">opt_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">opt_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$end&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">opt_list</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">opt_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.pcm_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.pcm_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">pcm_template</span><span class="p">(</span><span class="n">pcm</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">pcm_template</span><span class="p">(</span><span class="n">pcm</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Pcm run template.</span>
 
@@ -390,10 +353,10 @@
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">pcm</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">pcm_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;   </span><span class="si">{key}</span><span class="s2"> </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
         <span class="n">pcm_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$end&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pcm_list</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pcm_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.solvent_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.solvent_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">solvent_template</span><span class="p">(</span><span class="n">solvent</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">solvent_template</span><span class="p">(</span><span class="n">solvent</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Solvent template.</span>
 
@@ -406,12 +369,13 @@
         <span class="n">solvent_list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">solvent_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$solvent&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">solvent</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">solvent_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;   </span><span class="si">{key}</span><span class="s2"> </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
+            <span class="n">solvent_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;   </span><span class="si">{key}</span><span class="s2"> </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
         <span class="n">solvent_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$end&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">solvent_list</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">solvent_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.smx_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.smx_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">smx_template</span><span class="p">(</span><span class="n">smx</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">smx_template</span><span class="p">(</span><span class="n">smx</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            smx ():</span>
@@ -423,52 +387,16 @@
         <span class="n">smx_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$smx&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">smx</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;tetrahydrofuran&quot;</span><span class="p">:</span>
-                <span class="n">smx_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;   </span><span class="si">{key}</span><span class="s2"> </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;thf&quot;</span><span class="p">))</span>
+                <span class="n">smx_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;   </span><span class="si">{key}</span><span class="s2"> </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;thf&quot;</span><span class="p">))</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">smx_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;   </span><span class="si">{key}</span><span class="s2"> </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
+                <span class="n">smx_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;   </span><span class="si">{key}</span><span class="s2"> </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
         <span class="n">smx_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$end&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">smx_list</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="QCInput.scan_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.scan_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">scan_template</span><span class="p">(</span><span class="n">scan</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Args:</span>
-<span class="sd">            scan (dict): Dictionary with scan section information.</span>
-<span class="sd">                Ex: {&quot;stre&quot;: [&quot;3 6 1.5 1.9 0.1&quot;], &quot;tors&quot;: [&quot;1 2 3 4 -180 180 15&quot;]}</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            String representing Q-Chem input format for scan section</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">scan_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-        <span class="n">scan_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$scan&quot;</span><span class="p">)</span>
-        <span class="n">total_vars</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">scan</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
-        <span class="k">if</span> <span class="n">total_vars</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Q-Chem only supports PES_SCAN with two or less &quot;</span> <span class="s2">&quot;variables.&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">var_type</span><span class="p">,</span> <span class="n">variables</span> <span class="ow">in</span> <span class="n">scan</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">variables</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">list</span><span class="p">()]:</span>
-                <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">variables</span><span class="p">:</span>
-                    <span class="n">scan_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;   </span><span class="si">{var_type}</span><span class="s2"> </span><span class="si">{var}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">var_type</span><span class="o">=</span><span class="n">var_type</span><span class="p">,</span> <span class="n">var</span><span class="o">=</span><span class="n">var</span><span class="p">))</span>
-        <span class="n">scan_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$end&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">scan_list</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="QCInput.plots_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.plots_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">plots_template</span><span class="p">(</span><span class="n">plots</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Args:</span>
-<span class="sd">            plots ():</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            (str)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">plots_list</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">plots_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$plots&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">plots</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">plots_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;   </span><span class="si">{key}</span><span class="s2"> </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">))</span>
-        <span class="n">plots_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$end&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">plots_list</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">smx_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.find_sections"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.find_sections">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">find_sections</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">find_sections</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Find sections in the string.</span>
 
@@ -483,10 +411,12 @@
         <span class="c1"># list of the sections present</span>
         <span class="n">sections</span> <span class="o">=</span> <span class="p">[</span><span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">matches</span><span class="p">[</span><span class="s2">&quot;sections&quot;</span><span class="p">]]</span>
         <span class="c1"># remove end from sections</span>
-        <span class="n">sections</span> <span class="o">=</span> <span class="p">[</span><span class="n">sec</span> <span class="k">for</span> <span class="n">sec</span> <span class="ow">in</span> <span class="n">sections</span> <span class="k">if</span> <span class="n">sec</span> <span class="o">!=</span> <span class="s2">&quot;end&quot;</span><span class="p">]</span>
+        <span class="n">sections</span> <span class="o">=</span> <span class="p">[</span><span class="n">sec</span> <span class="k">for</span> <span class="n">sec</span> <span class="ow">in</span> <span class="n">sections</span> <span class="k">if</span> <span class="n">sec</span> <span class="o">!=</span> <span class="s1">&#39;end&#39;</span><span class="p">]</span>
         <span class="c1"># this error should be replaced by a multi job read function when it is added</span>
         <span class="k">if</span> <span class="s2">&quot;multiple_jobs&quot;</span> <span class="ow">in</span> <span class="n">matches</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Output file contains multiple qchem jobs please parse separately&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Output file contains multiple qchem jobs please parse separately&quot;</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;molecule&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sections</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Output file does not contain a molecule section&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;rem&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sections</span><span class="p">:</span>
@@ -494,7 +424,7 @@
         <span class="k">return</span> <span class="n">sections</span></div>
 
 <div class="viewcode-block" id="QCInput.read_molecule"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_molecule">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_molecule</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Molecule</span><span class="p">,</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">]]:</span>
+    <span class="k">def</span> <span class="nf">read_molecule</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read molecule from string.</span>
 
@@ -509,7 +439,7 @@
         <span class="n">patterns</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;read&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$molecule\n\s*(read)&quot;</span><span class="p">,</span>
             <span class="s2">&quot;charge&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$molecule\n\s*((?:\-)*\d+)\s+\d&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;spin_mult&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$molecule\n\s(?:\-)*\d+\s*(\d)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;spin_mult&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$molecule\n\s(?:\-)*\d+\s*(\d)&quot;</span>
         <span class="p">}</span>
         <span class="n">matches</span> <span class="o">=</span> <span class="n">read_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">patterns</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;read&quot;</span> <span class="ow">in</span> <span class="n">matches</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
@@ -521,17 +451,23 @@
         <span class="n">header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$molecule\n\s*(?:\-)*\d+\s*\d&quot;</span>
         <span class="n">row</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;\s*((?i)[a-z]+)\s+([\d\-\.]+)\s+([\d\-\.]+)\s+([\d\-\.]+)&quot;</span>
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\$end&quot;</span>
-        <span class="n">mol_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
+        <span class="n">mol_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span>
+            <span class="n">string</span><span class="p">,</span>
+            <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span>
+            <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span>
+            <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
         <span class="n">species</span> <span class="o">=</span> <span class="p">[</span><span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">mol_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
-        <span class="n">coords</span> <span class="o">=</span> <span class="p">[[</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="mi">3</span><span class="p">])]</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">mol_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
-        <span class="k">if</span> <span class="n">charge</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">mol</span> <span class="o">=</span> <span class="n">Molecule</span><span class="p">(</span><span class="n">species</span><span class="o">=</span><span class="n">species</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">mol</span> <span class="o">=</span> <span class="n">Molecule</span><span class="p">(</span><span class="n">species</span><span class="o">=</span><span class="n">species</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span> <span class="n">charge</span><span class="o">=</span><span class="n">charge</span><span class="p">,</span> <span class="n">spin_multiplicity</span><span class="o">=</span><span class="n">spin_mult</span><span class="p">)</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="p">[[</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+                   <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="mi">3</span><span class="p">])]</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">mol_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">mol</span> <span class="o">=</span> <span class="n">Molecule</span><span class="p">(</span>
+            <span class="n">species</span><span class="o">=</span><span class="n">species</span><span class="p">,</span>
+            <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span>
+            <span class="n">charge</span><span class="o">=</span><span class="n">charge</span><span class="p">,</span>
+            <span class="n">spin_multiplicity</span><span class="o">=</span><span class="n">spin_mult</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">mol</span></div>
 
 <div class="viewcode-block" id="QCInput.read_rem"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_rem">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_rem</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">read_rem</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parse rem from string.</span>
 
@@ -544,11 +480,16 @@
         <span class="n">header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$rem&quot;</span>
         <span class="n">row</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;\s*([a-zA-Z\_]+)\s*=?\s*(\S+)&quot;</span>
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
-        <span class="n">rem_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
-        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">rem_table</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
+        <span class="n">rem_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span>
+            <span class="n">string</span><span class="p">,</span>
+            <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span>
+            <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span>
+            <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
+        <span class="n">rem</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">val</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">rem_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span>
+        <span class="k">return</span> <span class="n">rem</span></div>
 
 <div class="viewcode-block" id="QCInput.read_opt"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_opt">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_opt</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">read_opt</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read opt section from string.</span>
 
@@ -562,10 +503,10 @@
             <span class="s2">&quot;CONSTRAINT&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;^\s*CONSTRAINT&quot;</span><span class="p">,</span>
             <span class="s2">&quot;FIXED&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;^\s*FIXED&quot;</span><span class="p">,</span>
             <span class="s2">&quot;DUMMY&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;^\s*DUMMY&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;CONNECT&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;^\s*CONNECT&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;CONNECT&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;^\s*CONNECT&quot;</span>
         <span class="p">}</span>
         <span class="n">opt_matches</span> <span class="o">=</span> <span class="n">read_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">patterns</span><span class="p">)</span>
-        <span class="n">opt_sections</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">opt_matches</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">opt_sections</span> <span class="o">=</span> <span class="p">[</span><span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">opt_matches</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
         <span class="n">opt</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">if</span> <span class="s2">&quot;CONSTRAINT&quot;</span> <span class="ow">in</span> <span class="n">opt_sections</span><span class="p">:</span>
             <span class="n">c_header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*CONSTRAINT\n&quot;</span>
@@ -575,8 +516,7 @@
                 <span class="n">string</span><span class="p">,</span>
                 <span class="n">header_pattern</span><span class="o">=</span><span class="n">c_header</span><span class="p">,</span>
                 <span class="n">row_pattern</span><span class="o">=</span><span class="n">c_row</span><span class="p">,</span>
-                <span class="n">footer_pattern</span><span class="o">=</span><span class="n">c_footer</span><span class="p">,</span>
-            <span class="p">)</span>
+                <span class="n">footer_pattern</span><span class="o">=</span><span class="n">c_footer</span><span class="p">)</span>
             <span class="n">opt</span><span class="p">[</span><span class="s2">&quot;CONSTRAINT&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">c_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
         <span class="k">if</span> <span class="s2">&quot;FIXED&quot;</span> <span class="ow">in</span> <span class="n">opt_sections</span><span class="p">:</span>
             <span class="n">f_header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*FIXED\n&quot;</span>
@@ -586,8 +526,7 @@
                 <span class="n">string</span><span class="p">,</span>
                 <span class="n">header_pattern</span><span class="o">=</span><span class="n">f_header</span><span class="p">,</span>
                 <span class="n">row_pattern</span><span class="o">=</span><span class="n">f_row</span><span class="p">,</span>
-                <span class="n">footer_pattern</span><span class="o">=</span><span class="n">f_footer</span><span class="p">,</span>
-            <span class="p">)</span>
+                <span class="n">footer_pattern</span><span class="o">=</span><span class="n">f_footer</span><span class="p">)</span>
             <span class="n">opt</span><span class="p">[</span><span class="s2">&quot;FIXED&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">f_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
         <span class="k">if</span> <span class="s2">&quot;DUMMY&quot;</span> <span class="ow">in</span> <span class="n">opt_sections</span><span class="p">:</span>
             <span class="n">d_header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*DUMMY\n&quot;</span>
@@ -597,8 +536,7 @@
                 <span class="n">string</span><span class="p">,</span>
                 <span class="n">header_pattern</span><span class="o">=</span><span class="n">d_header</span><span class="p">,</span>
                 <span class="n">row_pattern</span><span class="o">=</span><span class="n">d_row</span><span class="p">,</span>
-                <span class="n">footer_pattern</span><span class="o">=</span><span class="n">d_footer</span><span class="p">,</span>
-            <span class="p">)</span>
+                <span class="n">footer_pattern</span><span class="o">=</span><span class="n">d_footer</span><span class="p">)</span>
             <span class="n">opt</span><span class="p">[</span><span class="s2">&quot;DUMMY&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">d_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
         <span class="k">if</span> <span class="s2">&quot;CONNECT&quot;</span> <span class="ow">in</span> <span class="n">opt_sections</span><span class="p">:</span>
             <span class="n">cc_header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*CONNECT\n&quot;</span>
@@ -608,13 +546,12 @@
                 <span class="n">string</span><span class="p">,</span>
                 <span class="n">header_pattern</span><span class="o">=</span><span class="n">cc_header</span><span class="p">,</span>
                 <span class="n">row_pattern</span><span class="o">=</span><span class="n">cc_row</span><span class="p">,</span>
-                <span class="n">footer_pattern</span><span class="o">=</span><span class="n">cc_footer</span><span class="p">,</span>
-            <span class="p">)</span>
+                <span class="n">footer_pattern</span><span class="o">=</span><span class="n">cc_footer</span><span class="p">)</span>
             <span class="n">opt</span><span class="p">[</span><span class="s2">&quot;CONNECT&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">cc_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
         <span class="k">return</span> <span class="n">opt</span></div>
 
 <div class="viewcode-block" id="QCInput.read_pcm"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_pcm">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_pcm</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">read_pcm</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read pcm parameters from string.</span>
 
@@ -627,15 +564,22 @@
         <span class="n">header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$pcm&quot;</span>
         <span class="n">row</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;\s*([a-zA-Z\_]+)\s+(\S+)&quot;</span>
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
-        <span class="n">pcm_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">pcm_table</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid PCM inputs found. Note that there should be no &#39;=&#39; chracters in PCM input lines.&quot;</span><span class="p">)</span>
+        <span class="n">pcm_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span>
+            <span class="n">string</span><span class="p">,</span>
+            <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span>
+            <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span>
+            <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">pcm_table</span> <span class="o">==</span> <span class="p">[]:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">&quot;No valid PCM inputs found. Note that there should be no &#39;=&#39; chracters in PCM input lines.&quot;</span>
+            <span class="p">)</span>
             <span class="k">return</span> <span class="p">{}</span>
-
-        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">pcm_table</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">pcm</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">val</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">pcm_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span>
+            <span class="k">return</span> <span class="n">pcm</span></div>
 
 <div class="viewcode-block" id="QCInput.read_solvent"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_solvent">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_solvent</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">read_solvent</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read solvent parameters from string.</span>
 
@@ -648,15 +592,22 @@
         <span class="n">header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$solvent&quot;</span>
         <span class="n">row</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;\s*([a-zA-Z\_]+)\s+(\S+)&quot;</span>
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
-        <span class="n">solvent_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">solvent_table</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid solvent inputs found. Note that there should be no &#39;=&#39; chracters in solvent input lines.&quot;</span><span class="p">)</span>
+        <span class="n">solvent_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span>
+            <span class="n">string</span><span class="p">,</span>
+            <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span>
+            <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span>
+            <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">solvent_table</span> <span class="o">==</span> <span class="p">[]:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">&quot;No valid solvent inputs found. Note that there should be no &#39;=&#39; chracters in solvent input lines.&quot;</span>
+            <span class="p">)</span>
             <span class="k">return</span> <span class="p">{}</span>
-
-        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">solvent_table</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">solvent</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">val</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">solvent_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span>
+            <span class="k">return</span> <span class="n">solvent</span></div>
 
 <div class="viewcode-block" id="QCInput.read_smx"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_smx">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_smx</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">read_smx</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read smx parameters from string.</span>
 
@@ -669,76 +620,24 @@
         <span class="n">header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$smx&quot;</span>
         <span class="n">row</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;\s*([a-zA-Z\_]+)\s+(\S+)&quot;</span>
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
-        <span class="n">smx_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">smx_table</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid smx inputs found. Note that there should be no &#39;=&#39; chracters in smx input lines.&quot;</span><span class="p">)</span>
+        <span class="n">smx_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span>
+            <span class="n">string</span><span class="p">,</span>
+            <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span>
+            <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span>
+            <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">smx_table</span> <span class="o">==</span> <span class="p">[]:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">&quot;No valid smx inputs found. Note that there should be no &#39;=&#39; chracters in smx input lines.&quot;</span>
+            <span class="p">)</span>
             <span class="k">return</span> <span class="p">{}</span>
-        <span class="n">smx</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">smx_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-            <span class="n">smx</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
-        <span class="k">if</span> <span class="n">smx</span><span class="p">[</span><span class="s2">&quot;solvent&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;tetrahydrofuran&quot;</span><span class="p">:</span>
-            <span class="n">smx</span><span class="p">[</span><span class="s2">&quot;solvent&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;thf&quot;</span>
-        <span class="k">return</span> <span class="n">smx</span></div>
-
-<div class="viewcode-block" id="QCInput.read_scan"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_scan">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_scan</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Read scan section from a string.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            string: String to be parsed</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            Dict representing Q-Chem scan section</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$scan&quot;</span>
-        <span class="n">row</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;\s*(stre|bend|tors|STRE|BEND|TORS)\s+((?:[\-\.0-9]+\s*)+)&quot;</span>
-        <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
-        <span class="n">scan_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">scan_table</span> <span class="o">==</span> <span class="nb">list</span><span class="p">():</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid scan inputs found. Note that there should be no &#39;=&#39; chracters in scan input lines.&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="nb">dict</span><span class="p">()</span>
-
-        <span class="n">stre</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-        <span class="n">bend</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-        <span class="n">tors</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">scan_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;stre&quot;</span><span class="p">:</span>
-                <span class="n">stre</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span>
-            <span class="k">elif</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;bend&quot;</span><span class="p">:</span>
-                <span class="n">bend</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span>
-            <span class="k">elif</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;tors&quot;</span><span class="p">:</span>
-                <span class="n">tors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span>
-
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stre</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">bend</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">tors</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No more than two variables are allows in the scan section!&quot;</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;stre&quot;</span><span class="p">:</span> <span class="n">stre</span><span class="p">,</span> <span class="s2">&quot;bend&quot;</span><span class="p">:</span> <span class="n">bend</span><span class="p">,</span> <span class="s2">&quot;tors&quot;</span><span class="p">:</span> <span class="n">tors</span><span class="p">}</span></div>
-
-<div class="viewcode-block" id="QCInput.read_plots"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_plots">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_plots</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Read plots parameters from string.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            string (str): String</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            (dict) plots parameters.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$plots&quot;</span>
-        <span class="n">row</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;\s*([a-zA-Z\_]+)\s+(\S+)&quot;</span>
-        <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
-        <span class="n">plots_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">plots_table</span> <span class="o">==</span> <span class="p">[]:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid plots inputs found. Note that there should be no &#39;=&#39; chracters in plots input lines.&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="p">{}</span>
-        <span class="n">plots</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">plots_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-            <span class="n">plots</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
-        <span class="k">return</span> <span class="n">plots</span></div></div>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">smx</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">val</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">smx_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span>
+            <span class="k">if</span> <span class="n">smx</span><span class="p">[</span><span class="s2">&quot;solvent&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;tetrahydrofuran&quot;</span><span class="p">:</span>
+                <span class="n">smx</span><span class="p">[</span><span class="s2">&quot;solvent&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;thf&quot;</span>
+            <span class="k">return</span> <span class="n">smx</span></div></div>
 </pre></div>
 
+            <div class="clearer"></div>
           </div>
       </div>
       <div class="clearer"></div>
@@ -752,14 +651,16 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2021.2.8.1 documentation</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2020.7.3 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../pymatgen.html" >pymatgen</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.qchem.inputs</a></li> 
       </ul>
     </div>
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.1.2.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

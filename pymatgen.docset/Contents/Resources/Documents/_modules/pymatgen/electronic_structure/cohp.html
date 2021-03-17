@@ -1,18 +1,17 @@
 
 <!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
   <head>
     <meta charset="utf-8" />
-    <title>pymatgen.electronic_structure.cohp &#8212; pymatgen 2021.2.8.1 documentation</title>
-    <link rel="stylesheet" href="../../../_static/basic.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.electronic_structure.cohp &#8212; pymatgen 2022.0.4 documentation</title>
     <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../../_static/language_data.js"></script>
-    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="stylesheet" href="../../../_static/basic.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
  
@@ -32,8 +31,9 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2021.2.8.1 documentation</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.electronic_structure.cohp</a></li> 
       </ul>
     </div>  
 
@@ -57,15 +57,15 @@
 <span class="kn">import</span> <span class="nn">warnings</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">monty.json</span> <span class="k">import</span> <span class="n">MSONable</span>
-
-<span class="kn">from</span> <span class="nn">pymatgen.core.sites</span> <span class="k">import</span> <span class="n">PeriodicSite</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="k">import</span> <span class="n">Structure</span>
-<span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.core</span> <span class="k">import</span> <span class="n">Orbital</span><span class="p">,</span> <span class="n">Spin</span>
-<span class="kn">from</span> <span class="nn">pymatgen.io.lmto</span> <span class="k">import</span> <span class="n">LMTOCopl</span>
-<span class="kn">from</span> <span class="nn">pymatgen.io.lobster</span> <span class="k">import</span> <span class="n">Cohpcar</span>
-<span class="kn">from</span> <span class="nn">pymatgen.util.coord</span> <span class="k">import</span> <span class="n">get_linear_interpolated_value</span>
-<span class="kn">from</span> <span class="nn">pymatgen.util.num</span> <span class="k">import</span> <span class="n">round_to_sigfigs</span>
+<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
+<span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="kn">import</span> <span class="n">InterpolatedUnivariateSpline</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.sites</span> <span class="kn">import</span> <span class="n">PeriodicSite</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
+<span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.core</span> <span class="kn">import</span> <span class="n">Orbital</span><span class="p">,</span> <span class="n">Spin</span>
+<span class="kn">from</span> <span class="nn">pymatgen.io.lmto</span> <span class="kn">import</span> <span class="n">LMTOCopl</span>
+<span class="kn">from</span> <span class="nn">pymatgen.io.lobster</span> <span class="kn">import</span> <span class="n">Cohpcar</span>
+<span class="kn">from</span> <span class="nn">pymatgen.util.coord</span> <span class="kn">import</span> <span class="n">get_linear_interpolated_value</span>
+<span class="kn">from</span> <span class="nn">pymatgen.util.num</span> <span class="kn">import</span> <span class="n">round_to_sigfigs</span>
 
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Marco Esters, Janine George&quot;</span>
 <span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2017, The Materials Project&quot;</span>
@@ -80,7 +80,7 @@
 <span class="sd">    Basic COHP object.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">efermi</span><span class="p">,</span> <span class="n">energies</span><span class="p">,</span> <span class="n">cohp</span><span class="p">,</span> <span class="n">are_coops</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">icohp</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">efermi</span><span class="p">,</span> <span class="n">energies</span><span class="p">,</span> <span class="n">cohp</span><span class="p">,</span> <span class="n">are_coops</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">icohp</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            are_coops: Indicates whether this object describes COHPs or COOPs.</span>
@@ -95,10 +95,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">cohp</span> <span class="o">=</span> <span class="n">cohp</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">icohp</span> <span class="o">=</span> <span class="n">icohp</span>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns a string that can be easily plotted (e.g. using gnuplot).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -277,7 +277,7 @@
 <span class="sd">        Orbital-resolved COHPs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">structure</span><span class="p">,</span>
         <span class="n">avg_cohp</span><span class="p">,</span>
@@ -317,7 +317,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">bonds</span> <span class="o">=</span> <span class="n">bonds</span>
 
-    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">are_coops</span><span class="p">:</span>
             <span class="k">return</span> <span class="s2">&quot;Complete COOPs for &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
         <span class="k">return</span> <span class="s2">&quot;Complete COHPs for &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
@@ -373,39 +373,51 @@
 
         <span class="k">return</span> <span class="n">d</span></div>
 
-<div class="viewcode-block" id="CompleteCohp.get_cohp_by_label"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.cohp.html#pymatgen.electronic_structure.cohp.CompleteCohp.get_cohp_by_label">[docs]</a>    <span class="k">def</span> <span class="nf">get_cohp_by_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+<div class="viewcode-block" id="CompleteCohp.get_cohp_by_label"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.cohp.html#pymatgen.electronic_structure.cohp.CompleteCohp.get_cohp_by_label">[docs]</a>    <span class="k">def</span> <span class="nf">get_cohp_by_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">summed_spin_channels</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get specific COHP object.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            label: string (for newer Lobster versions: a number)</span>
+<span class="sd">            summed_spin_channels: bool, will sum the spin channels and return the sum in Spin.up if true</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Returns the COHP object to simplify plotting</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># TODO: possibly add option to only get one spin channel as Spin.down in the future!</span>
         <span class="k">if</span> <span class="n">label</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;average&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Cohp</span><span class="p">(</span>
-                <span class="n">efermi</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span>
-                <span class="n">energies</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span>
-                <span class="n">cohp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cohp</span><span class="p">,</span>
-                <span class="n">are_coops</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">are_coops</span><span class="p">,</span>
-                <span class="n">icohp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">icohp</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="n">divided_cohp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cohp</span>
+            <span class="n">divided_icohp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">icohp</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">divided_cohp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_cohps</span><span class="p">[</span><span class="n">label</span><span class="p">]</span><span class="o">.</span><span class="n">get_cohp</span><span class="p">(</span><span class="n">spin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">integrated</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">divided_icohp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_cohps</span><span class="p">[</span><span class="n">label</span><span class="p">]</span><span class="o">.</span><span class="n">get_icohp</span><span class="p">(</span><span class="n">spin</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">summed_spin_channels</span> <span class="ow">and</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cohp</span><span class="p">:</span>
+            <span class="n">final_cohp</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">final_icohp</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">final_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">divided_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">divided_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">final_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">divided_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">divided_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">final_cohp</span> <span class="o">=</span> <span class="n">divided_cohp</span>
+            <span class="n">final_icohp</span> <span class="o">=</span> <span class="n">divided_icohp</span>
+
         <span class="k">return</span> <span class="n">Cohp</span><span class="p">(</span>
             <span class="n">efermi</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span>
             <span class="n">energies</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span>
-            <span class="n">cohp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">all_cohps</span><span class="p">[</span><span class="n">label</span><span class="p">]</span><span class="o">.</span><span class="n">get_cohp</span><span class="p">(</span><span class="n">spin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">integrated</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="n">cohp</span><span class="o">=</span><span class="n">final_cohp</span><span class="p">,</span>
             <span class="n">are_coops</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">are_coops</span><span class="p">,</span>
-            <span class="n">icohp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">all_cohps</span><span class="p">[</span><span class="n">label</span><span class="p">]</span><span class="o">.</span><span class="n">get_icohp</span><span class="p">(</span><span class="n">spin</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+            <span class="n">icohp</span><span class="o">=</span><span class="n">final_icohp</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="CompleteCohp.get_summed_cohp_by_label_list"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.cohp.html#pymatgen.electronic_structure.cohp.CompleteCohp.get_summed_cohp_by_label_list">[docs]</a>    <span class="k">def</span> <span class="nf">get_summed_cohp_by_label_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label_list</span><span class="p">,</span> <span class="n">divisor</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<div class="viewcode-block" id="CompleteCohp.get_summed_cohp_by_label_list"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.cohp.html#pymatgen.electronic_structure.cohp.CompleteCohp.get_summed_cohp_by_label_list">[docs]</a>    <span class="k">def</span> <span class="nf">get_summed_cohp_by_label_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label_list</span><span class="p">,</span> <span class="n">divisor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">summed_spin_channels</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns a COHP object that includes a summed COHP divided by divisor</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            label_list: list of labels for the COHP that should be included in the summed cohp</span>
 <span class="sd">            divisor: float/int, the summed cohp will be divided by this divisor</span>
+<span class="sd">            summed_spin_channels: bool, will sum the spin channels and return the sum in Spin.up if true</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            Returns a COHP object including a summed COHP</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -416,9 +428,12 @@
         <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">label_list</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
             <span class="n">cohp_here</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cohp_by_label</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
             <span class="n">summed_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">summed_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">cohp_here</span><span class="o">.</span><span class="n">cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
             <span class="k">if</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="n">summed_cohp</span><span class="p">:</span>
                 <span class="n">summed_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">summed_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">],</span> <span class="n">cohp_here</span><span class="o">.</span><span class="n">cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
             <span class="n">summed_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">summed_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">cohp_here</span><span class="o">.</span><span class="n">icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
             <span class="k">if</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="n">summed_icohp</span><span class="p">:</span>
                 <span class="n">summed_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">summed_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">],</span> <span class="n">cohp_here</span><span class="o">.</span><span class="n">icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
@@ -430,15 +445,26 @@
             <span class="n">divided_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">summed_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">],</span> <span class="n">divisor</span><span class="p">)</span>
             <span class="n">divided_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">summed_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">],</span> <span class="n">divisor</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="n">summed_spin_channels</span> <span class="ow">and</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="n">summed_cohp</span><span class="p">:</span>
+            <span class="n">final_cohp</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">final_icohp</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">final_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">divided_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">divided_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">final_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">divided_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">divided_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">final_cohp</span> <span class="o">=</span> <span class="n">divided_cohp</span>
+            <span class="n">final_icohp</span> <span class="o">=</span> <span class="n">divided_icohp</span>
+
         <span class="k">return</span> <span class="n">Cohp</span><span class="p">(</span>
             <span class="n">efermi</span><span class="o">=</span><span class="n">first_cohpobject</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span>
             <span class="n">energies</span><span class="o">=</span><span class="n">first_cohpobject</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span>
-            <span class="n">cohp</span><span class="o">=</span><span class="n">divided_cohp</span><span class="p">,</span>
+            <span class="n">cohp</span><span class="o">=</span><span class="n">final_cohp</span><span class="p">,</span>
             <span class="n">are_coops</span><span class="o">=</span><span class="n">first_cohpobject</span><span class="o">.</span><span class="n">are_coops</span><span class="p">,</span>
-            <span class="n">icohp</span><span class="o">=</span><span class="n">divided_icohp</span><span class="p">,</span>
+            <span class="n">icohp</span><span class="o">=</span><span class="n">final_icohp</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="CompleteCohp.get_summed_cohp_by_label_and_orbital_list"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.cohp.html#pymatgen.electronic_structure.cohp.CompleteCohp.get_summed_cohp_by_label_and_orbital_list">[docs]</a>    <span class="k">def</span> <span class="nf">get_summed_cohp_by_label_and_orbital_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label_list</span><span class="p">,</span> <span class="n">orbital_list</span><span class="p">,</span> <span class="n">divisor</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<div class="viewcode-block" id="CompleteCohp.get_summed_cohp_by_label_and_orbital_list"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.cohp.html#pymatgen.electronic_structure.cohp.CompleteCohp.get_summed_cohp_by_label_and_orbital_list">[docs]</a>    <span class="k">def</span> <span class="nf">get_summed_cohp_by_label_and_orbital_list</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">label_list</span><span class="p">,</span> <span class="n">orbital_list</span><span class="p">,</span> <span class="n">divisor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">summed_spin_channels</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns a COHP object that includes a summed COHP divided by divisor</span>
 
@@ -447,6 +473,8 @@
 <span class="sd">            orbital_list: list of orbitals for the COHPs that should be included in the summed cohp (same order as</span>
 <span class="sd">                label_list)</span>
 <span class="sd">            divisor: float/int, the summed cohp will be divided by this divisor</span>
+<span class="sd">            summed_spin_channels: bool, will sum the spin channels and return the sum in Spin.up if true</span>
+
 <span class="sd">        Returns:</span>
 <span class="sd">            Returns a COHP object including a summed COHP</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -474,15 +502,25 @@
             <span class="n">divided_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">summed_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">],</span> <span class="n">divisor</span><span class="p">)</span>
             <span class="n">divided_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">summed_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">],</span> <span class="n">divisor</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="n">summed_spin_channels</span> <span class="ow">and</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="n">divided_cohp</span><span class="p">:</span>
+            <span class="n">final_cohp</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">final_icohp</span> <span class="o">=</span> <span class="p">{}</span>
+
+            <span class="n">final_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">divided_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">divided_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">final_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">divided_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">divided_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">final_cohp</span> <span class="o">=</span> <span class="n">divided_cohp</span>
+            <span class="n">final_icohp</span> <span class="o">=</span> <span class="n">divided_icohp</span>
+
         <span class="k">return</span> <span class="n">Cohp</span><span class="p">(</span>
             <span class="n">efermi</span><span class="o">=</span><span class="n">first_cohpobject</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span>
             <span class="n">energies</span><span class="o">=</span><span class="n">first_cohpobject</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span>
-            <span class="n">cohp</span><span class="o">=</span><span class="n">divided_cohp</span><span class="p">,</span>
+            <span class="n">cohp</span><span class="o">=</span><span class="n">final_cohp</span><span class="p">,</span>
             <span class="n">are_coops</span><span class="o">=</span><span class="n">first_cohpobject</span><span class="o">.</span><span class="n">are_coops</span><span class="p">,</span>
-            <span class="n">icohp</span><span class="o">=</span><span class="n">divided_icohp</span><span class="p">,</span>
+            <span class="n">icohp</span><span class="o">=</span><span class="n">final_icohp</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="CompleteCohp.get_orbital_resolved_cohp"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.cohp.html#pymatgen.electronic_structure.cohp.CompleteCohp.get_orbital_resolved_cohp">[docs]</a>    <span class="k">def</span> <span class="nf">get_orbital_resolved_cohp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">orbitals</span><span class="p">):</span>
+<div class="viewcode-block" id="CompleteCohp.get_orbital_resolved_cohp"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.cohp.html#pymatgen.electronic_structure.cohp.CompleteCohp.get_orbital_resolved_cohp">[docs]</a>    <span class="k">def</span> <span class="nf">get_orbital_resolved_cohp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">orbitals</span><span class="p">,</span> <span class="n">summed_spin_channels</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get orbital-resolved COHP.</span>
 
@@ -492,6 +530,8 @@
 <span class="sd">            orbitals: The orbitals as a label, or list or tuple of the form</span>
 <span class="sd">                [(n1, orbital1), (n2, orbital2)]. Orbitals can either be str,</span>
 <span class="sd">                int, or Orbital.</span>
+
+<span class="sd">            summed_spin_channels: bool, will sum the spin channels and return the sum in Spin.up if true</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            A Cohp object if CompleteCohp contains orbital-resolved cohp,</span>
@@ -525,11 +565,25 @@
             <span class="n">icohp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">orb_res_cohp</span><span class="p">[</span><span class="n">label</span><span class="p">][</span><span class="n">orb_label</span><span class="p">][</span><span class="s2">&quot;ICOHP&quot;</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
             <span class="n">icohp</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">start_cohp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">orb_res_cohp</span><span class="p">[</span><span class="n">label</span><span class="p">][</span><span class="n">orb_label</span><span class="p">][</span><span class="s2">&quot;COHP&quot;</span><span class="p">]</span>
+        <span class="n">start_icohp</span> <span class="o">=</span> <span class="n">icohp</span>
+
+        <span class="k">if</span> <span class="n">summed_spin_channels</span> <span class="ow">and</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="n">start_cohp</span><span class="p">:</span>
+            <span class="n">final_cohp</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">final_icohp</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">final_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">start_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">start_cohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">start_icohp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">final_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">start_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">start_icohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">final_cohp</span> <span class="o">=</span> <span class="n">start_cohp</span>
+            <span class="n">final_icohp</span> <span class="o">=</span> <span class="n">start_icohp</span>
+
         <span class="k">return</span> <span class="n">Cohp</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">orb_res_cohp</span><span class="p">[</span><span class="n">label</span><span class="p">][</span><span class="n">orb_label</span><span class="p">][</span><span class="s2">&quot;COHP&quot;</span><span class="p">],</span>
-            <span class="n">icohp</span><span class="o">=</span><span class="n">icohp</span><span class="p">,</span>
+            <span class="n">final_cohp</span><span class="p">,</span>
+            <span class="n">icohp</span><span class="o">=</span><span class="n">final_icohp</span><span class="p">,</span>
             <span class="n">are_coops</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">are_coops</span><span class="p">,</span>
         <span class="p">)</span></div>
 
@@ -795,7 +849,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">atom1</span><span class="p">,</span> <span class="n">atom2</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">translation</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">icohp</span><span class="p">,</span> <span class="n">are_coops</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">atom1</span><span class="p">,</span> <span class="n">atom2</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">translation</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">icohp</span><span class="p">,</span> <span class="n">are_coops</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            label: label for the icohp</span>
@@ -819,7 +873,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_is_spin_polarized</span> <span class="o">=</span> <span class="kc">False</span>
 
-    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_are_coops</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_spin_polarized</span><span class="p">:</span>
@@ -956,7 +1010,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">list_labels</span><span class="p">,</span>
         <span class="n">list_atom1</span><span class="p">,</span>
@@ -1003,7 +1057,7 @@
                 <span class="n">list_icohp</span><span class="p">[</span><span class="n">ilist</span><span class="p">],</span>
             <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">joinstr</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_icohplist</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="n">joinstr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
@@ -1184,8 +1238,103 @@
 <span class="sd">        :return: Whether this is coops.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_are_coops</span></div>
+
+
+<div class="viewcode-block" id="get_integrated_cohp_in_energy_range"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.cohp.html#pymatgen.electronic_structure.cohp.get_integrated_cohp_in_energy_range">[docs]</a><span class="k">def</span> <span class="nf">get_integrated_cohp_in_energy_range</span><span class="p">(</span>
+    <span class="n">cohp</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">orbital</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">energy_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">relative_E_Fermi</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">summed_spin_channels</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Method that can integrate completecohp objects which include data on integrated COHPs</span>
+<span class="sd">    Args:</span>
+<span class="sd">        cohp: CompleteCOHP object</span>
+<span class="sd">        label: label of the COHP data</span>
+<span class="sd">        orbital: If not None, a orbital resolved integrated COHP will be returned</span>
+<span class="sd">        energy_range:   if None, returns icohp value at Fermi level;</span>
+<span class="sd">                        if float, integrates from this float up to the Fermi level;</span>
+<span class="sd">                        if [float,float], will integrate in between</span>
+<span class="sd">        relative_E_Fermi: if True, energy scale with E_Fermi at 0 eV is chosen</span>
+<span class="sd">        summed_spin_channels: if True, Spin channels will be summed</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float indicating the integrated COHP if summed_spin_channels==True, otherwise dict of the following form {</span>
+<span class="sd">        Spin.up:float, Spin.down:float}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">summedicohp</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">orbital</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">icohps</span> <span class="o">=</span> <span class="n">cohp</span><span class="o">.</span><span class="n">all_cohps</span><span class="p">[</span><span class="n">label</span><span class="p">]</span><span class="o">.</span><span class="n">get_icohp</span><span class="p">(</span><span class="n">spin</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">summed_spin_channels</span> <span class="ow">and</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="n">icohps</span><span class="p">:</span>
+            <span class="n">summedicohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">icohps</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">+</span> <span class="n">icohps</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">summedicohp</span> <span class="o">=</span> <span class="n">icohps</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">icohps</span> <span class="o">=</span> <span class="n">cohp</span><span class="o">.</span><span class="n">get_orbital_resolved_cohp</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">,</span> <span class="n">orbitals</span><span class="o">=</span><span class="n">orbital</span><span class="p">)</span><span class="o">.</span><span class="n">icohp</span>
+        <span class="k">if</span> <span class="n">summed_spin_channels</span> <span class="ow">and</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="n">icohps</span><span class="p">:</span>
+            <span class="n">summedicohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">=</span> <span class="n">icohps</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span> <span class="o">+</span> <span class="n">icohps</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">summedicohp</span> <span class="o">=</span> <span class="n">icohps</span>
+
+    <span class="k">if</span> <span class="n">energy_range</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+
+        <span class="n">energies_corrected</span> <span class="o">=</span> <span class="n">cohp</span><span class="o">.</span><span class="n">energies</span> <span class="o">-</span> <span class="n">cohp</span><span class="o">.</span><span class="n">efermi</span>
+        <span class="n">spl_spinup</span> <span class="o">=</span> <span class="n">InterpolatedUnivariateSpline</span><span class="p">(</span><span class="n">energies_corrected</span><span class="p">,</span> <span class="n">summedicohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">ext</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">summed_spin_channels</span> <span class="ow">and</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="n">icohps</span><span class="p">:</span>
+            <span class="n">spl_spindown</span> <span class="o">=</span> <span class="n">InterpolatedUnivariateSpline</span><span class="p">(</span><span class="n">energies_corrected</span><span class="p">,</span> <span class="n">summedicohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">],</span> <span class="n">ext</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">:</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="mf">0.0</span><span class="p">),</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">:</span> <span class="n">spl_spindown</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)}</span>
+        <span class="k">if</span> <span class="n">summed_spin_channels</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">:</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)}</span>
+
+    <span class="c1"># returns icohp value at the Fermi level!</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">energy_range</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">relative_E_Fermi</span><span class="p">:</span>
+            <span class="n">energies_corrected</span> <span class="o">=</span> <span class="n">cohp</span><span class="o">.</span><span class="n">energies</span> <span class="o">-</span> <span class="n">cohp</span><span class="o">.</span><span class="n">efermi</span>
+            <span class="n">spl_spinup</span> <span class="o">=</span> <span class="n">InterpolatedUnivariateSpline</span><span class="p">(</span><span class="n">energies_corrected</span><span class="p">,</span> <span class="n">summedicohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">ext</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">summed_spin_channels</span> <span class="ow">and</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="n">icohps</span><span class="p">:</span>
+                <span class="n">spl_spindown</span> <span class="o">=</span> <span class="n">InterpolatedUnivariateSpline</span><span class="p">(</span><span class="n">energies_corrected</span><span class="p">,</span> <span class="n">summedicohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">],</span> <span class="n">ext</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="k">return</span> <span class="p">{</span>
+                    <span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">:</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">),</span>
+                    <span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">:</span> <span class="n">spl_spindown</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">spl_spindown</span><span class="p">(</span><span class="n">energy_range</span><span class="p">),</span>
+                <span class="p">}</span>
+            <span class="k">if</span> <span class="n">summed_spin_channels</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">:</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">)}</span>
+
+        <span class="n">energies_corrected</span> <span class="o">=</span> <span class="n">cohp</span><span class="o">.</span><span class="n">energies</span>
+        <span class="n">spl_spinup</span> <span class="o">=</span> <span class="n">InterpolatedUnivariateSpline</span><span class="p">(</span><span class="n">energies_corrected</span><span class="p">,</span> <span class="n">summedicohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">ext</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">summed_spin_channels</span> <span class="ow">and</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="n">icohps</span><span class="p">:</span>
+            <span class="n">spl_spindown</span> <span class="o">=</span> <span class="n">InterpolatedUnivariateSpline</span><span class="p">(</span><span class="n">energies_corrected</span><span class="p">,</span> <span class="n">summedicohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">],</span> <span class="n">ext</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">:</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">cohp</span><span class="o">.</span><span class="n">efermi</span><span class="p">)</span> <span class="o">-</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">),</span>
+                <span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">:</span> <span class="n">spl_spindown</span><span class="p">(</span><span class="n">cohp</span><span class="o">.</span><span class="n">efermi</span><span class="p">)</span> <span class="o">-</span> <span class="n">spl_spindown</span><span class="p">(</span><span class="n">energy_range</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="k">if</span> <span class="n">summed_spin_channels</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">cohp</span><span class="o">.</span><span class="n">efermi</span><span class="p">)</span> <span class="o">-</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">:</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">cohp</span><span class="o">.</span><span class="n">efermi</span><span class="p">)</span> <span class="o">-</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">)}</span>
+
+    <span class="k">if</span> <span class="n">relative_E_Fermi</span><span class="p">:</span>
+        <span class="n">energies_corrected</span> <span class="o">=</span> <span class="n">cohp</span><span class="o">.</span><span class="n">energies</span> <span class="o">-</span> <span class="n">cohp</span><span class="o">.</span><span class="n">efermi</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">energies_corrected</span> <span class="o">=</span> <span class="n">cohp</span><span class="o">.</span><span class="n">energies</span>
+
+    <span class="n">spl_spinup</span> <span class="o">=</span> <span class="n">InterpolatedUnivariateSpline</span><span class="p">(</span><span class="n">energies_corrected</span><span class="p">,</span> <span class="n">summedicohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">],</span> <span class="n">ext</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">summed_spin_channels</span> <span class="ow">and</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="n">icohps</span><span class="p">:</span>
+        <span class="n">spl_spindown</span> <span class="o">=</span> <span class="n">InterpolatedUnivariateSpline</span><span class="p">(</span><span class="n">energies_corrected</span><span class="p">,</span> <span class="n">summedicohp</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">],</span> <span class="n">ext</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">:</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">:</span> <span class="n">spl_spindown</span><span class="p">(</span><span class="n">energy_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="n">spl_spindown</span><span class="p">(</span><span class="n">energy_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+        <span class="p">}</span>
+    <span class="k">if</span> <span class="n">summed_spin_channels</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">:</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="n">spl_spinup</span><span class="p">(</span><span class="n">energy_range</span><span class="p">[</span><span class="mi">0</span><span class="p">])}</span></div>
 </pre></div>
 
+            <div class="clearer"></div>
           </div>
       </div>
       <div class="clearer"></div>
@@ -1199,14 +1348,15 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2021.2.8.1 documentation</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.electronic_structure.cohp</a></li> 
       </ul>
     </div>
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking
