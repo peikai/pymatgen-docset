@@ -6,6 +6,6 @@
 
 ## Generation
 
-1. clone the [pymatgen](https://github.com/materialsproject/pymatgen) repository
-2. [doc2dash](https://doc2dash.readthedocs.io/en/stable/index.html) -A <pymatgen 'docs' folder>
+1. clone the [pymatgen](https://github.com/materialsproject/pymatgen) repository.
+2. move out tasks.py from root directory and adjust workdirs accordingly, then `invoke make-dash`.
 
