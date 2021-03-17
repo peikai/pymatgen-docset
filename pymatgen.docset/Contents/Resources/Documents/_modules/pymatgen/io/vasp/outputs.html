@@ -1,18 +1,17 @@
 
 <!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
   <head>
     <meta charset="utf-8" />
-    <title>pymatgen.io.vasp.outputs &#8212; pymatgen 2021.2.8.1 documentation</title>
-    <link rel="stylesheet" href="../../../../_static/basic.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.vasp.outputs &#8212; pymatgen 2022.0.4 documentation</title>
     <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../../../_static/language_data.js"></script>
-    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="stylesheet" href="../../../../_static/basic.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
  
@@ -32,8 +31,9 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2021.2.8.1 documentation</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.vasp.outputs</a></li> 
       </ul>
     </div>  
 
@@ -59,36 +59,36 @@
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">import</span> <span class="nn">xml.etree.cElementTree</span> <span class="k">as</span> <span class="nn">ET</span>
-<span class="kn">from</span> <span class="nn">io</span> <span class="k">import</span> <span class="n">StringIO</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">DefaultDict</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">DefaultDict</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">monty.dev</span> <span class="k">import</span> <span class="n">deprecated</span>
-<span class="kn">from</span> <span class="nn">monty.io</span> <span class="k">import</span> <span class="n">reverse_readfile</span><span class="p">,</span> <span class="n">zopen</span>
-<span class="kn">from</span> <span class="nn">monty.json</span> <span class="k">import</span> <span class="n">MSONable</span><span class="p">,</span> <span class="n">jsanitize</span>
-<span class="kn">from</span> <span class="nn">monty.os.path</span> <span class="k">import</span> <span class="n">zpath</span>
-<span class="kn">from</span> <span class="nn">monty.re</span> <span class="k">import</span> <span class="n">regrep</span>
-<span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="k">import</span> <span class="n">RegularGridInterpolator</span>
+<span class="kn">from</span> <span class="nn">monty.dev</span> <span class="kn">import</span> <span class="n">deprecated</span>
+<span class="kn">from</span> <span class="nn">monty.io</span> <span class="kn">import</span> <span class="n">reverse_readfile</span><span class="p">,</span> <span class="n">zopen</span>
+<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span><span class="p">,</span> <span class="n">jsanitize</span>
+<span class="kn">from</span> <span class="nn">monty.os.path</span> <span class="kn">import</span> <span class="n">zpath</span>
+<span class="kn">from</span> <span class="nn">monty.re</span> <span class="kn">import</span> <span class="n">regrep</span>
+<span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="kn">import</span> <span class="n">RegularGridInterpolator</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.core.composition</span> <span class="k">import</span> <span class="n">Composition</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.lattice</span> <span class="k">import</span> <span class="n">Lattice</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="k">import</span> <span class="n">Element</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="k">import</span> <span class="n">Structure</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.units</span> <span class="k">import</span> <span class="n">unitized</span>
-<span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.bandstructure</span> <span class="k">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.composition</span> <span class="kn">import</span> <span class="n">Composition</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.lattice</span> <span class="kn">import</span> <span class="n">Lattice</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">Element</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.units</span> <span class="kn">import</span> <span class="n">unitized</span>
+<span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.bandstructure</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BandStructure</span><span class="p">,</span>
     <span class="n">BandStructureSymmLine</span><span class="p">,</span>
     <span class="n">get_reconstructed_band_structure</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.core</span> <span class="k">import</span> <span class="n">Magmom</span><span class="p">,</span> <span class="n">Orbital</span><span class="p">,</span> <span class="n">OrbitalType</span><span class="p">,</span> <span class="n">Spin</span>
-<span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.dos</span> <span class="k">import</span> <span class="n">CompleteDos</span><span class="p">,</span> <span class="n">Dos</span>
-<span class="kn">from</span> <span class="nn">pymatgen.entries.computed_entries</span> <span class="k">import</span> <span class="n">ComputedEntry</span><span class="p">,</span> <span class="n">ComputedStructureEntry</span>
-<span class="kn">from</span> <span class="nn">pymatgen.io.vasp.inputs</span> <span class="k">import</span> <span class="n">Incar</span><span class="p">,</span> <span class="n">Kpoints</span><span class="p">,</span> <span class="n">Poscar</span><span class="p">,</span> <span class="n">Potcar</span>
-<span class="kn">from</span> <span class="nn">pymatgen.io.wannier90</span> <span class="k">import</span> <span class="n">Unk</span>
-<span class="kn">from</span> <span class="nn">pymatgen.util.io_utils</span> <span class="k">import</span> <span class="n">clean_lines</span><span class="p">,</span> <span class="n">micro_pyawk</span>
-<span class="kn">from</span> <span class="nn">pymatgen.util.num</span> <span class="k">import</span> <span class="n">make_symmetric_matrix_from_upper_tri</span>
+<span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.core</span> <span class="kn">import</span> <span class="n">Magmom</span><span class="p">,</span> <span class="n">Orbital</span><span class="p">,</span> <span class="n">OrbitalType</span><span class="p">,</span> <span class="n">Spin</span>
+<span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.dos</span> <span class="kn">import</span> <span class="n">CompleteDos</span><span class="p">,</span> <span class="n">Dos</span>
+<span class="kn">from</span> <span class="nn">pymatgen.entries.computed_entries</span> <span class="kn">import</span> <span class="n">ComputedEntry</span><span class="p">,</span> <span class="n">ComputedStructureEntry</span>
+<span class="kn">from</span> <span class="nn">pymatgen.io.vasp.inputs</span> <span class="kn">import</span> <span class="n">Incar</span><span class="p">,</span> <span class="n">Kpoints</span><span class="p">,</span> <span class="n">Poscar</span><span class="p">,</span> <span class="n">Potcar</span>
+<span class="kn">from</span> <span class="nn">pymatgen.io.wannier90</span> <span class="kn">import</span> <span class="n">Unk</span>
+<span class="kn">from</span> <span class="nn">pymatgen.util.io_utils</span> <span class="kn">import</span> <span class="n">clean_lines</span><span class="p">,</span> <span class="n">micro_pyawk</span>
+<span class="kn">from</span> <span class="nn">pymatgen.util.num</span> <span class="kn">import</span> <span class="n">make_symmetric_matrix_from_upper_tri</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -241,6 +241,13 @@
 <span class="sd">        kpoint, band and atom indices are 0-based (unlike the 1-based indexing</span>
 <span class="sd">        in VASP).</span>
 
+<span class="sd">    .. attribute:: projected_magnetisation</span>
+
+<span class="sd">        Final projected magnetisation as a numpy array with the shape (nkpoints, nbands,</span>
+<span class="sd">        natoms, norbitals, 3). Where the last axis is the contribution in the 3</span>
+<span class="sd">        cartesian directions. This attribute is only set if spin-orbit coupling</span>
+<span class="sd">        (LSORBIT = True) or non-collinear magnetism (LNONCOLLINEAR = True) is turned</span>
+<span class="sd">        on in the INCAR.</span>
 
 <span class="sd">    .. attribute:: other_dielectric</span>
 
@@ -313,7 +320,7 @@
 <span class="sd">    Author: Shyue Ping Ong</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">filename</span><span class="p">,</span>
         <span class="n">ionic_step_skip</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -349,9 +356,9 @@
 <span class="sd">                True. Set to False to shave off significant time from the</span>
 <span class="sd">                parsing if you are not interested in getting those data.</span>
 <span class="sd">            parse_projected_eigen (bool): Whether to parse the projected</span>
-<span class="sd">                eigenvalues. Defaults to False. Set to True to obtain projected</span>
-<span class="sd">                eigenvalues. **Note that this can take an extreme amount of time</span>
-<span class="sd">                and memory.** So use this wisely.</span>
+<span class="sd">                eigenvalues and magnetisation. Defaults to False. Set to True to obtain</span>
+<span class="sd">                projected eigenvalues and magnetisation. **Note that this can take an</span>
+<span class="sd">                extreme amount of time and memory.** So use this wisely.</span>
 <span class="sd">            parse_potcar_file (bool/str): Whether to parse the potcar file to read</span>
 <span class="sd">                the potcar hashes for the potcar_spec attribute. Defaults to True,</span>
 <span class="sd">                where no hashes will be determined and the potcar_spec dictionaries</span>
@@ -417,6 +424,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">efermi</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">eigenvalues</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">projected_eigenvalues</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">projected_magnetisation</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dielectric_data</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">other_dielectric</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">ionic_steps</span> <span class="o">=</span> <span class="p">[]</span>
@@ -459,7 +467,10 @@
                 <span class="k">elif</span> <span class="n">parse_eigen</span> <span class="ow">and</span> <span class="n">tag</span> <span class="o">==</span> <span class="s2">&quot;eigenvalues&quot;</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">eigenvalues</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_eigen</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="n">parse_projected_eigen</span> <span class="ow">and</span> <span class="n">tag</span> <span class="o">==</span> <span class="s2">&quot;projected&quot;</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">projected_eigenvalues</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_projected_eigen</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
+                    <span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">projected_eigenvalues</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">projected_magnetisation</span><span class="p">,</span>
+                    <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_projected_eigen</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="n">tag</span> <span class="o">==</span> <span class="s2">&quot;dielectricfunction&quot;</span><span class="p">:</span>
                     <span class="k">if</span> <span class="p">(</span>
                         <span class="s2">&quot;comment&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">elem</span><span class="o">.</span><span class="n">attrib</span>
@@ -1072,7 +1083,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># required due to circular imports</span>
         <span class="c1"># TODO: fix pymatgen.core.trajectory so it does not load from io.vasp(!)</span>
-        <span class="kn">from</span> <span class="nn">pymatgen.core.trajectory</span> <span class="k">import</span> <span class="n">Trajectory</span>
+        <span class="kn">from</span> <span class="nn">pymatgen.core.trajectory</span> <span class="kn">import</span> <span class="n">Trajectory</span>
 
         <span class="n">structs</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ionic_steps</span><span class="p">:</span>
@@ -1192,6 +1203,9 @@
                 <span class="n">vout</span><span class="p">[</span><span class="s2">&quot;projected_eigenvalues&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
                     <span class="nb">str</span><span class="p">(</span><span class="n">spin</span><span class="p">):</span> <span class="n">v</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">for</span> <span class="n">spin</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_eigenvalues</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
                 <span class="p">}</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_magnetisation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">vout</span><span class="p">[</span><span class="s2">&quot;projected_magnetisation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_magnetisation</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
 
         <span class="n">vout</span><span class="p">[</span><span class="s2">&quot;epsilon_static&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon_static</span>
         <span class="n">vout</span><span class="p">[</span><span class="s2">&quot;epsilon_static_wolfe&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon_static_wolfe</span>
@@ -1384,7 +1398,7 @@
         <span class="k">if</span> <span class="n">partial</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">orbs</span> <span class="o">=</span> <span class="p">[</span><span class="n">ss</span><span class="o">.</span><span class="n">text</span> <span class="k">for</span> <span class="n">ss</span> <span class="ow">in</span> <span class="n">partial</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;array&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">&quot;field&quot;</span><span class="p">)]</span>
             <span class="n">orbs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-            <span class="n">lm</span> <span class="o">=</span> <span class="nb">any</span><span class="p">([</span><span class="s2">&quot;x&quot;</span> <span class="ow">in</span> <span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">orbs</span><span class="p">])</span>
+            <span class="n">lm</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="s2">&quot;x&quot;</span> <span class="ow">in</span> <span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">orbs</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">partial</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;array&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;set&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">&quot;set&quot;</span><span class="p">):</span>
                 <span class="n">pdos</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
 
@@ -1425,7 +1439,6 @@
             <span class="n">spin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;spin(\d+)&quot;</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s2">&quot;comment&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
 
             <span class="c1"># Force spin to be +1 or -1</span>
-            <span class="n">spin</span> <span class="o">=</span> <span class="n">Spin</span><span class="o">.</span><span class="n">up</span> <span class="k">if</span> <span class="n">spin</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span>
             <span class="k">for</span> <span class="n">kpt</span><span class="p">,</span> <span class="n">ss</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">&quot;set&quot;</span><span class="p">)):</span>
                 <span class="n">dk</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="k">for</span> <span class="n">band</span><span class="p">,</span> <span class="n">sss</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ss</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">&quot;set&quot;</span><span class="p">)):</span>
@@ -1433,8 +1446,19 @@
                     <span class="n">dk</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
                 <span class="n">proj_eigen</span><span class="p">[</span><span class="n">spin</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dk</span><span class="p">)</span>
         <span class="n">proj_eigen</span> <span class="o">=</span> <span class="p">{</span><span class="n">spin</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">spin</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">proj_eigen</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">proj_eigen</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># non-collinear magentism (also spin-orbit coupling) enabled, last three</span>
+            <span class="c1"># &quot;spin channels&quot; are the projected magnetisation of the orbitals in the</span>
+            <span class="c1"># x, y, and z cartesian coordinates</span>
+            <span class="n">proj_mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">proj_eigen</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">proj_eigen</span> <span class="o">=</span> <span class="p">{</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">:</span> <span class="n">proj_eigen</span><span class="p">[</span><span class="mi">1</span><span class="p">]}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">proj_eigen</span> <span class="o">=</span> <span class="p">{</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span> <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">proj_eigen</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+            <span class="n">proj_mag</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="n">elem</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">proj_eigen</span>
+        <span class="k">return</span> <span class="n">proj_eigen</span><span class="p">,</span> <span class="n">proj_mag</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_parse_dynmat</span><span class="p">(</span><span class="n">elem</span><span class="p">):</span>
@@ -1461,7 +1485,7 @@
 <span class="sd">    etc. are ignored.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">parse_projected_eigen</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
@@ -1517,7 +1541,10 @@
                 <span class="k">elif</span> <span class="n">tag</span> <span class="o">==</span> <span class="s2">&quot;eigenvalues&quot;</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">eigenvalues</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_eigen</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="n">parse_projected_eigen</span> <span class="ow">and</span> <span class="n">tag</span> <span class="o">==</span> <span class="s2">&quot;projected&quot;</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">projected_eigenvalues</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_projected_eigen</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
+                    <span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">projected_eigenvalues</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">projected_magnetisation</span><span class="p">,</span>
+                    <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_projected_eigen</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="n">tag</span> <span class="o">==</span> <span class="s2">&quot;structure&quot;</span> <span class="ow">and</span> <span class="n">elem</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;finalpos&quot;</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">final_structure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_structure</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">vasp_version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="p">[</span><span class="s2">&quot;version&quot;</span><span class="p">]</span>
@@ -1694,7 +1721,7 @@
 <span class="sd">    Authors: Rickard Armiento, Shyue Ping Ong</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            filename (str): OUTCAR filename to parse.</span>
@@ -1729,7 +1756,13 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">time_patt</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
                     <span class="n">tok</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
-                    <span class="n">run_stats</span><span class="p">[</span><span class="n">tok</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tok</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="c1"># try-catch because VASP 6.2.0 may print</span>
+                        <span class="c1"># Average memory used (kb):          N/A</span>
+                        <span class="c1"># which cannot be parsed as float</span>
+                        <span class="n">run_stats</span><span class="p">[</span><span class="n">tok</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tok</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                        <span class="n">run_stats</span><span class="p">[</span><span class="n">tok</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span>
                     <span class="k">continue</span>
                 <span class="n">m</span> <span class="o">=</span> <span class="n">efermi_patt</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">clean</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
@@ -3323,7 +3356,7 @@
 <span class="sd">        Total number of grid points in volumetric data.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">distance_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data_aug</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">distance_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data_aug</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Typically, this constructor is not used directly and the static</span>
 <span class="sd">        from_file constructor is used. This constructor is designed to allow</span>
@@ -3385,10 +3418,10 @@
         <span class="n">lengths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">abc</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">i</span> <span class="o">/</span> <span class="n">num_pts</span> <span class="o">*</span> <span class="n">lengths</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_pts</span><span class="p">)]</span></div>
 
-    <span class="k">def</span> <span class="nf">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_add</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_add</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">)</span>
 
 <div class="viewcode-block" id="VolumetricData.copy"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.outputs.html#pymatgen.io.vasp.outputs.VolumetricData.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3776,7 +3809,7 @@
 <span class="sd">    Simple object for reading a LOCPOT file.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">poscar</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">poscar</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            poscar (Poscar): Poscar object containing structure.</span>
@@ -3802,7 +3835,7 @@
 <span class="sd">    Simple object for reading a CHGCAR file.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">poscar</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">data_aug</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">poscar</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">data_aug</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            poscar (Poscar or Structure): Object containing structure.</span>
@@ -3853,7 +3886,7 @@
 <span class="sd">    This also contains information on the kinetic energy density.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">poscar</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">poscar</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            poscar (Poscar or Structure): Object containing structure.</span>
@@ -3939,7 +3972,7 @@
 <span class="sd">        Number of ions</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            filename: Name of file containing PROCAR.</span>
@@ -4099,7 +4132,7 @@
 <span class="sd">            This is the typical output from VASP at the end of each ionic step.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            filename (str): Filename of file to parse</span>
@@ -4289,7 +4322,7 @@
 <span class="sd">    Authors: Ram Balachandran</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">ionicstep_start</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ionicstep_end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">comment</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">ionicstep_start</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ionicstep_end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">comment</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Init a Xdatcar.</span>
 
@@ -4483,7 +4516,7 @@
         <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;wt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_string</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">))</span></div>
 
-    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_string</span><span class="p">()</span></div>
 
 
@@ -4502,7 +4535,7 @@
 <span class="sd">    Authors: Patrick Huck</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            filename: Name of file containing DYNMAT</span>
@@ -4695,7 +4728,7 @@
 <span class="sd">    Author: Mark Turiansky</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s2">&quot;WAVECAR&quot;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">,</span> <span class="n">vasp_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s2">&quot;WAVECAR&quot;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">,</span> <span class="n">vasp_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Information is extracted from the given WAVECAR</span>
 
@@ -4710,7 +4743,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">vasp_type</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">vasp_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="s2">&quot;g&quot;</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">]):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;invalid vasp_type </span><span class="si">{vasp_type}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;invalid vasp_type </span><span class="si">{</span><span class="n">vasp_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">vasp_type</span> <span class="o">=</span> <span class="n">vasp_type</span>
 
         <span class="c1"># c = 0.26246582250210965422</span>
@@ -4841,7 +4874,7 @@
 
                     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Gpoints</span><span class="p">[</span><span class="n">ink</span><span class="p">])</span> <span class="o">!=</span> <span class="n">nplane</span> <span class="ow">and</span> <span class="mi">2</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Gpoints</span><span class="p">[</span><span class="n">ink</span><span class="p">])</span> <span class="o">!=</span> <span class="n">nplane</span><span class="p">:</span>
                         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                            <span class="n">f</span><span class="s2">&quot;Incorrect value of vasp_type given (</span><span class="si">{vasp_type}</span><span class="s2">).&quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;Incorrect value of vasp_type given (</span><span class="si">{</span><span class="n">vasp_type</span><span class="si">}</span><span class="s2">).&quot;</span>
                             <span class="s2">&quot; Please open an issue if you are certain this WAVECAR&quot;</span>
                             <span class="s2">&quot; was generated with the given vasp_type.&quot;</span>
                         <span class="p">)</span>
@@ -5156,7 +5189,7 @@
 
         <span class="n">N</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ng</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">ik</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nk</span><span class="p">):</span>
-            <span class="n">fname</span> <span class="o">=</span> <span class="n">f</span><span class="s2">&quot;UNK{ik+1:05d}.&quot;</span>
+            <span class="n">fname</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;UNK</span><span class="si">{</span><span class="n">ik</span><span class="o">+</span><span class="mi">1</span><span class="si">:</span><span class="s2">05d</span><span class="si">}</span><span class="s2">.&quot;</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">vasp_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;n&quot;</span><span class="p">:</span>
                 <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nb</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">ng</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">ib</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nb</span><span class="p">):</span>
@@ -5168,7 +5201,7 @@
                 <span class="k">for</span> <span class="n">ispin</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spin</span><span class="p">):</span>
                     <span class="k">for</span> <span class="n">ib</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nb</span><span class="p">):</span>
                         <span class="n">data</span><span class="p">[</span><span class="n">ib</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fft_mesh</span><span class="p">(</span><span class="n">ik</span><span class="p">,</span> <span class="n">ib</span><span class="p">,</span> <span class="n">spin</span><span class="o">=</span><span class="n">ispin</span><span class="p">))</span> <span class="o">*</span> <span class="n">N</span>
-                    <span class="n">Unk</span><span class="p">(</span><span class="n">ik</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">write_file</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">out_dir</span> <span class="o">/</span> <span class="p">(</span><span class="n">fname</span> <span class="o">+</span> <span class="n">f</span><span class="s2">&quot;{ispin+1}&quot;</span><span class="p">)))</span></div></div>
+                    <span class="n">Unk</span><span class="p">(</span><span class="n">ik</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">write_file</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">out_dir</span> <span class="o">/</span> <span class="p">(</span><span class="n">fname</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ispin</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)))</span></div></div>
 
 
 <div class="viewcode-block" id="Eigenval"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.outputs.html#pymatgen.io.vasp.outputs.Eigenval">[docs]</a><span class="k">class</span> <span class="nc">Eigenval</span><span class="p">:</span>
@@ -5215,7 +5248,7 @@
 <span class="sd">        kpoint index is 0-based (unlike the 1-based indexing in VASP).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">occu_tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">occu_tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Reads input from filename to construct Eigenval object</span>
 
@@ -5323,7 +5356,7 @@
 <span class="sd">    Author: Miguel Dias Costa</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            filename: Name of file containing WAVEDERF.</span>
@@ -5390,7 +5423,7 @@
 <span class="sd">    Author: Kamal Choudhary, NIST</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">gamma_only</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">gamma_only</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            filename: Name of file containing WAVEDER.</span>
@@ -5490,6 +5523,7 @@
     <span class="k">pass</span></div>
 </pre></div>
 
+            <div class="clearer"></div>
           </div>
       </div>
       <div class="clearer"></div>
@@ -5503,14 +5537,15 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2021.2.8.1 documentation</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.vasp.outputs</a></li> 
       </ul>
     </div>
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking
