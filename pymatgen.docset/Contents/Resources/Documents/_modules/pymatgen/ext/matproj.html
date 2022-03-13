@@ -5,10 +5,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.ext.matproj &#8212; pymatgen 2022.0.4 documentation</title>
-    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="../../../_static/basic.css" type="text/css" />
-    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <title>pymatgen.ext.matproj &#8212; pymatgen 2022.0.17 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
     <script src="../../../_static/jquery.js"></script>
     <script src="../../../_static/underscore.js"></script>
     <script src="../../../_static/doctools.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.ext.matproj</a></li> 
       </ul>
@@ -42,8 +42,7 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.ext.matproj</h1><div class="highlight"><pre>
-<span></span><span class="c1"># coding: utf-8</span>
-<span class="c1"># Copyright (c) Pymatgen Development Team.</span>
+<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
 <span class="c1"># Distributed under the terms of the MIT License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
@@ -63,22 +62,15 @@
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">unique</span>
 <span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span>
 
-<span class="k">try</span><span class="p">:</span>
-    <span class="kn">import</span> <span class="nn">ruamel.yaml</span> <span class="k">as</span> <span class="nn">yaml</span>
-<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="kn">import</span> <span class="nn">ruamel_yaml</span> <span class="k">as</span> <span class="nn">yaml</span>  <span class="c1"># type: ignore  # noqa</span>
-    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-        <span class="kn">import</span> <span class="nn">yaml</span>  <span class="c1"># type: ignore # noqa</span>
 <span class="kn">import</span> <span class="nn">requests</span>
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MontyDecoder</span><span class="p">,</span> <span class="n">MontyEncoder</span>
 <span class="kn">from</span> <span class="nn">monty.serialization</span> <span class="kn">import</span> <span class="n">dumpfn</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">SETTINGS</span><span class="p">,</span> <span class="n">SETTINGS_FILE</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">SETTINGS</span><span class="p">,</span> <span class="n">SETTINGS_FILE</span><span class="p">,</span> <span class="n">yaml</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.composition</span> <span class="kn">import</span> <span class="n">Composition</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">Element</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
@@ -221,7 +213,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">preamble</span> <span class="o">=</span> <span class="n">SETTINGS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;PMG_MAPI_ENDPOINT&quot;</span><span class="p">,</span> <span class="s2">&quot;https://materialsproject.org/rest/v2&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">preamble</span> <span class="o">!=</span> <span class="s2">&quot;https://materialsproject.org/rest/v2&quot;</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Non-default endpoint used: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="p">))</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Non-default endpoint used: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;x-api-key&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_key</span><span class="p">}</span>
@@ -230,18 +222,20 @@
             <span class="n">python_info</span> <span class="o">=</span> <span class="s2">&quot;Python/</span><span class="si">{}</span><span class="s2">.</span><span class="si">{}</span><span class="s2">.</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="o">.</span><span class="n">major</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="o">.</span><span class="n">minor</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="o">.</span><span class="n">micro</span>
             <span class="p">)</span>
-            <span class="n">platform_info</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">(),</span> <span class="n">platform</span><span class="o">.</span><span class="n">release</span><span class="p">())</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s2">&quot;user-agent&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> (</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">pymatgen_info</span><span class="p">,</span> <span class="n">python_info</span><span class="p">,</span> <span class="n">platform_info</span><span class="p">)</span>
+            <span class="n">platform_info</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">release</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s2">&quot;user-agent&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pymatgen_info</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">python_info</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">platform_info</span><span class="si">}</span><span class="s2">)&quot;</span>
 
         <span class="k">if</span> <span class="n">notify_db_version</span><span class="p">:</span>
             <span class="n">db_version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_database_version</span><span class="p">()</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Connection established to Materials Project database, version </span><span class="si">{</span><span class="n">db_version</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
 
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">SETTINGS_FILE</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">SETTINGS_FILE</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">d</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">IOError</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
                 <span class="n">d</span> <span class="o">=</span> <span class="p">{}</span>
+
+            <span class="n">d</span> <span class="o">=</span> <span class="n">d</span> <span class="k">if</span> <span class="n">d</span> <span class="k">else</span> <span class="p">{}</span>
 
             <span class="k">if</span> <span class="s2">&quot;MAPI_DB_VERSION&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">d</span><span class="p">:</span>
                 <span class="n">d</span><span class="p">[</span><span class="s2">&quot;MAPI_DB_VERSION&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;LOG&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">&quot;LAST_ACCESSED&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
@@ -300,10 +294,10 @@
                     <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">]</span>
                 <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">])</span>
 
-            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="s2">&quot;REST query returned with error status code </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;REST query returned with error status code </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">. Content: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">),</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="si">}</span><span class="s2">. Content: </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
             <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
 <div class="viewcode-block" id="MPRester.get_database_version"><a class="viewcode-back" href="../../../pymatgen.ext.matproj.html#pymatgen.ext.matproj.MPRester.get_database_version">[docs]</a>    <span class="k">def</span> <span class="nf">get_database_version</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -371,7 +365,7 @@
 <span class="sd">                MPRester.supported_task_properties. Leave as empty string for a</span>
 <span class="sd">                general list of useful properties.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">sub_url</span> <span class="o">=</span> <span class="s2">&quot;/materials/</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">chemsys_formula_id</span><span class="p">,</span> <span class="n">data_type</span><span class="p">)</span>
+        <span class="n">sub_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;/materials/</span><span class="si">{</span><span class="n">chemsys_formula_id</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">data_type</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">if</span> <span class="n">prop</span><span class="p">:</span>
             <span class="n">sub_url</span> <span class="o">+=</span> <span class="s2">&quot;/&quot;</span> <span class="o">+</span> <span class="n">prop</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="n">sub_url</span><span class="p">)</span></div>
@@ -425,7 +419,7 @@
                 <span class="s2">&quot;mp_id: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">absorbing_element</span><span class="p">,</span> <span class="n">material_id</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span>
-            <span class="s2">&quot;/materials/</span><span class="si">{}</span><span class="s2">/xas/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">material_id</span><span class="p">,</span> <span class="n">absorbing_element</span><span class="p">),</span>
+            <span class="sa">f</span><span class="s2">&quot;/materials/</span><span class="si">{</span><span class="n">material_id</span><span class="si">}</span><span class="s2">/xas/</span><span class="si">{</span><span class="n">absorbing_element</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="n">mp_decode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
@@ -493,13 +487,13 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="s2">&quot;Provide filename or Structure object.&quot;</span><span class="p">)</span>
             <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span> <span class="bp">cls</span><span class="o">=</span><span class="n">MontyEncoder</span><span class="p">)}</span>
-            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/find_structure&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="si">}</span><span class="s2">/find_structure&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">]:</span>
                 <span class="n">resp</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">MontyDecoder</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;valid_response&quot;</span><span class="p">]:</span>
                     <span class="k">return</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">]</span>
                 <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="n">resp</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">])</span>
-            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="s2">&quot;REST error with status code </span><span class="si">{}</span><span class="s2"> and error </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;REST error with status code </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> and error </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">))</span></div>
 
@@ -522,7 +516,7 @@
 <span class="sd">                (e.g., mp-1234) or full Mongo-style dict criteria.</span>
 <span class="sd">            compatible_only (bool): Whether to return only &quot;compatible&quot;</span>
 <span class="sd">                entries. Compatible entries are entries that have been</span>
-<span class="sd">                processed using the MaterialsProjectCompatibility class,</span>
+<span class="sd">                processed using the MaterialsProject2020Compatibility class,</span>
 <span class="sd">                which performs adjustments to allow mixing of GGA and GGA+U</span>
 <span class="sd">                calculations for more accurate phase diagrams and reaction</span>
 <span class="sd">                energies.</span>
@@ -575,7 +569,7 @@
         <span class="n">entries</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
             <span class="n">d</span><span class="p">[</span><span class="s2">&quot;potcar_symbols&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;pseudo_potential&quot;</span><span class="p">][</span><span class="s2">&quot;functional&quot;</span><span class="p">],</span> <span class="n">l</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;pseudo_potential&quot;</span><span class="p">][</span><span class="s2">&quot;labels&quot;</span><span class="p">]</span>
+                <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;pseudo_potential&quot;</span><span class="p">][</span><span class="s2">&quot;functional&quot;</span><span class="p">],</span> <span class="n">l</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;pseudo_potential&quot;</span><span class="p">][</span><span class="s2">&quot;labels&quot;</span><span class="p">]</span>
             <span class="p">]</span>
             <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;oxide_type&quot;</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;oxide_type&quot;</span><span class="p">]}</span>
             <span class="k">if</span> <span class="n">property_data</span><span class="p">:</span>
@@ -606,14 +600,17 @@
                 <span class="p">)</span>
             <span class="n">entries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">compatible_only</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">pymatgen.entries.compatibility</span> <span class="kn">import</span> <span class="n">MaterialsProjectCompatibility</span>
+            <span class="kn">from</span> <span class="nn">pymatgen.entries.compatibility</span> <span class="kn">import</span> <span class="n">MaterialsProject2020Compatibility</span>
 
-            <span class="n">entries</span> <span class="o">=</span> <span class="n">MaterialsProjectCompatibility</span><span class="p">()</span><span class="o">.</span><span class="n">process_entries</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span>
+            <span class="c1"># suppress the warning about missing oxidation states</span>
+            <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Failed to guess oxidation states.*&quot;</span><span class="p">)</span>
+                <span class="n">entries</span> <span class="o">=</span> <span class="n">MaterialsProject2020Compatibility</span><span class="p">()</span><span class="o">.</span><span class="n">process_entries</span><span class="p">(</span><span class="n">entries</span><span class="p">,</span> <span class="n">clean</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">sort_by_e_above_hull</span><span class="p">:</span>
             <span class="n">entries</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">entries</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">entry</span><span class="p">:</span> <span class="n">entry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;e_above_hull&quot;</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">entries</span></div>
 
-<div class="viewcode-block" id="MPRester.get_pourbaix_entries"><a class="viewcode-back" href="../../../pymatgen.ext.matproj.html#pymatgen.ext.matproj.MPRester.get_pourbaix_entries">[docs]</a>    <span class="k">def</span> <span class="nf">get_pourbaix_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chemsys</span><span class="p">,</span> <span class="n">solid_compat</span><span class="o">=</span><span class="s2">&quot;MaterialsProjectCompatibility&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="MPRester.get_pourbaix_entries"><a class="viewcode-back" href="../../../pymatgen.ext.matproj.html#pymatgen.ext.matproj.MPRester.get_pourbaix_entries">[docs]</a>    <span class="k">def</span> <span class="nf">get_pourbaix_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chemsys</span><span class="p">,</span> <span class="n">solid_compat</span><span class="o">=</span><span class="s2">&quot;MaterialsProject2020Compatibility&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        A helper function to get all entries necessary to generate</span>
 <span class="sd">        a pourbaix diagram from the rest interface.</span>
@@ -623,9 +620,9 @@
 <span class="sd">                symbols separated by dashes, e.g., &quot;Li-Fe-O&quot; or List of element</span>
 <span class="sd">                symbols, e.g., [&quot;Li&quot;, &quot;Fe&quot;, &quot;O&quot;].</span>
 <span class="sd">            solid_compat: Compatiblity scheme used to pre-process solid DFT energies prior to applying aqueous</span>
-<span class="sd">                energy adjustments. May be passed as a class (e.g. MaterialsProjectCompatibility) or an instance</span>
-<span class="sd">                (e.g., MaterialsProjectCompatibility()). If None, solid DFT energies are used as-is.</span>
-<span class="sd">                Default: MaterialsProjectCompatibility</span>
+<span class="sd">                energy adjustments. May be passed as a class (e.g. MaterialsProject2020Compatibility) or an instance</span>
+<span class="sd">                (e.g., MaterialsProject2020Compatibility()). If None, solid DFT energies are used as-is.</span>
+<span class="sd">                Default: MaterialsProject2020Compatibility</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># imports are not top-level due to expense</span>
 
@@ -633,12 +630,23 @@
         <span class="kn">from</span> <span class="nn">pymatgen.analysis.pourbaix_diagram</span> <span class="kn">import</span> <span class="n">IonEntry</span><span class="p">,</span> <span class="n">PourbaixEntry</span>
         <span class="kn">from</span> <span class="nn">pymatgen.core.ion</span> <span class="kn">import</span> <span class="n">Ion</span>
         <span class="kn">from</span> <span class="nn">pymatgen.entries.compatibility</span> <span class="kn">import</span> <span class="p">(</span>
+            <span class="n">Compatibility</span><span class="p">,</span>
             <span class="n">MaterialsProjectAqueousCompatibility</span><span class="p">,</span>
+            <span class="n">MaterialsProject2020Compatibility</span><span class="p">,</span>
             <span class="n">MaterialsProjectCompatibility</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">solid_compat</span> <span class="o">==</span> <span class="s2">&quot;MaterialsProjectCompatibility&quot;</span><span class="p">:</span>
-            <span class="n">solid_compat</span> <span class="o">=</span> <span class="n">MaterialsProjectCompatibility</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solid_compat</span> <span class="o">=</span> <span class="n">MaterialsProjectCompatibility</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">solid_compat</span> <span class="o">==</span> <span class="s2">&quot;MaterialsProject2020Compatibility&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solid_compat</span> <span class="o">=</span> <span class="n">MaterialsProject2020Compatibility</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">solid_compat</span><span class="p">,</span> <span class="n">Compatibility</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solid_compat</span> <span class="o">=</span> <span class="n">solid_compat</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Solid compatibility can only be &#39;MaterialsProjectCompatibility&#39;, &quot;</span>
+                <span class="s2">&quot;&#39;MaterialsProject2020Compatibility&#39;, or an instance of a Compatability class&quot;</span>
+            <span class="p">)</span>
 
         <span class="n">pbx_entries</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -664,8 +672,11 @@
                 <span class="s2">&quot;ignore&quot;</span><span class="p">,</span>
                 <span class="n">message</span><span class="o">=</span><span class="s2">&quot;You did not provide the required O2 and H2O energies.&quot;</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="n">compat</span> <span class="o">=</span> <span class="n">MaterialsProjectAqueousCompatibility</span><span class="p">(</span><span class="n">solid_compat</span><span class="o">=</span><span class="n">solid_compat</span><span class="p">)</span>
-        <span class="n">ion_ref_entries</span> <span class="o">=</span> <span class="n">compat</span><span class="o">.</span><span class="n">process_entries</span><span class="p">(</span><span class="n">ion_ref_entries</span><span class="p">)</span>
+            <span class="n">compat</span> <span class="o">=</span> <span class="n">MaterialsProjectAqueousCompatibility</span><span class="p">(</span><span class="n">solid_compat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">solid_compat</span><span class="p">)</span>
+        <span class="c1"># suppress the warning about missing oxidation states</span>
+        <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Failed to guess oxidation states.*&quot;</span><span class="p">)</span>
+            <span class="n">ion_ref_entries</span> <span class="o">=</span> <span class="n">compat</span><span class="o">.</span><span class="n">process_entries</span><span class="p">(</span><span class="n">ion_ref_entries</span><span class="p">)</span>
         <span class="n">ion_ref_pd</span> <span class="o">=</span> <span class="n">PhaseDiagram</span><span class="p">(</span><span class="n">ion_ref_entries</span><span class="p">)</span>
 
         <span class="c1"># position the ion energies relative to most stable reference state</span>
@@ -676,14 +687,16 @@
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Reference solid not contained in entry list&quot;</span><span class="p">)</span>
             <span class="n">stable_ref</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">refs</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;e_above_hull&quot;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">rf</span> <span class="o">=</span> <span class="n">stable_ref</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">get_reduced_composition_and_factor</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+
             <span class="n">solid_diff</span> <span class="o">=</span> <span class="n">ion_ref_pd</span><span class="o">.</span><span class="n">get_form_energy</span><span class="p">(</span><span class="n">stable_ref</span><span class="p">)</span> <span class="o">-</span> <span class="n">i_d</span><span class="p">[</span><span class="s2">&quot;Reference solid energy&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">rf</span>
             <span class="n">elt</span> <span class="o">=</span> <span class="n">i_d</span><span class="p">[</span><span class="s2">&quot;Major_Elements&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">correction_factor</span> <span class="o">=</span> <span class="n">ion</span><span class="o">.</span><span class="n">composition</span><span class="p">[</span><span class="n">elt</span><span class="p">]</span> <span class="o">/</span> <span class="n">stable_ref</span><span class="o">.</span><span class="n">composition</span><span class="p">[</span><span class="n">elt</span><span class="p">]</span>
             <span class="n">energy</span> <span class="o">=</span> <span class="n">i_d</span><span class="p">[</span><span class="s2">&quot;Energy&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">solid_diff</span> <span class="o">*</span> <span class="n">correction_factor</span>
             <span class="n">ion_entry</span> <span class="o">=</span> <span class="n">IonEntry</span><span class="p">(</span><span class="n">ion</span><span class="p">,</span> <span class="n">energy</span><span class="p">)</span>
-            <span class="n">pbx_entries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PourbaixEntry</span><span class="p">(</span><span class="n">ion_entry</span><span class="p">,</span> <span class="s2">&quot;ion-</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">n</span><span class="p">)))</span>
+            <span class="n">pbx_entries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PourbaixEntry</span><span class="p">(</span><span class="n">ion_entry</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;ion-</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
 
         <span class="c1"># Construct the solid pourbaix entries from filtered ion_ref entries</span>
+
         <span class="n">extra_elts</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">ion_ref_elts</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="n">Element</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">chemsys</span><span class="p">}</span> <span class="o">-</span> <span class="p">{</span><span class="n">Element</span><span class="p">(</span><span class="s2">&quot;H&quot;</span><span class="p">),</span> <span class="n">Element</span><span class="p">(</span><span class="s2">&quot;O&quot;</span><span class="p">)}</span>
         <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">ion_ref_entries</span><span class="p">:</span>
             <span class="n">entry_elts</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">elements</span><span class="p">)</span>
@@ -755,7 +768,7 @@
 <span class="sd">                e.g., mp-1234).</span>
 <span class="sd">            compatible_only (bool): Whether to return only &quot;compatible&quot;</span>
 <span class="sd">                entries. Compatible entries are entries that have been</span>
-<span class="sd">                processed using the MaterialsProjectCompatibility class,</span>
+<span class="sd">                processed using the MaterialsProject2020Compatibility class,</span>
 <span class="sd">                which performs adjustments to allow mixing of GGA and GGA+U</span>
 <span class="sd">                calculations for more accurate phase diagrams and reaction</span>
 <span class="sd">                energies.</span>
@@ -827,7 +840,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            CompletePhononDos: A phonon DOS object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="s2">&quot;/materials/</span><span class="si">{}</span><span class="s2">/phonondos&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">material_id</span><span class="p">))</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;/materials/</span><span class="si">{</span><span class="n">material_id</span><span class="si">}</span><span class="s2">/phonondos&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="MPRester.get_phonon_bandstructure_by_material_id"><a class="viewcode-back" href="../../../pymatgen.ext.matproj.html#pymatgen.ext.matproj.MPRester.get_phonon_bandstructure_by_material_id">[docs]</a>    <span class="k">def</span> <span class="nf">get_phonon_bandstructure_by_material_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">material_id</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -839,7 +852,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            PhononBandStructureSymmLine: A phonon band structure.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="s2">&quot;/materials/</span><span class="si">{}</span><span class="s2">/phononbs&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">material_id</span><span class="p">))</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;/materials/</span><span class="si">{</span><span class="n">material_id</span><span class="si">}</span><span class="s2">/phononbs&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="MPRester.get_phonon_ddb_by_material_id"><a class="viewcode-back" href="../../../pymatgen.ext.matproj.html#pymatgen.ext.matproj.MPRester.get_phonon_ddb_by_material_id">[docs]</a>    <span class="k">def</span> <span class="nf">get_phonon_ddb_by_material_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">material_id</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -851,7 +864,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            str: ABINIT DDB file as a string.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="s2">&quot;/materials/</span><span class="si">{}</span><span class="s2">/abinit_ddb&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">material_id</span><span class="p">))</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;/materials/</span><span class="si">{</span><span class="n">material_id</span><span class="si">}</span><span class="s2">/abinit_ddb&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="MPRester.get_entries_in_chemsys"><a class="viewcode-back" href="../../../pymatgen.ext.matproj.html#pymatgen.ext.matproj.MPRester.get_entries_in_chemsys">[docs]</a>    <span class="k">def</span> <span class="nf">get_entries_in_chemsys</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -874,7 +887,7 @@
 <span class="sd">                symbols, e.g., [&quot;Li&quot;, &quot;Fe&quot;, &quot;O&quot;].</span>
 <span class="sd">            compatible_only (bool): Whether to return only &quot;compatible&quot;</span>
 <span class="sd">                entries. Compatible entries are entries that have been</span>
-<span class="sd">                processed using the MaterialsProjectCompatibility class,</span>
+<span class="sd">                processed using the MaterialsProject2020Compatibility class,</span>
 <span class="sd">                which performs adjustments to allow mixing of GGA and GGA+U</span>
 <span class="sd">                calculations for more accurate phase diagrams and reaction</span>
 <span class="sd">                energies.</span>
@@ -1047,7 +1060,7 @@
                     <span class="k">break</span>
                 <span class="k">except</span> <span class="n">MPRestError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="c1"># pylint: disable=E1101</span>
-                    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;error status code (\d+)&quot;</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+                    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;error status code (\d+)&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
                     <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
                         <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;5&quot;</span><span class="p">):</span>
                             <span class="k">raise</span> <span class="n">e</span>
@@ -1143,7 +1156,7 @@
             <span class="n">snl</span> <span class="o">=</span> <span class="n">snl</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">snl</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">snl</span><span class="p">]</span>
             <span class="n">jsondata</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">snl</span><span class="p">]</span>
             <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;snl&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">jsondata</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">MontyEncoder</span><span class="p">)}</span>
-            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/snl/submit&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="si">}</span><span class="s2">/snl/submit&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">]:</span>
                 <span class="n">resp</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">MontyDecoder</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;valid_response&quot;</span><span class="p">]:</span>
@@ -1152,7 +1165,7 @@
                     <span class="k">return</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;inserted_ids&quot;</span><span class="p">]</span>
                 <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="n">resp</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">])</span>
 
-            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="s2">&quot;REST error with status code </span><span class="si">{}</span><span class="s2"> and error </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;REST error with status code </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> and error </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">))</span></div>
@@ -1175,7 +1188,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;ids&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">snl_ids</span><span class="p">)}</span>
-            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/snl/delete&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="si">}</span><span class="s2">/snl/delete&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">]:</span>
                 <span class="n">resp</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">MontyDecoder</span><span class="p">)</span>
@@ -1185,7 +1198,7 @@
                     <span class="k">return</span> <span class="n">resp</span>
                 <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="n">resp</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">])</span>
 
-            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="s2">&quot;REST error with status code </span><span class="si">{}</span><span class="s2"> and error </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;REST error with status code </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> and error </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">))</span></div>
@@ -1211,7 +1224,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;criteria&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">criteria</span><span class="p">)}</span>
-            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/snl/query&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="si">}</span><span class="s2">/snl/query&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">]:</span>
                 <span class="n">resp</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;valid_response&quot;</span><span class="p">]:</span>
@@ -1220,7 +1233,7 @@
                     <span class="k">return</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">]</span>
                 <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="n">resp</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">])</span>
 
-            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="s2">&quot;REST error with status code </span><span class="si">{}</span><span class="s2"> and error </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;REST error with status code </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> and error </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">))</span></div>
@@ -1316,7 +1329,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;entries&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">entries</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">MontyEncoder</span><span class="p">)}</span>
             <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
-                <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/phase_diagram/calculate_stability&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="p">),</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">preamble</span><span class="si">}</span><span class="s2">/phase_diagram/calculate_stability&quot;</span><span class="p">,</span>
                 <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">]:</span>
@@ -1326,7 +1339,7 @@
                         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">resp</span><span class="p">[</span><span class="s2">&quot;warning&quot;</span><span class="p">])</span>
                     <span class="k">return</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">]</span>
                 <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="n">resp</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">])</span>
-            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="s2">&quot;REST error with status code </span><span class="si">{}</span><span class="s2"> and error </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;REST error with status code </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> and error </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">MPRestError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">))</span></div>
 
@@ -1385,7 +1398,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            list of dicts with substrate matches</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">req</span> <span class="o">=</span> <span class="s2">&quot;/materials/</span><span class="si">{}</span><span class="s2">/substrates?n=</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">material_id</span><span class="p">,</span> <span class="n">number</span><span class="p">)</span>
+        <span class="n">req</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;/materials/</span><span class="si">{</span><span class="n">material_id</span><span class="si">}</span><span class="s2">/substrates?n=</span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">if</span> <span class="n">orient</span><span class="p">:</span>
             <span class="n">req</span> <span class="o">+=</span> <span class="s2">&quot;&amp;orient=</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">orient</span><span class="p">)))</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_request</span><span class="p">(</span><span class="n">req</span><span class="p">)</span></div>
@@ -1410,7 +1423,7 @@
 <span class="sd">        Tran, R., Xu, Z., Radhakrishnan, B., Winston, D., Sun, W., Persson, K.</span>
 <span class="sd">        A., &amp; Ong, S. P. (2016). Data Descripter: Surface energies of elemental</span>
 <span class="sd">        crystals. Scientific Data, 3(160080), 1–13.</span>
-<span class="sd">        http://dx.doi.org/10.1038/sdata.2016.80</span>
+<span class="sd">        https://doi.org/10.1038/sdata.2016.80</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            material_id (str): Materials Project material_id, e.g. &#39;mp-123&#39;.</span>
@@ -1422,7 +1435,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            Surface data for material. Energies are given in SI units (J/m^2).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">req</span> <span class="o">=</span> <span class="s2">&quot;/materials/</span><span class="si">{}</span><span class="s2">/surfaces&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">material_id</span><span class="p">)</span>
+        <span class="n">req</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;/materials/</span><span class="si">{</span><span class="n">material_id</span><span class="si">}</span><span class="s2">/surfaces&quot;</span>
         <span class="k">if</span> <span class="n">inc_structures</span><span class="p">:</span>
             <span class="n">req</span> <span class="o">+=</span> <span class="s2">&quot;?include_structures=true&quot;</span>
 
@@ -1583,31 +1596,72 @@
         <span class="c1"># task_id&#39;s correspond to NoMaD external_id&#39;s</span>
         <span class="n">task_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">task_types</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">TaskType</span><span class="p">)]</span> <span class="k">if</span> <span class="n">task_types</span> <span class="k">else</span> <span class="p">[]</span>
 
-        <span class="n">meta</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">({</span><span class="s2">&quot;material_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;$in&quot;</span><span class="p">:</span> <span class="n">material_ids</span><span class="p">}},</span> <span class="p">[</span><span class="s2">&quot;material_id&quot;</span><span class="p">,</span> <span class="s2">&quot;blessed_tasks&quot;</span><span class="p">]):</span>
-
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">({</span><span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;$in&quot;</span><span class="p">:</span> <span class="n">material_ids</span><span class="p">}},</span> <span class="p">[</span><span class="s2">&quot;task_id&quot;</span><span class="p">,</span> <span class="s2">&quot;blessed_tasks&quot;</span><span class="p">]):</span>
             <span class="k">for</span> <span class="n">task_type</span><span class="p">,</span> <span class="n">task_id</span> <span class="ow">in</span> <span class="n">doc</span><span class="p">[</span><span class="s2">&quot;blessed_tasks&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="k">if</span> <span class="n">task_types</span> <span class="ow">and</span> <span class="n">task_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">task_types</span><span class="p">:</span>
                     <span class="k">continue</span>
-                <span class="n">meta</span><span class="p">[</span><span class="n">doc</span><span class="p">[</span><span class="s2">&quot;material_id&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">,</span> <span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="n">task_type</span><span class="p">})</span>
-
+                <span class="n">mp_id</span> <span class="o">=</span> <span class="n">doc</span><span class="p">[</span><span class="s2">&quot;task_id&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">mp_id</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">meta</span><span class="p">[</span><span class="n">mp_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">,</span> <span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="n">task_type</span><span class="p">}]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">meta</span><span class="p">[</span><span class="n">mp_id</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">,</span> <span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="n">task_type</span><span class="p">})</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">meta</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No tasks found.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No tasks found for material id </span><span class="si">{</span><span class="n">material_ids</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
 
         <span class="c1"># return a list of URLs for NoMaD Downloads containing the list of files</span>
         <span class="c1"># for every external_id in `task_ids`</span>
-        <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;http://labdev-nomad.esc.rzg.mpg.de/fairdi/nomad/mp/api/raw/query?&quot;</span>
+        <span class="c1"># For reference, please visit https://nomad-lab.eu/prod/rae/api/</span>
+
+        <span class="c1"># check if these task ids exist on NOMAD</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;https://nomad-lab.eu/prod/rae/api/repo/?&quot;</span>
         <span class="k">if</span> <span class="n">file_patterns</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">file_pattern</span> <span class="ow">in</span> <span class="n">file_patterns</span><span class="p">:</span>
                 <span class="n">prefix</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;file_pattern=</span><span class="si">{</span><span class="n">file_pattern</span><span class="si">}</span><span class="s2">&amp;&quot;</span>
         <span class="n">prefix</span> <span class="o">+=</span> <span class="s2">&quot;external_id=&quot;</span>
 
-        <span class="c1"># NOTE: IE has 2kb URL char limit</span>
-        <span class="n">nmax</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="mi">2000</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">))</span> <span class="o">/</span> <span class="mi">11</span><span class="p">)</span>  <span class="c1"># mp-&lt;7-digit&gt; + , = 11</span>
         <span class="n">task_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">[</span><span class="s2">&quot;task_id&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">tl</span> <span class="ow">in</span> <span class="n">meta</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tl</span><span class="p">]</span>
-        <span class="n">chunks</span> <span class="o">=</span> <span class="n">get_chunks</span><span class="p">(</span><span class="n">task_ids</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">nmax</span><span class="p">)</span>
-        <span class="n">urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">prefix</span> <span class="o">+</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tids</span><span class="p">)</span> <span class="k">for</span> <span class="n">tids</span> <span class="ow">in</span> <span class="n">chunks</span><span class="p">]</span>
+        <span class="n">nomad_exist_task_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_get_download_info_url_by_task_id</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">task_ids</span><span class="o">=</span><span class="n">task_ids</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nomad_exist_task_ids</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">task_ids</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_print_help_message</span><span class="p">(</span><span class="n">nomad_exist_task_ids</span><span class="p">,</span> <span class="n">task_ids</span><span class="p">,</span> <span class="n">file_patterns</span><span class="p">,</span> <span class="n">task_types</span><span class="p">)</span>
+
+        <span class="c1"># generate download links for those that exist</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;https://nomad-lab.eu/prod/rae/api/raw/query?&quot;</span>
+        <span class="k">if</span> <span class="n">file_patterns</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">file_pattern</span> <span class="ow">in</span> <span class="n">file_patterns</span><span class="p">:</span>
+                <span class="n">prefix</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;file_pattern=</span><span class="si">{</span><span class="n">file_pattern</span><span class="si">}</span><span class="s2">&amp;&quot;</span>
+        <span class="n">prefix</span> <span class="o">+=</span> <span class="s2">&quot;external_id=&quot;</span>
+
+        <span class="n">urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">prefix</span> <span class="o">+</span> <span class="n">tids</span> <span class="k">for</span> <span class="n">tids</span> <span class="ow">in</span> <span class="n">nomad_exist_task_ids</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">meta</span><span class="p">,</span> <span class="n">urls</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_print_help_message</span><span class="p">(</span><span class="n">nomad_exist_task_ids</span><span class="p">,</span> <span class="n">task_ids</span><span class="p">,</span> <span class="n">file_patterns</span><span class="p">,</span> <span class="n">task_types</span><span class="p">):</span>
+        <span class="n">non_exist_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">task_ids</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">nomad_exist_task_ids</span><span class="p">)</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;For file patterns [</span><span class="si">{</span><span class="n">file_patterns</span><span class="si">}</span><span class="s2">] and task_types [</span><span class="si">{</span><span class="n">task_types</span><span class="si">}</span><span class="s2">], </span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;the following ids are not found on NOMAD [</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">non_exist_ids</span><span class="p">)</span><span class="si">}</span><span class="s2">]. </span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;If you need to upload them, please contact Patrick Huck at phuck@lbl.gov&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_check_get_download_info_url_by_task_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">task_ids</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="n">nomad_exist_task_ids</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="n">prefix</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/raw/query&quot;</span><span class="p">,</span> <span class="s2">&quot;/repo/&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">task_id</span> <span class="ow">in</span> <span class="n">task_ids</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="n">task_id</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_nomad_exist</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+                <span class="n">nomad_exist_task_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">nomad_exist_task_ids</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_check_nomad_exist</span><span class="p">(</span><span class="n">url</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">content</span><span class="p">[</span><span class="s2">&quot;pagination&quot;</span><span class="p">][</span><span class="s2">&quot;total&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
 
 <div class="viewcode-block" id="MPRester.parse_criteria"><a class="viewcode-back" href="../../../pymatgen.ext.matproj.html#pymatgen.ext.matproj.MPRester.parse_criteria">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">parse_criteria</span><span class="p">(</span><span class="n">criteria_string</span><span class="p">):</span>
@@ -1704,7 +1758,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.ext.matproj</a></li> 
       </ul>
@@ -1712,7 +1766,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

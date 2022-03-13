@@ -5,10 +5,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.symmetry.analyzer &#8212; pymatgen 2022.0.4 documentation</title>
-    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="../../../_static/basic.css" type="text/css" />
-    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <title>pymatgen.symmetry.analyzer &#8212; pymatgen 2022.0.17 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
     <script src="../../../_static/jquery.js"></script>
     <script src="../../../_static/underscore.js"></script>
     <script src="../../../_static/doctools.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.symmetry.analyzer</a></li> 
       </ul>
@@ -42,8 +42,7 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.symmetry.analyzer</h1><div class="highlight"><pre>
-<span></span><span class="c1"># coding: utf-8</span>
-<span class="c1"># Copyright (c) Pymatgen Development Team.</span>
+<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
 <span class="c1"># Distributed under the terms of the MIT License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
@@ -64,6 +63,7 @@
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">from</span> <span class="nn">fractions</span> <span class="kn">import</span> <span class="n">Fraction</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">cos</span><span class="p">,</span> <span class="n">sin</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">spglib</span>
@@ -193,26 +193,22 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space_group_data</span><span class="p">[</span><span class="s2">&quot;number&quot;</span><span class="p">]</span>
 
-        <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="n">j</span>
+        <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;triclinic&quot;</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">16</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;monoclinic&quot;</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">75</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;orthorhombic&quot;</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">143</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;tetragonal&quot;</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">168</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;trigonal&quot;</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">195</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;hexagonal&quot;</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">231</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;cubic&quot;</span>
 
-        <span class="n">cs</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;triclinic&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
-            <span class="s2">&quot;monoclinic&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span>
-            <span class="s2">&quot;orthorhombic&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">74</span><span class="p">),</span>
-            <span class="s2">&quot;tetragonal&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">75</span><span class="p">,</span> <span class="mi">142</span><span class="p">),</span>
-            <span class="s2">&quot;trigonal&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">143</span><span class="p">,</span> <span class="mi">167</span><span class="p">),</span>
-            <span class="s2">&quot;hexagonal&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">168</span><span class="p">,</span> <span class="mi">194</span><span class="p">),</span>
-            <span class="s2">&quot;cubic&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">195</span><span class="p">,</span> <span class="mi">230</span><span class="p">),</span>
-        <span class="p">}</span>
-
-        <span class="n">crystal_sytem</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">cs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">v</span><span class="p">):</span>
-                <span class="n">crystal_sytem</span> <span class="o">=</span> <span class="n">k</span>
-                <span class="k">break</span>
-        <span class="k">return</span> <span class="n">crystal_sytem</span></div>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid space group&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SpacegroupAnalyzer.get_lattice_type"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_lattice_type">[docs]</a>    <span class="k">def</span> <span class="nf">get_lattice_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -508,7 +504,9 @@
 <span class="sd">        Challenges and tools. Computational Materials Science,</span>
 <span class="sd">        49(2), 299-312. doi:10.1016/j.commatsci.2010.05.010</span>
 <span class="sd">        They basically enforce as much as possible</span>
-<span class="sd">        norm(a1)&lt;norm(a2)&lt;norm(a3)</span>
+<span class="sd">        norm(a1)&lt;norm(a2)&lt;norm(a3). NB This is not necessarily the same as the</span>
+<span class="sd">        standard settings within the International Tables of Crystallography,</span>
+<span class="sd">        for which get_refined_structure should be used instead.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            The structure in a conventional standardized cell</span>
@@ -519,7 +517,7 @@
         <span class="n">latt_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_lattice_type</span><span class="p">()</span>
         <span class="n">sorted_lengths</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">)</span>
         <span class="n">sorted_dic</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
-            <span class="p">[{</span><span class="s2">&quot;vec&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;orig_index&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]],</span>
+            <span class="p">({</span><span class="s2">&quot;vec&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;orig_index&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span>
             <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">k</span><span class="p">[</span><span class="s2">&quot;length&quot;</span><span class="p">],</span>
         <span class="p">)</span>
 
@@ -531,7 +529,7 @@
                 <span class="n">transf</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
                 <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">[:</span><span class="mi">2</span><span class="p">])</span>
                 <span class="n">sorted_dic</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
-                    <span class="p">[{</span><span class="s2">&quot;vec&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;orig_index&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]],</span>
+                    <span class="p">({</span><span class="s2">&quot;vec&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;orig_index&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
                     <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">k</span><span class="p">[</span><span class="s2">&quot;length&quot;</span><span class="p">],</span>
                 <span class="p">)</span>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
@@ -543,7 +541,7 @@
                 <span class="n">transf</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
                 <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
                 <span class="n">sorted_dic</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
-                    <span class="p">[{</span><span class="s2">&quot;vec&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;orig_index&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]],</span>
+                    <span class="p">({</span><span class="s2">&quot;vec&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;orig_index&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span>
                     <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">k</span><span class="p">[</span><span class="s2">&quot;length&quot;</span><span class="p">],</span>
                 <span class="p">)</span>
                 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
@@ -596,7 +594,7 @@
                 <span class="n">transf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
                 <span class="n">transf</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
                 <span class="n">sorted_dic</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
-                    <span class="p">[{</span><span class="s2">&quot;vec&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;orig_index&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]],</span>
+                    <span class="p">({</span><span class="s2">&quot;vec&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;orig_index&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span>
                     <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">k</span><span class="p">[</span><span class="s2">&quot;length&quot;</span><span class="p">],</span>
                 <span class="p">)</span>
                 <span class="n">a</span> <span class="o">=</span> <span class="n">sorted_dic</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;length&quot;</span><span class="p">]</span>
@@ -708,9 +706,10 @@
         <span class="k">elif</span> <span class="n">latt_type</span> <span class="o">==</span> <span class="s2">&quot;triclinic&quot;</span><span class="p">:</span>
             <span class="c1"># we use a LLL Minkowski-like reduction for the triclinic cells</span>
             <span class="n">struct</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">get_reduced_structure</span><span class="p">(</span><span class="s2">&quot;LLL&quot;</span><span class="p">)</span>
+            <span class="n">latt</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">lattice</span>
 
             <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">latt</span><span class="o">.</span><span class="n">lengths</span>
-            <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">gamma</span> <span class="o">=</span> <span class="p">[</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">i</span> <span class="o">/</span> <span class="mi">180</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">latt</span><span class="o">.</span><span class="n">angles</span><span class="p">]</span>
+            <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">gamma</span> <span class="o">=</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">i</span> <span class="o">/</span> <span class="mi">180</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">latt</span><span class="o">.</span><span class="n">angles</span><span class="p">)</span>
             <span class="n">new_matrix</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">test_matrix</span> <span class="o">=</span> <span class="p">[</span>
                 <span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
@@ -843,7 +842,7 @@
                     <span class="n">weights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mapping</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">mapping</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
                     <span class="k">break</span>
         <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mapped</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">mapping</span><span class="p">)))</span> <span class="ow">or</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">v</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">mapped</span><span class="o">.</span><span class="n">values</span><span class="p">())):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unable to find 1:1 corresponding between input &quot;</span> <span class="s2">&quot;kpoints and irreducible grid!&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unable to find 1:1 corresponding between input kpoints and irreducible grid!&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">w</span> <span class="o">/</span> <span class="nb">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">weights</span><span class="p">]</span></div>
 
 <div class="viewcode-block" id="SpacegroupAnalyzer.is_laue"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.is_laue">[docs]</a>    <span class="k">def</span> <span class="nf">is_laue</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -895,7 +894,7 @@
 
     <span class="n">inversion_op</span> <span class="o">=</span> <span class="n">SymmOp</span><span class="o">.</span><span class="n">inversion</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mol</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">eigen_tolerance</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">matrix_tol</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mol</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">eigen_tolerance</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">matrix_tolerance</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The default settings are usually sufficient.</span>
 
@@ -905,14 +904,14 @@
 <span class="sd">                symmetrically equivalent. Defaults to 0.3 Angstrom.</span>
 <span class="sd">            eigen_tolerance (float): Tolerance to compare eigen values of</span>
 <span class="sd">                the inertia tensor. Defaults to 0.01.</span>
-<span class="sd">            matrix_tol (float): Tolerance used to generate the full set of</span>
+<span class="sd">            matrix_tolerance (float): Tolerance used to generate the full set of</span>
 <span class="sd">                symmetry operations of the point group.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mol</span> <span class="o">=</span> <span class="n">mol</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">centered_mol</span> <span class="o">=</span> <span class="n">mol</span><span class="o">.</span><span class="n">get_centered_molecule</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tol</span> <span class="o">=</span> <span class="n">tolerance</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">eig_tol</span> <span class="o">=</span> <span class="n">eigen_tolerance</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">mat_tol</span> <span class="o">=</span> <span class="n">matrix_tol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mat_tol</span> <span class="o">=</span> <span class="n">matrix_tolerance</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_analyze</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sch_symbol</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;C1v&quot;</span><span class="p">,</span> <span class="s2">&quot;C1h&quot;</span><span class="p">]:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">sch_symbol</span> <span class="o">=</span> <span class="s2">&quot;Cs&quot;</span>
@@ -1031,7 +1030,7 @@
 <span class="sd">        Handles cyclic group molecules.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">main_axis</span><span class="p">,</span> <span class="n">rot</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rot_sym</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sch_symbol</span> <span class="o">=</span> <span class="s2">&quot;C</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">rot</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sch_symbol</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;C</span><span class="si">{</span><span class="n">rot</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="n">mirror_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_mirror</span><span class="p">(</span><span class="n">main_axis</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">mirror_type</span> <span class="o">==</span> <span class="s2">&quot;h&quot;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">sch_symbol</span> <span class="o">+=</span> <span class="s2">&quot;h&quot;</span>
@@ -1039,7 +1038,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">sch_symbol</span> <span class="o">+=</span> <span class="s2">&quot;v&quot;</span>
         <span class="k">elif</span> <span class="n">mirror_type</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_valid_op</span><span class="p">(</span><span class="n">SymmOp</span><span class="o">.</span><span class="n">rotoreflection</span><span class="p">(</span><span class="n">main_axis</span><span class="p">,</span> <span class="n">angle</span><span class="o">=</span><span class="mi">180</span> <span class="o">/</span> <span class="n">rot</span><span class="p">)):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">sch_symbol</span> <span class="o">=</span> <span class="s2">&quot;S</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">rot</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sch_symbol</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;S</span><span class="si">{</span><span class="mi">2</span> <span class="o">*</span> <span class="n">rot</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="k">def</span> <span class="nf">_proc_dihedral</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1047,7 +1046,7 @@
 <span class="sd">        and a main axis.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">main_axis</span><span class="p">,</span> <span class="n">rot</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rot_sym</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sch_symbol</span> <span class="o">=</span> <span class="s2">&quot;D</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">rot</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sch_symbol</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;D</span><span class="si">{</span><span class="n">rot</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="n">mirror_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_mirror</span><span class="p">(</span><span class="n">main_axis</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">mirror_type</span> <span class="o">==</span> <span class="s2">&quot;h&quot;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">sch_symbol</span> <span class="o">+=</span> <span class="s2">&quot;h&quot;</span>
@@ -1345,7 +1344,7 @@
 
         <span class="k">def</span> <span class="nf">all_equivalent_atoms_of_i</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">eq_sets</span><span class="p">,</span> <span class="n">ops</span><span class="p">):</span>
             <span class="sd">&quot;&quot;&quot;WORKS INPLACE on operations&quot;&quot;&quot;</span>
-            <span class="n">visited</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">visited</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">}</span>
             <span class="n">tmp_eq_sets</span> <span class="o">=</span> <span class="p">{</span><span class="n">j</span><span class="p">:</span> <span class="p">(</span><span class="n">eq_sets</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">visited</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">eq_sets</span><span class="p">[</span><span class="n">i</span><span class="p">]}</span>
 
             <span class="k">while</span> <span class="n">tmp_eq_sets</span><span class="p">:</span>
@@ -1564,6 +1563,11 @@
             <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">full</span> <span class="o">-</span> <span class="n">op</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tol</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)):</span>
                 <span class="n">full</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">full</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">full</span><span class="p">)</span><span class="si">}</span><span class="s2"> matrices have been generated. The tol may be too small. Please terminate&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; and rerun with a different tolerance.&quot;</span>
+                <span class="p">)</span>
 
     <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">full</span> <span class="o">-</span> <span class="n">UNIT</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tol</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)):</span>
@@ -1625,7 +1629,7 @@
         <span class="k">return</span> <span class="kc">False</span></div>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> (</span><span class="si">{}</span><span class="s2">) spacegroup&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">int_symbol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">int_number</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">int_symbol</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">int_number</span><span class="si">}</span><span class="s2">) spacegroup&quot;</span></div>
 
 
 <div class="viewcode-block" id="PointGroupOperations"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.PointGroupOperations">[docs]</a><span class="k">class</span> <span class="nc">PointGroupOperations</span><span class="p">(</span><span class="nb">list</span><span class="p">):</span>
@@ -1672,7 +1676,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.symmetry.analyzer</a></li> 
       </ul>
@@ -1680,7 +1684,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

@@ -5,10 +5,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.qchem.outputs &#8212; pymatgen 2022.0.4 documentation</title>
-    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="../../../../_static/basic.css" type="text/css" />
-    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <title>pymatgen.io.qchem.outputs &#8212; pymatgen 2022.0.17 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
     <script src="../../../../_static/jquery.js"></script>
     <script src="../../../../_static/underscore.js"></script>
     <script src="../../../../_static/doctools.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.qchem.outputs</a></li> 
       </ul>
@@ -42,8 +42,7 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.io.qchem.outputs</h1><div class="highlight"><pre>
-<span></span><span class="c1"># coding: utf-8</span>
-<span class="c1"># Copyright (c) Pymatgen Development Team.</span>
+<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
 <span class="c1"># Distributed under the terms of the MIT License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
@@ -56,10 +55,11 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
 
 <span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">monty.io</span> <span class="kn">import</span> <span class="n">zopen</span>
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span><span class="p">,</span> <span class="n">jsanitize</span>
 
@@ -80,6 +80,7 @@
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Samuel Blau, Brandon Wood, Shyam Dwaraknath, Evan Spotte-Smith&quot;</span>
 <span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2018, The Materials Project&quot;</span>
 <span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.1&quot;</span>
+<span class="n">__credits__</span> <span class="o">=</span> <span class="s2">&quot;Gabe Gomes&quot;</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -95,11 +96,11 @@
 <span class="sd">            filename (str): Filename to parse</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>  <span class="c1"># type: Dict[str, Any]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># type: Dict[str, Any]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;errors&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;warnings&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;ISO-8859-1&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 
         <span class="c1"># Check if output file contains multiple output files. If so, print an error message and exit</span>
@@ -272,7 +273,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;transition_state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_pattern</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;(?i)\s*job(?:_)*type\s*(?:=)*\s*ts&quot;</span><span class="p">})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
             <span class="s2">&quot;key&quot;</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;transition_state&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">()):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;transition_state&quot;</span><span class="p">,</span> <span class="p">[]):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_read_optimization_data</span><span class="p">()</span>
 
         <span class="c1"># Check if the calculation contains a constraint in an $opt section.</span>
@@ -308,6 +309,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;frequency_job&quot;</span><span class="p">,</span> <span class="p">[]):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_read_frequency_data</span><span class="p">()</span>
 
+        <span class="c1"># Check if the calculation is a single point. If so, parse the relevant output</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;single_point_job&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_pattern</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
             <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;(?i)\s*job(?:_)*type\s*(?:=)*\s*sp&quot;</span><span class="p">},</span>
@@ -316,19 +318,28 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;single_point_job&quot;</span><span class="p">,</span> <span class="p">[]):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_read_single_point_data</span><span class="p">()</span>
 
+        <span class="c1"># Check if the calculation is a force calculation. If so, parse the relevant output</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;force_job&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_pattern</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
             <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;(?i)\s*job(?:_)*type\s*(?:=)*\s*force&quot;</span><span class="p">},</span>
             <span class="n">terminate_on_match</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;force&quot;</span><span class="p">,</span> <span class="p">[]):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;force_job&quot;</span><span class="p">,</span> <span class="p">[]):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_read_force_data</span><span class="p">()</span>
 
+        <span class="c1"># Check if the calculation is a PES scan. If so, parse the relevant output</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;scan_job&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_pattern</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;(?i)\s*job(?:_)*type\s*(?:=)*\s*pes_scan&quot;</span><span class="p">},</span> <span class="n">terminate_on_match</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scan_job&quot;</span><span class="p">,</span> <span class="p">[]):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_read_scan_data</span><span class="p">()</span>
+
+        <span class="c1"># Check if an NBO calculation was performed. If so, parse the relevant output</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;nbo&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_pattern</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;Job title: Starting NBO analysis&quot;</span><span class="p">},</span> <span class="n">terminate_on_match</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nbo&quot;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_read_nbo_data</span><span class="p">()</span>
 
         <span class="c1"># If the calculation did not finish and no errors have been identified yet, check for other errors</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;completion&quot;</span><span class="p">,</span> <span class="p">[])</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;errors&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="p">[]:</span>
@@ -350,9 +361,8 @@
         <span class="k">if</span> <span class="n">text</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
             <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">sub_text</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
-            <span class="n">temp</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
-            <span class="n">temp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">sub_text</span><span class="p">)</span>
-            <span class="n">temp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">temp</span><span class="p">:</span>
+                <span class="n">temp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">sub_text</span><span class="p">)</span>
             <span class="n">tempOutput</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">filename</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
             <span class="n">to_return</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tempOutput</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_sub_files</span><span class="p">:</span>
@@ -723,13 +733,6 @@
         <span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;warnings&quot;</span><span class="p">][</span><span class="s2">&quot;diagonalizing_BBt&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
 
-        <span class="c1"># Check for bad Roothaan step</span>
-        <span class="k">for</span> <span class="n">scf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;SCF&quot;</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">scf</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">scf</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mf">10.0</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;warnings&quot;</span><span class="p">][</span><span class="s2">&quot;bad_roothaan&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
-                <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">scf</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">scf</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mf">100.0</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;warnings&quot;</span><span class="p">][</span><span class="s2">&quot;very_bad_roothaan&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
-
     <span class="k">def</span> <span class="nf">_read_geometries</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parses all geometries from an optimization trajectory.</span>
@@ -785,7 +788,7 @@
                     <span class="n">charge</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;charge&quot;</span><span class="p">),</span>
                     <span class="n">spin_multiplicity</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;multiplicity&quot;</span><span class="p">),</span>
                 <span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;molecules_from_optimized_geometries&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;molecules_from_optimized_geometries&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="k">for</span> <span class="n">geom</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;optimized_geometries&quot;</span><span class="p">]:</span>
                     <span class="n">mol</span> <span class="o">=</span> <span class="n">Molecule</span><span class="p">(</span>
                         <span class="n">species</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;species&quot;</span><span class="p">),</span>
@@ -1140,7 +1143,7 @@
             <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer_pattern</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;scan_energies&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;scan_energies&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">single_data</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">double_data</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
@@ -1173,7 +1176,7 @@
             <span class="n">footer_pattern</span><span class="o">=</span><span class="n">scan_inputs_foot</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;scan_variables&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;stre&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(),</span> <span class="s2">&quot;bend&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(),</span> <span class="s2">&quot;tors&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">()}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;scan_variables&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;stre&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;bend&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;tors&quot;</span><span class="p">:</span> <span class="p">[]}</span>
         <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">constraints_meta</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
             <span class="n">var_type</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;scan_variables&quot;</span><span class="p">][</span><span class="n">var_type</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
@@ -1189,7 +1192,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
             <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;\s*(Distance\(Angs\)|Angle|Dihedral)\:\s*((?:[0-9]+\s+)+)+([\.0-9]+)\s+([\.0-9]+)&quot;</span><span class="p">},</span>
         <span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;scan_constraint_sets&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;stre&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(),</span> <span class="s2">&quot;bend&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(),</span> <span class="s2">&quot;tors&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">()}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;scan_constraint_sets&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;stre&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;bend&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;tors&quot;</span><span class="p">:</span> <span class="p">[]}</span>
         <span class="k">if</span> <span class="n">temp_constraint</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">temp_constraint</span><span class="p">:</span>
                 <span class="n">atoms</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()]</span>
@@ -1281,6 +1284,16 @@
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">pcm_keys</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;solvent_data&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
+    <span class="k">def</span> <span class="nf">_read_nbo_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parses NBO output</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dfs</span> <span class="o">=</span> <span class="n">nbo_parser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+        <span class="n">nbo_data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">dfs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">nbo_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">df</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;nbo_data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nbo_data</span>
+
     <span class="k">def</span> <span class="nf">_check_completion_errors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parses potential errors that can cause jobs to crash</span>
@@ -1316,6 +1329,15 @@
             <span class="o">==</span> <span class="p">[[]]</span>
         <span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;errors&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;premature_end_FileMan_error&quot;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="p">(</span>
+            <span class="n">read_pattern</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;need to increase the array of NLebdevPts&quot;</span><span class="p">},</span>
+                <span class="n">terminate_on_match</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span>
+            <span class="o">==</span> <span class="p">[[]]</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;errors&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;NLebdevPts&quot;</span><span class="p">]</span>
         <span class="k">elif</span> <span class="n">read_pattern</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;method not available&quot;</span><span class="p">},</span> <span class="n">terminate_on_match</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="p">[[]]:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;errors&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;method_not_available&quot;</span><span class="p">]</span>
         <span class="k">elif</span> <span class="p">(</span>
@@ -1353,6 +1375,15 @@
             <span class="o">==</span> <span class="p">[[]]</span>
         <span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;errors&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;driver_error&quot;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="p">(</span>
+            <span class="n">read_pattern</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;Basis not supported for the above atom&quot;</span><span class="p">},</span>
+                <span class="n">terminate_on_match</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;key&quot;</span><span class="p">)</span>
+            <span class="o">==</span> <span class="p">[[]]</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;errors&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;basis_not_supported&quot;</span><span class="p">]</span>
         <span class="k">elif</span> <span class="p">(</span>
             <span class="n">read_pattern</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
@@ -1447,6 +1478,394 @@
     <span class="k">if</span> <span class="n">last_graph</span><span class="o">.</span><span class="n">number_of_edges</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">initial_graph</span><span class="o">.</span><span class="n">number_of_edges</span><span class="p">():</span>
         <span class="k">return</span> <span class="s2">&quot;more_bonds&quot;</span>
     <span class="k">return</span> <span class="s2">&quot;bond_change&quot;</span></div>
+
+
+<div class="viewcode-block" id="jump_to_header"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.outputs.html#pymatgen.io.qchem.outputs.jump_to_header">[docs]</a><span class="k">def</span> <span class="nf">jump_to_header</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">header</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a list of lines, truncate the start of the list so that the first line</span>
+<span class="sd">    of the new list contains the header.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">            lines: List of lines.</span>
+<span class="sd">            header: Substring to match.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">            Truncated lines.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">            RuntimeError</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Search for the header</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">header</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">lines</span><span class="p">[</span><span class="n">i</span><span class="p">:]</span>
+
+    <span class="c1"># Search failed</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Header </span><span class="si">{</span><span class="n">header</span><span class="si">}</span><span class="s2"> could not be found in the lines.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_percentage"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.outputs.html#pymatgen.io.qchem.outputs.get_percentage">[docs]</a><span class="k">def</span> <span class="nf">get_percentage</span><span class="p">(</span><span class="n">line</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">orbital</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Retrieve the percent character of an orbital.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">            line: Line containing orbital and percentage.</span>
+<span class="sd">            orbital: Type of orbital (s, p, d, f).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">            Percentage of character.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">            n/a</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Locate orbital in line</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">orbital</span><span class="p">)</span>
+    <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">index</span><span class="p">:]</span>
+
+    <span class="c1"># Locate the first open bracket</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;(&quot;</span><span class="p">)</span>
+    <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">index</span><span class="p">:]</span>
+
+    <span class="c1"># Isolate the percentage</span>
+    <span class="k">return</span> <span class="n">line</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="z_int"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.outputs.html#pymatgen.io.qchem.outputs.z_int">[docs]</a><span class="k">def</span> <span class="nf">z_int</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert string to integer.</span>
+<span class="sd">    If string empty, return -1.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">            string: Input to be cast to int.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">            Int representation.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">            n/a</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="parse_natural_populations"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.outputs.html#pymatgen.io.qchem.outputs.parse_natural_populations">[docs]</a><span class="k">def</span> <span class="nf">parse_natural_populations</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse the natural populations section of NBO output.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">            lines: QChem output lines.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">            Data frame of formatted output.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">            RuntimeError</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">no_failures</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">pop_dfs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">while</span> <span class="n">no_failures</span><span class="p">:</span>
+
+        <span class="c1"># Natural populations</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">jump_to_header</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="s2">&quot;Summary of Natural Population Analysis:&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="n">no_failures</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">no_failures</span><span class="p">:</span>
+            <span class="c1"># Jump to column names</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">4</span><span class="p">:]</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+
+            <span class="c1"># Jump to values</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+
+                <span class="c1"># Termination condition</span>
+                <span class="k">if</span> <span class="s2">&quot;=&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+                <span class="c1"># Extract the values</span>
+                <span class="n">values</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">values</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">3</span><span class="p">])</span>
+                    <span class="n">values</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="mi">3</span><span class="p">:]</span>
+                <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="nb">str</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                        <span class="nb">int</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+                        <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+                        <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span>
+                        <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">4</span><span class="p">]),</span>
+                        <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">5</span><span class="p">]),</span>
+                        <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">6</span><span class="p">]),</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns</span><span class="p">)</span> <span class="o">==</span> <span class="mi">8</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">7</span><span class="p">]))</span>
+
+            <span class="c1"># Store values in a dataframe</span>
+            <span class="n">pop_dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">pop_dfs</span></div>
+
+
+<div class="viewcode-block" id="parse_hybridization_character"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.outputs.html#pymatgen.io.qchem.outputs.parse_hybridization_character">[docs]</a><span class="k">def</span> <span class="nf">parse_hybridization_character</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse the hybridization character section of NBO output.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">            lines: QChem output lines.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">            Data frames of formatted output.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">            RuntimeError</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Orbitals</span>
+    <span class="n">orbitals</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">,</span> <span class="s2">&quot;d&quot;</span><span class="p">,</span> <span class="s2">&quot;f&quot;</span><span class="p">]</span>
+
+    <span class="n">no_failures</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">lp_and_bd_dfs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">while</span> <span class="n">no_failures</span><span class="p">:</span>
+
+        <span class="c1"># NBO Analysis</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">jump_to_header</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="s2">&quot;(Occupancy)   Bond orbital/ Coefficients/ Hybrids&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="n">no_failures</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">no_failures</span><span class="p">:</span>
+
+            <span class="c1"># Jump to values</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+
+            <span class="c1"># Save the data for different types of orbitals</span>
+            <span class="n">lp_data</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">bd_data</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="c1"># Iterate over the lines</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+                <span class="c1"># Termination conditions</span>
+                <span class="k">if</span> <span class="s2">&quot;NHO DIRECTIONALITY AND BOND BENDING&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="k">if</span> <span class="s2">&quot;Archival summary:&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+                <span class="c1"># Lone pair</span>
+                <span class="k">if</span> <span class="s2">&quot;LP&quot;</span> <span class="ow">in</span> <span class="n">line</span> <span class="ow">or</span> <span class="s2">&quot;LV&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="n">LPentry</span> <span class="o">=</span> <span class="p">{</span><span class="n">orbital</span><span class="p">:</span> <span class="mf">0.0</span> <span class="k">for</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">orbitals</span><span class="p">}</span>  <span class="c1"># type: Dict[str, Union[str, int, float]]</span>
+                    <span class="n">LPentry</span><span class="p">[</span><span class="s2">&quot;bond index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">LPentry</span><span class="p">[</span><span class="s2">&quot;occupancy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">7</span><span class="p">:</span><span class="mi">14</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">LPentry</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">16</span><span class="p">:</span><span class="mi">19</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">LPentry</span><span class="p">[</span><span class="s2">&quot;orbital index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">20</span><span class="p">:</span><span class="mi">22</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">LPentry</span><span class="p">[</span><span class="s2">&quot;atom symbol&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">23</span><span class="p">:</span><span class="mi">25</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">LPentry</span><span class="p">[</span><span class="s2">&quot;atom number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">25</span><span class="p">:</span><span class="mi">28</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+                    <span class="c1"># Populate the orbital percentages</span>
+                    <span class="k">for</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">orbitals</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                            <span class="n">LPentry</span><span class="p">[</span><span class="n">orbital</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_percentage</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">orbital</span><span class="p">)</span>
+
+                    <span class="c1"># Move one line down</span>
+                    <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">line</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+                    <span class="c1"># Populate the orbital percentages</span>
+                    <span class="k">for</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">orbitals</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                            <span class="n">LPentry</span><span class="p">[</span><span class="n">orbital</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_percentage</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">orbital</span><span class="p">)</span>
+
+                    <span class="c1"># Save the entry</span>
+                    <span class="n">lp_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">LPentry</span><span class="p">)</span>
+
+                <span class="c1"># Bonding</span>
+                <span class="k">if</span> <span class="s2">&quot;BD&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="n">BDentry</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="sa">f</span><span class="s2">&quot;atom </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">orbital</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="mf">0.0</span> <span class="k">for</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">orbitals</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+                    <span class="p">}</span>  <span class="c1"># type: Dict[str, Union[str, int, float]]</span>
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;bond index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;occupancy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">7</span><span class="p">:</span><span class="mi">14</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">16</span><span class="p">:</span><span class="mi">19</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;orbital index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">20</span><span class="p">:</span><span class="mi">22</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;atom 1 symbol&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">23</span><span class="p">:</span><span class="mi">25</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;atom 1 number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">25</span><span class="p">:</span><span class="mi">28</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;atom 2 symbol&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">29</span><span class="p">:</span><span class="mi">31</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;atom 2 number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">31</span><span class="p">:</span><span class="mi">34</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+                    <span class="c1"># Move one line down</span>
+                    <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">line</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;atom 1 polarization&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">16</span><span class="p">:</span><span class="mi">22</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;atom 1 pol coeff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">24</span><span class="p">:</span><span class="mi">33</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+                    <span class="c1"># Populate the orbital percentages</span>
+                    <span class="k">for</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">orbitals</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                            <span class="n">BDentry</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;atom 1 </span><span class="si">{</span><span class="n">orbital</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_percentage</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">orbital</span><span class="p">)</span>
+
+                    <span class="c1"># Move one line down</span>
+                    <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">line</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+                    <span class="c1"># Populate the orbital percentages</span>
+                    <span class="k">for</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">orbitals</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                            <span class="n">BDentry</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;atom 1 </span><span class="si">{</span><span class="n">orbital</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_percentage</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">orbital</span><span class="p">)</span>
+
+                    <span class="c1"># Move down until you see an orbital</span>
+                    <span class="k">while</span> <span class="s2">&quot;s&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                        <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                        <span class="n">line</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;atom 2 polarization&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">16</span><span class="p">:</span><span class="mi">22</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="n">BDentry</span><span class="p">[</span><span class="s2">&quot;atom 2 pol coeff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">24</span><span class="p">:</span><span class="mi">33</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+                    <span class="c1"># Populate the orbital percentages</span>
+                    <span class="k">for</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">orbitals</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                            <span class="n">BDentry</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;atom 2 </span><span class="si">{</span><span class="n">orbital</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_percentage</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">orbital</span><span class="p">)</span>
+
+                    <span class="c1"># Move one line down</span>
+                    <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">line</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+                    <span class="c1"># Populate the orbital percentages</span>
+                    <span class="k">for</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">orbitals</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">orbital</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                            <span class="n">BDentry</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;atom 2 </span><span class="si">{</span><span class="n">orbital</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_percentage</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">orbital</span><span class="p">)</span>
+
+                    <span class="c1"># Save the entry</span>
+                    <span class="n">bd_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">BDentry</span><span class="p">)</span>
+
+            <span class="c1"># Store values in a dataframe</span>
+            <span class="n">lp_and_bd_dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">lp_data</span><span class="p">))</span>
+            <span class="n">lp_and_bd_dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">bd_data</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">lp_and_bd_dfs</span></div>
+
+
+<div class="viewcode-block" id="parse_perturbation_energy"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.outputs.html#pymatgen.io.qchem.outputs.parse_perturbation_energy">[docs]</a><span class="k">def</span> <span class="nf">parse_perturbation_energy</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse the perturbation energy section of NBO output.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">            lines: QChem output lines.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">            Data frame of formatted output.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">            RuntimeError</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">no_failures</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">e2_dfs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">while</span> <span class="n">no_failures</span><span class="p">:</span>
+
+        <span class="c1"># 2nd order perturbation theory analysis</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">jump_to_header</span><span class="p">(</span>
+                <span class="n">lines</span><span class="p">,</span>
+                <span class="s2">&quot;SECOND ORDER PERTURBATION THEORY ANALYSIS OF FOCK MATRIX IN NBO BASIS&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="n">no_failures</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">no_failures</span><span class="p">:</span>
+
+            <span class="c1"># Jump to values</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">if</span> <span class="s2">&quot;within&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="n">i</span><span class="p">:]</span>
+                    <span class="k">break</span>
+
+            <span class="c1"># Extract 2nd order data</span>
+            <span class="n">e2_data</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+
+                <span class="c1"># Termination condition</span>
+                <span class="k">if</span> <span class="s2">&quot;NATURAL BOND ORBITALS&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+                <span class="c1"># Skip conditions</span>
+                <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="s2">&quot;unit&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="s2">&quot;None&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="s2">&quot;RY&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="c1"># Extract the values</span>
+                <span class="n">entry</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># type: Dict[str, Union[str, int, float]]</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;donor bond index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;donor type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">5</span><span class="p">:</span><span class="mi">9</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;donor orbital index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">10</span><span class="p">:</span><span class="mi">12</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;donor atom 1 symbol&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">13</span><span class="p">:</span><span class="mi">15</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;donor atom 1 number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">15</span><span class="p">:</span><span class="mi">17</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;donor atom 2 symbol&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">18</span><span class="p">:</span><span class="mi">20</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;donor atom 2 number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">z_int</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">20</span><span class="p">:</span><span class="mi">22</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;acceptor bond index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">25</span><span class="p">:</span><span class="mi">31</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;acceptor type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">32</span><span class="p">:</span><span class="mi">36</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;acceptor orbital index&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">37</span><span class="p">:</span><span class="mi">39</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;acceptor atom 1 symbol&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">40</span><span class="p">:</span><span class="mi">42</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;acceptor atom 1 number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">42</span><span class="p">:</span><span class="mi">44</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;acceptor atom 2 symbol&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">45</span><span class="p">:</span><span class="mi">47</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;acceptor atom 2 number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">z_int</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">47</span><span class="p">:</span><span class="mi">49</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;perturbation energy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">50</span><span class="p">:</span><span class="mi">62</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;energy difference&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">62</span><span class="p">:</span><span class="mi">70</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;fock matrix element&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">70</span><span class="p">:</span><span class="mi">79</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+                <span class="n">e2_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+
+            <span class="c1"># Store values in a dataframe</span>
+            <span class="n">e2_dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">e2_data</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">e2_dfs</span></div>
+
+
+<div class="viewcode-block" id="nbo_parser"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.outputs.html#pymatgen.io.qchem.outputs.nbo_parser">[docs]</a><span class="k">def</span> <span class="nf">nbo_parser</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse all the important sections of NBO output.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">            filename: Path to QChem NBO output.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">            Data frames of formatted output.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">            RuntimeError</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Open the lines</span>
+    <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;ISO-8859-1&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+
+    <span class="c1"># Compile the dataframes</span>
+    <span class="n">dfs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">dfs</span><span class="p">[</span><span class="s2">&quot;natural_populations&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">parse_natural_populations</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+    <span class="n">dfs</span><span class="p">[</span><span class="s2">&quot;hybridization_character&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">parse_hybridization_character</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+    <span class="n">dfs</span><span class="p">[</span><span class="s2">&quot;perturbation_energy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">parse_perturbation_energy</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dfs</span></div>
 </pre></div>
 
             <div class="clearer"></div>
@@ -1463,7 +1882,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.qchem.outputs</a></li> 
       </ul>
@@ -1471,7 +1890,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

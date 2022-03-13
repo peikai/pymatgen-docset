@@ -5,10 +5,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.cp2k.inputs &#8212; pymatgen 2022.0.4 documentation</title>
-    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="../../../../_static/basic.css" type="text/css" />
-    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <title>pymatgen.io.cp2k.inputs &#8212; pymatgen 2022.0.17 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
     <script src="../../../../_static/jquery.js"></script>
     <script src="../../../../_static/underscore.js"></script>
     <script src="../../../../_static/doctools.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.cp2k.inputs</a></li> 
       </ul>
@@ -60,6 +60,7 @@
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">textwrap</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
@@ -71,6 +72,11 @@
 <span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Molecule</span><span class="p">,</span> <span class="n">Structure</span>
 <span class="kn">from</span> <span class="nn">pymatgen.io.cp2k.utils</span> <span class="kn">import</span> <span class="n">_postprocessor</span><span class="p">,</span> <span class="n">_preprocessor</span>
 
+<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
+
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Nicholas Winner&quot;</span>
 <span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.3&quot;</span>
 <span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;nwinner@berkeley.edu&quot;</span>
@@ -80,7 +86,7 @@
 <div class="viewcode-block" id="Keyword"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.inputs.html#pymatgen.io.cp2k.inputs.Keyword">[docs]</a><span class="k">class</span> <span class="nc">Keyword</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Class representing a keyword argument in CP2K. Within CP2K Secitons, which activate features</span>
+<span class="sd">    Class representing a keyword argument in CP2K. Within CP2K Sections, which activate features</span>
 <span class="sd">    of the CP2K code, the keywords are arguments that control the functionality of that feature.</span>
 <span class="sd">    For example, the section &quot;FORCE_EVAL&quot; activates the evaluation of forces/energies, but within</span>
 <span class="sd">    &quot;FORCE_EVAL&quot; the keyword &quot;METHOD&quot; controls whether or not this will be done with, say,</span>
@@ -122,7 +128,7 @@
         <span class="k">return</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span>
             <span class="o">+</span> <span class="s2">&quot; &quot;</span>
-            <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;[</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">units</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">units</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">units</span><span class="si">}</span><span class="s2">] &quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">units</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
             <span class="o">+</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">))</span>
             <span class="o">+</span> <span class="p">(</span><span class="s2">&quot; ! &quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
         <span class="p">)</span>
@@ -329,10 +335,10 @@
 
         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">required_sections</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">UserWarning</span><span class="p">(</span><span class="s2">&quot;WARNING: REQUIRED SECTION </span><span class="si">{}</span><span class="s2"> HAS NOT BEEN INITIALIZED&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
+                <span class="k">raise</span> <span class="ne">UserWarning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;WARNING: REQUIRED SECTION </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> HAS NOT BEEN INITIALIZED&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">required_keywords</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">keywords</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">UserWarning</span><span class="p">(</span><span class="s2">&quot;WARNING: REQUIRED KEYWORD </span><span class="si">{}</span><span class="s2"> HAS NOT BEEN PROVIDED&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
+                <span class="k">raise</span> <span class="ne">UserWarning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;WARNING: REQUIRED KEYWORD </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> HAS NOT BEEN PROVIDED&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_string</span><span class="p">()</span>
@@ -465,8 +471,7 @@
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">Section</span><span class="p">):</span>
                 <span class="n">d1</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
-                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unrecognized type.&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unrecognized type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Section.set"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.inputs.html#pymatgen.io.cp2k.inputs.Section.set">[docs]</a>    <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -609,7 +614,7 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Special instance of &#39;Section&#39; class that is meant to represent the overall cp2k input.</span>
 <span class="sd">    Distinguishes itself from Section by overriding get_string() to not print this section&#39;s</span>
-<span class="sd">    title and by implementing the file i/o</span>
+<span class="sd">    title and by implementing the file i/o.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;CP2K_INPUT&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
@@ -725,8 +730,12 @@
         <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span>
         <span class="n">make_dir_if_not_present</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Write input to a file.</span>
+        <span class="sd">&quot;&quot;&quot;Write input to a file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            input_filename (str, optional): Defaults to &quot;cp2k.inp&quot;.</span>
+<span class="sd">            output_dir (str, optional): Defaults to &quot;.&quot;.</span>
+<span class="sd">            make_dir_if_not_present (bool, optional): Defaults to True.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span> <span class="ow">and</span> <span class="n">make_dir_if_not_present</span><span class="p">:</span>
             <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
@@ -742,8 +751,12 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">project_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;CP2K&quot;</span><span class="p">,</span> <span class="n">run_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;ENERGY_FORCE&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Initialize the global section</span>
+        <span class="sd">&quot;&quot;&quot;Initialize the global section</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            project_name (str, optional): Defaults to &quot;CP2K&quot;.</span>
+<span class="sd">            run_type (str, optional): See https://manual.cp2k.org/trunk/CP2K_INPUT/GLOBAL.html#list_RUN_TYPE</span>
+<span class="sd">                for possible values. Defaults to &quot;ENERGY_FORCE&quot;.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span> <span class="o">=</span> <span class="n">project_name</span>
@@ -777,8 +790,10 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subsections</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Initialize the ForceEval section</span>
+        <span class="sd">&quot;&quot;&quot;Initialize the ForceEval section</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            subsections (dict, optional): Defaults to None.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">subsections</span> <span class="o">=</span> <span class="n">subsections</span> <span class="k">if</span> <span class="n">subsections</span> <span class="k">else</span> <span class="p">{}</span>
@@ -812,18 +827,21 @@
         <span class="n">basis_set_filenames</span><span class="o">=</span><span class="s2">&quot;BASIS_MOLOPT&quot;</span><span class="p">,</span>
         <span class="n">potential_filename</span><span class="o">=</span><span class="s2">&quot;GTH_POTENTIALS&quot;</span><span class="p">,</span>
         <span class="n">uks</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">wfn_restart_file_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">wfn_restart_file_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">subsections</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Initialize the DFT section</span>
+        <span class="sd">&quot;&quot;&quot;Initialize the DFT section.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            subsections: Any subsections to initialize with</span>
-<span class="sd">            basis_set_filename: Name of the file that contains the basis set information</span>
-<span class="sd">            potential_filename: Name of the file that contains the pseudopotential information</span>
-<span class="sd">            uks: Whether to run unrestricted Kohn Sham (spin polarized)</span>
+<span class="sd">            basis_set_filenames (str, optional): Name of the file that contains the basis set</span>
+<span class="sd">                information. Defaults to &quot;BASIS_MOLOPT&quot;.</span>
+<span class="sd">            potential_filename (str, optional): Name of the file that contains the pseudopotential</span>
+<span class="sd">                information. Defaults to &quot;GTH_POTENTIALS&quot;.</span>
+<span class="sd">            uks (bool, optional): Whether to run unrestricted Kohn Sham (spin polarized).</span>
+<span class="sd">                Defaults to True.</span>
+<span class="sd">            wfn_restart_file_name (str, optional): Defaults to None.</span>
+<span class="sd">            subsections (dict, optional): Any subsections to initialize with. Defaults to None.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">basis_set_filenames</span> <span class="o">=</span> <span class="n">basis_set_filenames</span>
@@ -877,9 +895,9 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;GPW&quot;</span><span class="p">,</span>
+        <span class="n">method</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;GPW&quot;</span><span class="p">,</span> <span class="s2">&quot;GAPW&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;GPW&quot;</span><span class="p">,</span>
         <span class="n">eps_default</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-7</span><span class="p">,</span>
-        <span class="n">extrapolation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;PS&quot;</span><span class="p">,</span>
+        <span class="n">extrapolation</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;PS&quot;</span><span class="p">,</span> <span class="s2">&quot;ASPC&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;PS&quot;</span><span class="p">,</span>
         <span class="n">subsections</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
@@ -887,14 +905,14 @@
 <span class="sd">        Initialize the QS Section</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            method: What dft methodology to use. Can be GPW (Gaussian Plane Waves) for DFT with pseudopotentials</span>
-<span class="sd">                or GAPW (Gaussian Augmented Plane Waves) for all electron calculations</span>
-<span class="sd">            eps_default: The default level of convergence accuracy. NOTE: This is a global value for all the numerical</span>
-<span class="sd">                value of all EPS_* values in QS module. It is not the same as EPS_SCF, which sets convergence accuracy</span>
-<span class="sd">                of the SCF cycle alone.</span>
-<span class="sd">            extrapolation: Method use for extrapolation. If using gamma-point-only calculation, then one should use</span>
-<span class="sd">                PS for relaxations and ASPC for MD. See the manual for other options.</span>
-<span class="sd">            subsections: Subsections to initialize with</span>
+<span class="sd">            method (&quot;GPW&quot; | &quot;GAPW&quot;): What DFT methodology to use. GPW (Gaussian Plane Waves) for DFT with</span>
+<span class="sd">                pseudopotentials or GAPW (Gaussian Augmented Plane Waves) for all electron calculations.</span>
+<span class="sd">            eps_default (float): The default level of convergence accuracy. NOTE: This is a global value for all</span>
+<span class="sd">                the numerical value of all EPS_* values in QS module. It is not the same as EPS_SCF, which sets</span>
+<span class="sd">                convergence accuracy of the SCF cycle alone.</span>
+<span class="sd">            extrapolation (&quot;PS&quot; | &quot;ASPC&quot;): Method use for extrapolation. If using gamma-point-only calculation, then one</span>
+<span class="sd">                should use PS for relaxations and ASPC for MD. See the manual for other options.</span>
+<span class="sd">            subsections (dict): Subsections to initialize with.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">method</span>
@@ -930,7 +948,9 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">max_scf</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
         <span class="n">eps_scf</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
-        <span class="n">scf_guess</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;RESTART&quot;</span><span class="p">,</span>
+        <span class="n">scf_guess</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+            <span class="s2">&quot;ATOMIC&quot;</span><span class="p">,</span> <span class="s2">&quot;CORE&quot;</span><span class="p">,</span> <span class="s2">&quot;HISTORY_RESTART&quot;</span><span class="p">,</span> <span class="s2">&quot;MOPAC&quot;</span><span class="p">,</span> <span class="s2">&quot;NONE&quot;</span><span class="p">,</span> <span class="s2">&quot;RANDOM&quot;</span><span class="p">,</span> <span class="s2">&quot;RESTART&quot;</span><span class="p">,</span> <span class="s2">&quot;SPARSE&quot;</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;RESTART&quot;</span><span class="p">,</span>
         <span class="n">subsections</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
@@ -938,10 +958,18 @@
 <span class="sd">        Initialize the Scf section</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            max_scf: maximum number of SCF loops before terminating</span>
-<span class="sd">            eps_scf: convergence criteria for SCF loop</span>
-<span class="sd">            scf_guess: Initial guess for SCF loop (RESTART will switch to ATOMIC when no restart file</span>
-<span class="sd">                is present)</span>
+<span class="sd">            max_scf (int): Maximum number of SCF loops before terminating. Defaults to 50.</span>
+<span class="sd">            eps_scf (float): Convergence criteria for SCF loop. Defaults to 1e-6.</span>
+<span class="sd">            scf_guess: Initial guess for SCF loop.</span>
+<span class="sd">                &quot;ATOMIC&quot;: Generate an atomic density using the atomic code</span>
+<span class="sd">                &quot;CORE&quot;: Diagonalize the core Hamiltonian for an initial guess.</span>
+<span class="sd">                &quot;HISTORY_RESTART&quot;: Extrapolated from previous RESTART files.</span>
+<span class="sd">                &quot;MOPAC&quot;: Use same guess as MOPAC for semi-empirical methods or a simple diagonal density matrix for</span>
+<span class="sd">                    other methods.</span>
+<span class="sd">                &quot;NONE&quot;: Skip initial guess (only for NON-SCC DFTB).</span>
+<span class="sd">                &quot;RANDOM&quot;: Use random wavefunction coefficients.</span>
+<span class="sd">                &quot;RESTART&quot;: Use the RESTART file as an initial guess (and ATOMIC if not present).</span>
+<span class="sd">                &quot;SPARSE&quot;: Generate a sparse wavefunction using the atomic code (for OT based methods).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">max_scf</span> <span class="o">=</span> <span class="n">max_scf</span>
@@ -1087,13 +1115,25 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">new_prec_each</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
-        <span class="n">preconditioner</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;FULL_SINGLE_INVERSE&quot;</span><span class="p">,</span>
+        <span class="n">preconditioner</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+            <span class="s2">&quot;FULL_ALL&quot;</span><span class="p">,</span> <span class="s2">&quot;FULL_KINETIC&quot;</span><span class="p">,</span> <span class="s2">&quot;FULL_SINGLE&quot;</span><span class="p">,</span> <span class="s2">&quot;FULL_SINGLE_INVERSE&quot;</span><span class="p">,</span> <span class="s2">&quot;FULL_S_INVERSE&quot;</span><span class="p">,</span> <span class="s2">&quot;NONE&quot;</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;FULL_SINGLE_INVERSE&quot;</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
-<span class="sd">            new_prec_each (int): How often to recalculate the preconditioner</span>
-<span class="sd">            preconditioner (str): Preconditioner to use</span>
+<span class="sd">            new_prec_each (int): How often to recalculate the preconditioner.</span>
+<span class="sd">            preconditioner (str): Preconditioner to use.</span>
+<span class="sd">                &quot;FULL_ALL&quot;: Most effective state selective preconditioner based on diagonalization, requires the</span>
+<span class="sd">                    ENERGY_GAP parameter to be an underestimate of the HOMO-LUMO gap. This preconditioner is</span>
+<span class="sd">                    recommended for almost all systems, except very large systems where make_preconditioner would</span>
+<span class="sd">                    dominate the total computational cost.</span>
+<span class="sd">                &quot;FULL_KINETIC&quot;: Cholesky inversion of S and T, fast construction, robust, use for very large systems.</span>
+<span class="sd">                &quot;FULL_SINGLE&quot;: Based on H-eS diagonalisation, not as good as FULL_ALL, but somewhat cheaper to apply.</span>
+<span class="sd">                &quot;FULL_SINGLE_INVERSE&quot;: Based on H-eS cholesky inversion, similar to FULL_SINGLE in preconditioning</span>
+<span class="sd">                    efficiency but cheaper to construct, might be somewhat less robust. Recommended for large systems.</span>
+<span class="sd">                &quot;FULL_S_INVERSE&quot;: Cholesky inversion of S, not as good as FULL_KINETIC, yet equally expensive.</span>
+<span class="sd">                &quot;NONE&quot;: skip preconditioning</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">new_prec_each</span> <span class="o">=</span> <span class="n">new_prec_each</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">preconditioner</span> <span class="o">=</span> <span class="n">preconditioner</span>
@@ -1888,7 +1928,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.cp2k.inputs</a></li> 
       </ul>
@@ -1896,7 +1936,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

@@ -5,10 +5,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.util.string &#8212; pymatgen 2022.0.4 documentation</title>
-    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="../../../_static/basic.css" type="text/css" />
-    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <title>pymatgen.util.string &#8212; pymatgen 2022.0.17 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
     <script src="../../../_static/jquery.js"></script>
     <script src="../../../_static/underscore.js"></script>
     <script src="../../../_static/doctools.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.util.string</a></li> 
       </ul>
@@ -42,8 +42,7 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.util.string</h1><div class="highlight"><pre>
-<span></span><span class="c1"># coding: utf-8</span>
-<span class="c1"># Copyright (c) Pymatgen Development Team.</span>
+<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
 <span class="c1"># Distributed under the terms of the MIT License.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">This module provides utility classes for string operations.</span>
@@ -51,7 +50,6 @@
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">from</span> <span class="nn">fractions</span> <span class="kn">import</span> <span class="n">Fraction</span>
 
-<span class="kn">from</span> <span class="nn">monty.dev</span> <span class="kn">import</span> <span class="n">deprecated</span>
 
 <span class="n">SUBSCRIPT_UNICODE</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;0&quot;</span><span class="p">:</span> <span class="s2">&quot;₀&quot;</span><span class="p">,</span>
@@ -80,6 +78,10 @@
     <span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="s2">&quot;⁺&quot;</span><span class="p">,</span>
     <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="s2">&quot;⁻&quot;</span><span class="p">,</span>
 <span class="p">}</span>
+
+<span class="c1"># TODO: make standalone functions in this module use the same implementation as Stringify</span>
+<span class="c1"># Note: previous deprecations of standalone functions in this module were removed due to</span>
+<span class="c1"># a community need.</span>
 
 
 <div class="viewcode-block" id="Stringify"><a class="viewcode-back" href="../../../pymatgen.util.string.html#pymatgen.util.string.Stringify">[docs]</a><span class="k">class</span> <span class="nc">Stringify</span><span class="p">:</span>
@@ -182,14 +184,40 @@
     <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">afloat</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span></div>
 
 
-<span class="nd">@deprecated</span><span class="p">(</span>
-    <span class="n">message</span><span class="o">=</span><span class="s2">&quot;These methods have been deprecated in favor of using the Stringify mix-in class, which provides &quot;</span>
-    <span class="s2">&quot;to_latex_string, to_unicode_string, etc. They will be removed in v2022.&quot;</span>
-<span class="p">)</span>
-<span class="k">def</span> <span class="nf">latexify</span><span class="p">(</span><span class="n">formula</span><span class="p">):</span>
+<div class="viewcode-block" id="charge_string"><a class="viewcode-back" href="../../../pymatgen.util.string.html#pymatgen.util.string.charge_string">[docs]</a><span class="k">def</span> <span class="nf">charge_string</span><span class="p">(</span><span class="n">charge</span><span class="p">,</span> <span class="n">brackets</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">explicit_one</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a string representing the charge of an Ion. By default, the</span>
+<span class="sd">    charge is placed in brackets with the sign preceding the magnitude, e.g.,</span>
+<span class="sd">    &#39;[+2]&#39;. For uncharged species, the string returned is &#39;(aq)&#39;</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        brackets: whether to enclose the charge in brackets, e.g. [+2]. Default: True</span>
+<span class="sd">        explicit_one: whether to include the number one for monovalent ions, e.g.</span>
+<span class="sd">            +1 rather than +. Default: True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">charge</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">chg_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;+</span><span class="si">{</span><span class="n">formula_double_format</span><span class="p">(</span><span class="n">charge</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">elif</span> <span class="n">charge</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">chg_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;-</span><span class="si">{</span><span class="n">formula_double_format</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">charge</span><span class="p">),</span> <span class="kc">False</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">chg_str</span> <span class="o">=</span> <span class="s2">&quot;(aq)&quot;</span>
+
+    <span class="k">if</span> <span class="n">chg_str</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;+1&quot;</span><span class="p">,</span> <span class="s2">&quot;-1&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">explicit_one</span><span class="p">:</span>
+        <span class="n">chg_str</span> <span class="o">=</span> <span class="n">chg_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;1&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">chg_str</span> <span class="o">!=</span> <span class="s2">&quot;(aq)&quot;</span> <span class="ow">and</span> <span class="n">brackets</span><span class="p">:</span>
+        <span class="n">chg_str</span> <span class="o">=</span> <span class="s2">&quot;[&quot;</span> <span class="o">+</span> <span class="n">chg_str</span> <span class="o">+</span> <span class="s2">&quot;]&quot;</span>
+
+    <span class="k">return</span> <span class="n">chg_str</span></div>
+
+
+<div class="viewcode-block" id="latexify"><a class="viewcode-back" href="../../../pymatgen.util.string.html#pymatgen.util.string.latexify">[docs]</a><span class="k">def</span> <span class="nf">latexify</span><span class="p">(</span><span class="n">formula</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Generates a LaTeX formatted formula. E.g., Fe2O3 is transformed to</span>
 <span class="sd">    Fe$_{2}$O$_{3}$.</span>
+
+<span class="sd">    Note that Composition now has a to_latex_string() method that may</span>
+<span class="sd">    be used instead.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        formula (str): Input formula.</span>
@@ -197,32 +225,30 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        Formula suitable for display as in LaTeX with proper subscripts.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;([A-Za-z\(\)])([\d\.]+)&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;\1$_{\2}$&quot;</span><span class="p">,</span> <span class="n">formula</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;([A-Za-z\(\)])([\d\.]+)&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;\1$_{\2}$&quot;</span><span class="p">,</span> <span class="n">formula</span><span class="p">)</span></div>
 
 
-<span class="nd">@deprecated</span><span class="p">(</span>
-    <span class="n">message</span><span class="o">=</span><span class="s2">&quot;These methods have been deprecated in favor of using the Stringify mix-in class, which provides &quot;</span>
-    <span class="s2">&quot;to_latex_string, to_unicode_string, etc. They will be removed in v2022.&quot;</span>
-<span class="p">)</span>
-<span class="k">def</span> <span class="nf">htmlify</span><span class="p">(</span><span class="n">formula</span><span class="p">):</span>
+<div class="viewcode-block" id="htmlify"><a class="viewcode-back" href="../../../pymatgen.util.string.html#pymatgen.util.string.htmlify">[docs]</a><span class="k">def</span> <span class="nf">htmlify</span><span class="p">(</span><span class="n">formula</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Generates a HTML formatted formula, e.g. Fe2O3 is transformed to</span>
 <span class="sd">    Fe&lt;sub&gt;2&lt;/sub&gt;O&lt;/sub&gt;3&lt;/sub&gt;</span>
 
+<span class="sd">    Note that Composition now has a to_html_string() method that may</span>
+<span class="sd">    be used instead.</span>
+
 <span class="sd">    :param formula:</span>
 <span class="sd">    :return:</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;([A-Za-z\(\)])([\d\.]+)&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;\1&lt;sub&gt;\2&lt;/sub&gt;&quot;</span><span class="p">,</span> <span class="n">formula</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;([A-Za-z\(\)])([\d\.]+)&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;\1&lt;sub&gt;\2&lt;/sub&gt;&quot;</span><span class="p">,</span> <span class="n">formula</span><span class="p">)</span></div>
 
 
-<span class="nd">@deprecated</span><span class="p">(</span>
-    <span class="n">message</span><span class="o">=</span><span class="s2">&quot;These methods have been deprecated in favor of using the Stringify mix-in class, which provides &quot;</span>
-    <span class="s2">&quot;to_latex_string, to_unicode_string, etc. They will be removed in v2022.&quot;</span>
-<span class="p">)</span>
-<span class="k">def</span> <span class="nf">unicodeify</span><span class="p">(</span><span class="n">formula</span><span class="p">):</span>
+<div class="viewcode-block" id="unicodeify"><a class="viewcode-back" href="../../../pymatgen.util.string.html#pymatgen.util.string.unicodeify">[docs]</a><span class="k">def</span> <span class="nf">unicodeify</span><span class="p">(</span><span class="n">formula</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Generates a formula with unicode subscripts, e.g. Fe2O3 is transformed</span>
 <span class="sd">    to Fe₂O₃. Does not support formulae with decimal points.</span>
+
+<span class="sd">    Note that Composition now has a to_unicode_string() method that may</span>
+<span class="sd">    be used instead.</span>
 
 <span class="sd">    :param formula:</span>
 <span class="sd">    :return:</span>
@@ -234,17 +260,16 @@
     <span class="k">for</span> <span class="n">original_subscript</span><span class="p">,</span> <span class="n">subscript_unicode</span> <span class="ow">in</span> <span class="n">SUBSCRIPT_UNICODE</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="n">formula</span> <span class="o">=</span> <span class="n">formula</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">original_subscript</span><span class="p">),</span> <span class="n">subscript_unicode</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">formula</span>
+    <span class="k">return</span> <span class="n">formula</span></div>
 
 
-<span class="nd">@deprecated</span><span class="p">(</span>
-    <span class="n">message</span><span class="o">=</span><span class="s2">&quot;These methods have been deprecated in favor of using the Stringify mix-in class, which provides &quot;</span>
-    <span class="s2">&quot;to_latex_string, to_unicode_string, etc. They will be removed in v2022.&quot;</span>
-<span class="p">)</span>
-<span class="k">def</span> <span class="nf">latexify_spacegroup</span><span class="p">(</span><span class="n">spacegroup_symbol</span><span class="p">):</span>
+<div class="viewcode-block" id="latexify_spacegroup"><a class="viewcode-back" href="../../../pymatgen.util.string.html#pymatgen.util.string.latexify_spacegroup">[docs]</a><span class="k">def</span> <span class="nf">latexify_spacegroup</span><span class="p">(</span><span class="n">spacegroup_symbol</span><span class="p">):</span>
     <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Generates a latex formatted spacegroup. E.g., P2_1/c is converted to</span>
 <span class="sd">    P2$_{1}$/c and P-1 is converted to P$\\overline{1}$.</span>
+
+<span class="sd">    Note that SymmetryGroup now has a to_latex_string() method that may</span>
+<span class="sd">    be called instead.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        spacegroup_symbol (str): A spacegroup symbol</span>
@@ -253,17 +278,16 @@
 <span class="sd">        A latex formatted spacegroup with proper subscripts and overlines.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">sym</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;_(\d+)&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;$_{\1}$&quot;</span><span class="p">,</span> <span class="n">spacegroup_symbol</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;-(\d)&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">overline{\1}$&quot;</span><span class="p">,</span> <span class="n">sym</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;-(\d)&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">overline{\1}$&quot;</span><span class="p">,</span> <span class="n">sym</span><span class="p">)</span></div>
 
 
-<span class="nd">@deprecated</span><span class="p">(</span>
-    <span class="n">message</span><span class="o">=</span><span class="s2">&quot;These methods have been deprecated in favor of using the Stringify mix-in class, which provides &quot;</span>
-    <span class="s2">&quot;to_latex_string, to_unicode_string, etc. They will be removed in v2022.&quot;</span>
-<span class="p">)</span>
-<span class="k">def</span> <span class="nf">unicodeify_spacegroup</span><span class="p">(</span><span class="n">spacegroup_symbol</span><span class="p">):</span>
+<div class="viewcode-block" id="unicodeify_spacegroup"><a class="viewcode-back" href="../../../pymatgen.util.string.html#pymatgen.util.string.unicodeify_spacegroup">[docs]</a><span class="k">def</span> <span class="nf">unicodeify_spacegroup</span><span class="p">(</span><span class="n">spacegroup_symbol</span><span class="p">):</span>
     <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Generates a unicode formatted spacegroup. E.g., P2$_{1}$/c is converted to</span>
 <span class="sd">    P2₁/c and P$\\overline{1}$ is converted to P̅1.</span>
+
+<span class="sd">    Note that SymmetryGroup now has a to_unicode_string() method that</span>
+<span class="sd">    may be called instead.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        spacegroup_symbol (str): A spacegroup symbol as LaTeX</span>
@@ -289,17 +313,16 @@
     <span class="c1"># overline unicode symbol comes after the character with the overline</span>
     <span class="n">symbol</span> <span class="o">=</span> <span class="n">symbol</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;}&quot;</span><span class="p">,</span> <span class="n">overline</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">symbol</span>
+    <span class="k">return</span> <span class="n">symbol</span></div>
 
 
-<span class="nd">@deprecated</span><span class="p">(</span>
-    <span class="n">message</span><span class="o">=</span><span class="s2">&quot;These methods have been deprecated in favor of using the Stringify mix-in class, which provides &quot;</span>
-    <span class="s2">&quot;to_latex_string, to_unicode_string, etc. They will be removed in v2022.&quot;</span>
-<span class="p">)</span>
-<span class="k">def</span> <span class="nf">unicodeify_species</span><span class="p">(</span><span class="n">specie_string</span><span class="p">):</span>
+<div class="viewcode-block" id="unicodeify_species"><a class="viewcode-back" href="../../../pymatgen.util.string.html#pymatgen.util.string.unicodeify_species">[docs]</a><span class="k">def</span> <span class="nf">unicodeify_species</span><span class="p">(</span><span class="n">specie_string</span><span class="p">):</span>
     <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Generates a unicode formatted species string, with appropriate</span>
 <span class="sd">    superscripts for oxidation states.</span>
+
+<span class="sd">    Note that Species now has a to_unicode_string() method that</span>
+<span class="sd">    may be used instead.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        specie_string (str): Species string, e.g. O2-</span>
@@ -314,7 +337,7 @@
     <span class="k">for</span> <span class="n">character</span><span class="p">,</span> <span class="n">unicode_character</span> <span class="ow">in</span> <span class="n">SUPERSCRIPT_UNICODE</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="n">specie_string</span> <span class="o">=</span> <span class="n">specie_string</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">character</span><span class="p">,</span> <span class="n">unicode_character</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">specie_string</span>
+    <span class="k">return</span> <span class="n">specie_string</span></div>
 
 
 <div class="viewcode-block" id="stream_has_colours"><a class="viewcode-back" href="../../../pymatgen.util.string.html#pymatgen.util.string.stream_has_colours">[docs]</a><span class="k">def</span> <span class="nf">stream_has_colours</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
@@ -398,14 +421,14 @@
     <span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">get_el_sp</span>
 
     <span class="k">if</span> <span class="n">disordered_struct</span><span class="o">.</span><span class="n">is_ordered</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Structure is not disordered, &quot;</span> <span class="s2">&quot;so disordered formula not defined.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Structure is not disordered, so disordered formula not defined.&quot;</span><span class="p">)</span>
 
     <span class="n">disordered_site_compositions</span> <span class="o">=</span> <span class="p">{</span><span class="n">site</span><span class="o">.</span><span class="n">species</span> <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="n">disordered_struct</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">site</span><span class="o">.</span><span class="n">is_ordered</span><span class="p">}</span>
 
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">disordered_site_compositions</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="c1"># this probably won&#39;t happen too often</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Ambiguous how to define disordered &quot;</span> <span class="s2">&quot;formula when more than one type of disordered &quot;</span> <span class="s2">&quot;site is present.&quot;</span>
+            <span class="s2">&quot;Ambiguous how to define disordered formula when more than one type of disordered site is present.&quot;</span>
         <span class="p">)</span>
     <span class="n">disordered_site_composition</span> <span class="o">=</span> <span class="n">disordered_site_compositions</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
 
@@ -413,7 +436,7 @@
 
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">disordered_species</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">symbols</span><span class="p">):</span>
         <span class="c1"># this probably won&#39;t happen too often either</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not enough symbols to describe disordered composition: &quot;</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">symbols</span><span class="p">))</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not enough symbols to describe disordered composition: </span><span class="si">{</span><span class="n">symbols</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">symbols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">symbols</span><span class="p">)[</span><span class="mi">0</span> <span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">disordered_species</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
 
     <span class="n">comp</span> <span class="o">=</span> <span class="n">disordered_struct</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">get_el_amt_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
@@ -423,7 +446,7 @@
     <span class="n">disordered_comp</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">variable_map</span> <span class="o">=</span> <span class="p">{}</span>
 
-    <span class="n">total_disordered_occu</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">occu</span> <span class="k">for</span> <span class="n">sp</span><span class="p">,</span> <span class="n">occu</span> <span class="ow">in</span> <span class="n">comp</span> <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span> <span class="ow">in</span> <span class="n">disordered_species</span><span class="p">])</span>
+    <span class="n">total_disordered_occu</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">occu</span> <span class="k">for</span> <span class="n">sp</span><span class="p">,</span> <span class="n">occu</span> <span class="ow">in</span> <span class="n">comp</span> <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span> <span class="ow">in</span> <span class="n">disordered_species</span><span class="p">)</span>
 
     <span class="c1"># composition to get common factor</span>
     <span class="n">factor_comp</span> <span class="o">=</span> <span class="n">disordered_struct</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
@@ -458,7 +481,7 @@
         <span class="n">sub_start</span> <span class="o">=</span> <span class="s2">&quot;&lt;sub&gt;&quot;</span>
         <span class="n">sub_end</span> <span class="o">=</span> <span class="s2">&quot;&lt;/sub&gt;&quot;</span>
     <span class="k">elif</span> <span class="n">fmt</span> <span class="o">!=</span> <span class="s2">&quot;plain&quot;</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported output format, &quot;</span> <span class="s2">&quot;choose from: LaTeX, HTML, plain&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported output format, choose from: LaTeX, HTML, plain&quot;</span><span class="p">)</span>
 
     <span class="n">disordered_formula</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">sp</span><span class="p">,</span> <span class="n">occu</span> <span class="ow">in</span> <span class="n">disordered_comp</span><span class="p">:</span>
@@ -470,7 +493,7 @@
             <span class="k">if</span> <span class="n">fmt</span> <span class="o">!=</span> <span class="s2">&quot;plain&quot;</span><span class="p">:</span>
                 <span class="n">disordered_formula</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub_end</span><span class="p">)</span>
     <span class="n">disordered_formula</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">)</span>
-    <span class="n">disordered_formula</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">=</span><span class="si">{}</span><span class="s2"> &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">formula_double_format</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variable_map</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+    <span class="n">disordered_formula</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">formula_double_format</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variable_map</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
 
     <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">disordered_formula</span><span class="p">))[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
 </pre></div>
@@ -489,7 +512,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.util.string</a></li> 
       </ul>
@@ -497,7 +520,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

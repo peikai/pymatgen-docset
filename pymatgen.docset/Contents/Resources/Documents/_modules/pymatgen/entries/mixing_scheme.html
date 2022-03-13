@@ -1,0 +1,848 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.entries.mixing_scheme &#8212; pymatgen 2022.3.7 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+ 
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-33990148-1']);
+  _gaq.push(['_trackPageview']);
+</script>
+
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.3.7 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../entries.html" accesskey="U">pymatgen.entries</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.entries.mixing_scheme</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.entries.mixing_scheme</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
+<span class="c1"># Distributed under the terms of the MIT License.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module implements Compatibility corrections for mixing runs of different</span>
+<span class="sd">functionals.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="c1"># flake8: ignore=E712</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">groupby</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.phase_diagram</span> <span class="kn">import</span> <span class="n">PhaseDiagram</span>
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.structure_matcher</span> <span class="kn">import</span> <span class="n">StructureMatcher</span>
+<span class="kn">from</span> <span class="nn">pymatgen.entries.compatibility</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Compatibility</span><span class="p">,</span>
+    <span class="n">CompatibilityError</span><span class="p">,</span>
+    <span class="n">MaterialsProject2020Compatibility</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymatgen.entries.computed_entries</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ComputedEntry</span><span class="p">,</span>
+    <span class="n">ComputedStructureEntry</span><span class="p">,</span>
+    <span class="n">ConstantEnergyAdjustment</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymatgen.entries.entry_tools</span> <span class="kn">import</span> <span class="n">EntrySet</span>
+
+<span class="n">MODULE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Ryan Kingsbury&quot;</span>
+<span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2019-2021, The Materials Project&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.1&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;RKingsbury@lbl.gov&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;October 2021&quot;</span>
+
+
+<div class="viewcode-block" id="MaterialsProjectDFTMixingScheme"><a class="viewcode-back" href="../../../pymatgen.entries.mixing_scheme.html#pymatgen.entries.mixing_scheme.MaterialsProjectDFTMixingScheme">[docs]</a><span class="k">class</span> <span class="nc">MaterialsProjectDFTMixingScheme</span><span class="p">(</span><span class="n">Compatibility</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class implements the Materials Project mixing scheme, which allows mixing of</span>
+<span class="sd">    energies from different DFT functionals. Note that this should only be used for</span>
+<span class="sd">    VASP calculations using the MaterialsProject parameters (e.g. MPRelaxSet or</span>
+<span class="sd">    MPScanRelaxSet). Using this compatibility scheme on runs with different parameters</span>
+<span class="sd">    may lead to unexpected results.</span>
+
+<span class="sd">    This is the scheme used by the Materials Project to generate Phase Diagrams containing</span>
+<span class="sd">    a mixture of GGA(+U) and R2SCAN calculations. However in principle it can be used to</span>
+<span class="sd">    mix energies from any two functionals.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">structure_matcher</span><span class="p">:</span> <span class="n">StructureMatcher</span> <span class="o">=</span> <span class="n">StructureMatcher</span><span class="p">(),</span>
+        <span class="n">run_type_1</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;GGA(+U)&quot;</span><span class="p">,</span>
+        <span class="n">run_type_2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;R2SCAN&quot;</span><span class="p">,</span>
+        <span class="n">compat_1</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Compatibility</span><span class="p">]</span> <span class="o">=</span> <span class="n">MaterialsProject2020Compatibility</span><span class="p">(),</span>
+        <span class="n">compat_2</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Compatibility</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">fuzzy_matching</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Instantiate the mixing scheme. The init method creates a generator class that</span>
+<span class="sd">        contains relevant settings (e.g., StrutureMatcher instance, Compatibility settings</span>
+<span class="sd">        for each functional) for processing groups of entries.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure_matcher (StructureMatcher): StructureMatcher object used to determine</span>
+<span class="sd">                whether calculations from different functionals describe the same material.</span>
+<span class="sd">            run_type_1: The first DFT run_type. Typically this is the majority or run type or</span>
+<span class="sd">                the &quot;base case&quot; onto which the other calculations are referenced. Valid choices</span>
+<span class="sd">                are any run_type recognized by Vasprun.run_type, such as &quot;LDA&quot;, &quot;GGA&quot;, &quot;GGA+U&quot;,</span>
+<span class="sd">                &quot;PBEsol&quot;, &quot;SCAN&quot;, or &quot;R2SCAN&quot;. The class will ignore any entries that have a</span>
+<span class="sd">                run_type different than run_type_1 or run_type_2.</span>
+
+<span class="sd">                The list of run_type_1 entries provided to process_entries MUST form a complete</span>
+<span class="sd">                Phase Diagram in order for the mixing scheme to work. If this condition is not</span>
+<span class="sd">                satisfied, processing the entries will fail.</span>
+
+<span class="sd">                Note that the special string &quot;GGA(+U)&quot; (default) will treat both GGA and GGA+U</span>
+<span class="sd">                calculations as a single type. This option exists because GGA/GGA+U mixing is</span>
+<span class="sd">                already handled by MaterialsProject2020Compatibility.</span>
+<span class="sd">            run_type_2: The second DFT run_type. Typically this is the run_type that is &#39;preferred&#39;</span>
+<span class="sd">                but has fewer calculations. If run_type_1 and run_type_2 calculations exist for all</span>
+<span class="sd">                materials, run_type_2 energies will be used (hence the &#39;preferred&#39; status). The class</span>
+<span class="sd">                will ignore any entries that have a run_type different than run_type_1 or run_type_2.</span>
+<span class="sd">            compat_1: Compatibility class used to pre-process entries of run_type_1.</span>
+<span class="sd">                Defaults to MaterialsProjectCompatibility2020.</span>
+<span class="sd">            compat_2: Compatibility class used to pre-process entries of run_type_2.</span>
+<span class="sd">                Defaults to None.</span>
+<span class="sd">            fuzzy_matching: Whether to use less strict structure matching logic for</span>
+<span class="sd">                diatomic elements O2, N2, F2, H2, and Cl2 as well as I and Br. Outputs of DFT</span>
+<span class="sd">                relaxations using</span>
+<span class="sd">                different functionals frequently fail to structure match for these elements</span>
+<span class="sd">                even though they come from the same original material. Fuzzy structure matching</span>
+<span class="sd">                considers the materials equivalent if the formula, number of sites, and</span>
+<span class="sd">                space group are all identical. If there are multiple materials of run_type_2</span>
+<span class="sd">                that satisfy these criteria, the one with lowest energy is considered to</span>
+<span class="sd">                match.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;MP DFT mixing scheme&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">structure_matcher</span> <span class="o">=</span> <span class="n">structure_matcher</span>
+        <span class="k">if</span> <span class="n">run_type_1</span> <span class="o">==</span> <span class="n">run_type_2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;You specified the same run_type </span><span class="si">{</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> for both run_type_1 and run_type_2. &quot;</span>
+                <span class="s2">&quot;The mixing scheme is meaningless unless run_type_1 and run_type_2 are different&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span> <span class="o">=</span> <span class="n">run_type_1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span> <span class="o">=</span> <span class="n">run_type_2</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span> <span class="o">==</span> <span class="s2">&quot;GGA(+U)&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;GGA&quot;</span><span class="p">,</span> <span class="s2">&quot;GGA+U&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span> <span class="o">==</span> <span class="s2">&quot;GGA(+U)&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_2</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;GGA&quot;</span><span class="p">,</span> <span class="s2">&quot;GGA+U&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_2</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">compat_1</span> <span class="o">=</span> <span class="n">compat_1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compat_2</span> <span class="o">=</span> <span class="n">compat_2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fuzzy_matching</span> <span class="o">=</span> <span class="n">fuzzy_matching</span>
+
+<div class="viewcode-block" id="MaterialsProjectDFTMixingScheme.process_entries"><a class="viewcode-back" href="../../../pymatgen.entries.mixing_scheme.html#pymatgen.entries.mixing_scheme.MaterialsProjectDFTMixingScheme.process_entries">[docs]</a>    <span class="k">def</span> <span class="nf">process_entries</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">entries</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ComputedStructureEntry</span><span class="p">,</span> <span class="n">ComputedEntry</span><span class="p">,</span> <span class="nb">list</span><span class="p">],</span>
+        <span class="n">clean</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">mixing_state_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Process a sequence of entries with the DFT mixing scheme. Note</span>
+<span class="sd">        that this method will change the data of the original entries.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            entries: ComputedEntry or [ComputedEntry]. Pass all entries as a single list, even if they are</span>
+<span class="sd">                computed with different functionals or require different preprocessing. This list will</span>
+<span class="sd">                automatically be filtered based on run_type_1 and run_type_2, and processed according to</span>
+<span class="sd">                compat_1 and compat_2.</span>
+
+<span class="sd">                Note that under typical use, when mixing_state_data=None, the entries MUST be</span>
+<span class="sd">                ComputedStructureEntry. They will be matched using structure_matcher.</span>
+<span class="sd">            clean: bool, whether to remove any previously-applied energy adjustments.</span>
+<span class="sd">                If True, all EnergyAdjustment are removed prior to processing the Entry.</span>
+<span class="sd">                Default is True.</span>
+<span class="sd">            verbose: bool, whether to print verbose error messages about the mixing scheme. Default is True.</span>
+<span class="sd">            mixing_state_data: A DataFrame containing information about which Entries</span>
+<span class="sd">                correspond to the same materials, which are stable on the phase diagrams of</span>
+<span class="sd">                the respective run_types, etc. If None (default), it will be generated from the</span>
+<span class="sd">                list of entries using MaterialsProjectDFTMixingScheme.get_mixing_state_data.</span>
+<span class="sd">                This argument is included to facilitate use of the mixing scheme in high-throughput</span>
+<span class="sd">                databases where an alternative to get_mixing_state_data is desirable for performance</span>
+<span class="sd">                reasons. In general, it should always be left at the default value (None) to avoid</span>
+<span class="sd">                inconsistencies between the mixing state data and the properties of the</span>
+<span class="sd">                ComputedStructureEntry in entries.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A list of adjusted entries.  Entries in the original list which</span>
+<span class="sd">            are not compatible are excluded.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">processed_entry_list</span><span class="p">:</span> <span class="n">List</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># We can&#39;t operate on single entries in this scheme</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> cannot process single entries. Supply a list of entries.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">processed_entry_list</span>
+
+        <span class="c1"># if clean is True, remove all previous adjustments from the entry</span>
+        <span class="c1"># this code must be placed before the next block, because we don&#39;t want to remove</span>
+        <span class="c1"># any corrections added by compat_1 or compat_2.</span>
+        <span class="k">if</span> <span class="n">clean</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">ea</span> <span class="ow">in</span> <span class="n">entry</span><span class="o">.</span><span class="n">energy_adjustments</span><span class="p">:</span>
+                    <span class="n">entry</span><span class="o">.</span><span class="n">energy_adjustments</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">ea</span><span class="p">)</span>
+
+        <span class="n">entries_type_1</span><span class="p">,</span> <span class="n">entries_type_2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filter_and_sort_entries</span><span class="p">(</span><span class="n">entries</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">mixing_state_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  Generating mixing state data from provided entries.&quot;</span><span class="p">)</span>
+            <span class="n">mixing_state_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_mixing_state_data</span><span class="p">(</span><span class="n">entries_type_1</span> <span class="o">+</span> <span class="n">entries_type_2</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="c1"># how many stable entries from run_type_1 do we have in run_type_2?</span>
+            <span class="n">hull_entries_2</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">stable_df</span> <span class="o">=</span> <span class="n">mixing_state_data</span><span class="p">[</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;is_stable_1&quot;</span><span class="p">]]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stable_df</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">hull_entries_2</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">stable_df</span><span class="p">[</span><span class="s2">&quot;energy_2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">())</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;  Entries contain </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> calculations for </span><span class="si">{</span><span class="n">hull_entries_2</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">stable_df</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> hull entries.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">hull_entries_2</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">stable_df</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> energies will be adjusted to the </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> scale&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> energies will be adjusted to the </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> scale&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">hull_entries_2</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;  The energy above hull for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> materials at compositions with &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> hull entries will be preserved. For other compositions, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Energies of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> materials will be set equal to those of &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;matching </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> materials&quot;</span>
+                <span class="p">)</span>
+
+        <span class="c1"># the code below is identical to code inside process_entries in the base</span>
+        <span class="c1"># Compatibility class, except that an extra kwarg is passed to get_adjustments</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">entries_type_1</span> <span class="o">+</span> <span class="n">entries_type_2</span><span class="p">:</span>
+            <span class="n">ignore_entry</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="c1"># get the energy adjustments</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">adjustments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_adjustments</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">mixing_state_data</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">CompatibilityError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s2">&quot;WARNING!&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">):</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+                <span class="k">elif</span> <span class="n">verbose</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">ignore_entry</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">continue</span>
+
+            <span class="k">for</span> <span class="n">ea</span> <span class="ow">in</span> <span class="n">adjustments</span><span class="p">:</span>
+                <span class="c1"># Has this correction already been applied?</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">ea</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">cls</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="p">[(</span><span class="n">ea</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">cls</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">ea</span> <span class="ow">in</span> <span class="n">entry</span><span class="o">.</span><span class="n">energy_adjustments</span><span class="p">]:</span>
+                    <span class="c1"># we already applied this exact correction. Do nothing.</span>
+                    <span class="k">pass</span>
+                <span class="k">elif</span> <span class="p">(</span><span class="n">ea</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">cls</span><span class="p">)</span> <span class="ow">in</span> <span class="p">[(</span><span class="n">ea</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">cls</span><span class="p">)</span> <span class="k">for</span> <span class="n">ea</span> <span class="ow">in</span> <span class="n">entry</span><span class="o">.</span><span class="n">energy_adjustments</span><span class="p">]:</span>
+                    <span class="c1"># we already applied a correction with the same name</span>
+                    <span class="c1"># but a different value. Something is wrong.</span>
+                    <span class="n">ignore_entry</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="s2">&quot;Entry </span><span class="si">{}</span><span class="s2"> already has an energy adjustment called </span><span class="si">{}</span><span class="s2">, but its &quot;</span>
+                        <span class="s2">&quot;value differs from the value of </span><span class="si">{:.3f}</span><span class="s2"> calculated here. This &quot;</span>
+                        <span class="s2">&quot;Entry will be discarded.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Add the correction to the energy_adjustments list</span>
+                    <span class="n">entry</span><span class="o">.</span><span class="n">energy_adjustments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ea</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">ignore_entry</span><span class="p">:</span>
+                <span class="n">processed_entry_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="n">count_type_1</span> <span class="o">=</span> <span class="nb">len</span><span class="p">([</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">processed_entry_list</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;run_type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span><span class="p">])</span>
+            <span class="n">count_type_2</span> <span class="o">=</span> <span class="nb">len</span><span class="p">([</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">processed_entry_list</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;run_type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_2</span><span class="p">])</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Processing complete. Mixed entries contain </span><span class="si">{</span><span class="n">count_type_1</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">count_type_2</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> entries.</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">display_entries</span><span class="p">(</span><span class="n">processed_entry_list</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">processed_entry_list</span></div>
+
+<div class="viewcode-block" id="MaterialsProjectDFTMixingScheme.get_adjustments"><a class="viewcode-back" href="../../../pymatgen.entries.mixing_scheme.html#pymatgen.entries.mixing_scheme.MaterialsProjectDFTMixingScheme.get_adjustments">[docs]</a>    <span class="k">def</span> <span class="nf">get_adjustments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entry</span><span class="p">,</span> <span class="n">mixing_state_data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the corrections applied to a particular entry. Note that get_adjustments is not</span>
+<span class="sd">        intended to be called directly in the R2SCAN mixing scheme. Call process_entries instead,</span>
+<span class="sd">        and it will pass the required arguments to get_adjustments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            entry: A ComputedEntry object. The entry must be a member of the list of entries</span>
+<span class="sd">                used to create mixing_state_data.</span>
+<span class="sd">            mixing_state_data: A DataFrame containing information about which Entries</span>
+<span class="sd">                correspond to the same materials, which are stable on the phase diagrams of</span>
+<span class="sd">                the respective run_types, etc. Can be generated from a list of entries using</span>
+<span class="sd">                MaterialsProjectDFTMixingScheme.get_mixing_state_data. This argument is included to</span>
+<span class="sd">                facilitate use of the mixing scheme in high-throughput databases where an alternative</span>
+<span class="sd">                to get_mixing_state_data is desirable for performance reasons. In general, it should</span>
+<span class="sd">                always be left at the default value (None) to avoid inconsistencies between the mixing</span>
+<span class="sd">                state data and the properties of the ComputedStructureEntry.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            [EnergyAdjustment]: Energy adjustments to be applied to entry.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            CompatibilityError if the DFT mixing scheme cannot be applied to the entry.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">adjustments</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ConstantEnergyAdjustment</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">run_type</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_type&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">mixing_state_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                <span class="s2">&quot;WARNING! `mixing_state_data` DataFrame is None. No energy adjustments will be applied.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;hull_energy_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;entry_id_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()):</span>
+                <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;WARNING! </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> entries do not form a complete PhaseDiagram.&quot;</span>
+                    <span class="s2">&quot; No energy adjustments will be applied.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">run_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;WARNING! Invalid run_type </span><span class="si">{</span><span class="n">run_type</span><span class="si">}</span><span class="s2"> for entry </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2">. Must be one of &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_2</span><span class="si">}</span><span class="s2">. This entry will be ignored.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Verify that the entry is included in the mixing state data</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;entry_id_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;entry_id_2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;WARNING! Discarding </span><span class="si">{</span><span class="n">run_type</span><span class="si">}</span><span class="s2"> entry </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;because it was not found in the mixing state data. This can occur when there are duplicate &quot;</span>
+                <span class="s2">&quot;structures. In such cases, only the lowest energy entry with that structure appears in the &quot;</span>
+                <span class="s2">&quot;mixing state data.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Verify that the entry&#39;s energy has not been modified since mixing state data was generated</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">energy_per_atom</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;energy_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">energy_per_atom</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;energy_2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;WARNING! Discarding </span><span class="si">{</span><span class="n">run_type</span><span class="si">}</span><span class="s2"> entry </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="s2">&quot;because it&#39;s energy has been modified since the mixing state data was generated.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Compute the energy correction for mixing. The correction value depends on how many of the</span>
+        <span class="c1"># run_type_1 stable entries are present as run_type_2 calculations</span>
+
+        <span class="c1"># First case - ALL run_type_1 stable entries are present in run_type_2</span>
+        <span class="c1"># In this scenario we construct the hull using run_type_2 energies. We discard any</span>
+        <span class="c1"># run_type_1 entries that already exist in run_type_2 and correct other run_type_1</span>
+        <span class="c1"># energies to have the same e_above_hull on the run_type_2 hull as they had on the run_type_1 hull</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;is_stable_1&quot;</span><span class="p">]][</span><span class="s2">&quot;entry_id_2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">run_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_2</span><span class="p">:</span>  <span class="c1"># pylint: disable=R1705</span>
+                <span class="c1"># For run_type_2 entries, there is no correction</span>
+                <span class="k">return</span> <span class="n">adjustments</span>
+
+            <span class="c1"># Discard GGA ground states whose structures already exist in R2SCAN.</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">df_slice</span> <span class="o">=</span> <span class="n">mixing_state_data</span><span class="p">[(</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;entry_id_1&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="p">)]</span>
+
+                <span class="k">if</span> <span class="n">df_slice</span><span class="p">[</span><span class="s2">&quot;entry_id_2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">():</span>
+                    <span class="c1"># there is a matching run_type_2 entry, so we will discard this entry</span>
+                    <span class="k">if</span> <span class="n">df_slice</span><span class="p">[</span><span class="s2">&quot;is_stable_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">():</span>
+                        <span class="c1"># this is a GGA ground state.</span>
+                        <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Discarding </span><span class="si">{</span><span class="n">run_type</span><span class="si">}</span><span class="s2"> entry </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="si">}</span><span class="s2"> &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;because it is a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> ground state that matches a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> &quot;</span>
+                            <span class="s2">&quot;material.&quot;</span>
+                        <span class="p">)</span>
+
+                    <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Discarding </span><span class="si">{</span><span class="n">run_type</span><span class="si">}</span><span class="s2"> entry </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="si">}</span><span class="s2"> &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;because there is a matching </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> material.&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="c1"># If a GGA is not present in R2SCAN, correct its energy to give the same</span>
+                <span class="c1"># e_above_hull on the R2SCAN hull that it would have on the GGA hull</span>
+                <span class="n">hull_energy_1</span> <span class="o">=</span> <span class="n">df_slice</span><span class="p">[</span><span class="s2">&quot;hull_energy_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">hull_energy_2</span> <span class="o">=</span> <span class="n">df_slice</span><span class="p">[</span><span class="s2">&quot;hull_energy_2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">correction</span> <span class="o">=</span> <span class="p">(</span><span class="n">hull_energy_2</span> <span class="o">-</span> <span class="n">hull_energy_1</span><span class="p">)</span> <span class="o">*</span> <span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">num_atoms</span>
+
+                <span class="n">adjustments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ConstantEnergyAdjustment</span><span class="p">(</span>
+                        <span class="n">correction</span><span class="p">,</span>
+                        <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;MP </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> mixing adjustment&quot;</span><span class="p">,</span>
+                        <span class="bp">cls</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span>
+                        <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Place </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> energy onto the </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> hull&quot;</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">adjustments</span>
+
+        <span class="c1"># Second case - there are run_type_2 energies available for at least some run_type_1</span>
+        <span class="c1"># stable entries. Here, we can correct run_type_2 energies at certain compositions</span>
+        <span class="c1"># to preserve their e_above_hull on the run_type_1 hull</span>
+        <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;is_stable_1&quot;</span><span class="p">]][</span><span class="s2">&quot;entry_id_2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">run_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span><span class="p">:</span>  <span class="c1"># pylint: disable=R1705</span>
+                <span class="n">df_slice</span> <span class="o">=</span> <span class="n">mixing_state_data</span><span class="p">[</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;entry_id_1&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="n">df_slice</span><span class="p">[</span><span class="s2">&quot;entry_id_2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">():</span>
+                    <span class="c1"># there is a matching run_type_2 entry. We should discard this entry</span>
+                    <span class="k">if</span> <span class="n">df_slice</span><span class="p">[</span><span class="s2">&quot;is_stable_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">():</span>
+                        <span class="c1"># this is a GGA ground state.</span>
+                        <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Discarding </span><span class="si">{</span><span class="n">run_type</span><span class="si">}</span><span class="s2"> entry </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="si">}</span><span class="s2"> &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;because it is a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> ground state that matches a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> &quot;</span>
+                            <span class="s2">&quot;material.&quot;</span>
+                        <span class="p">)</span>
+
+                    <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Discarding </span><span class="si">{</span><span class="n">run_type</span><span class="si">}</span><span class="s2"> entry </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="si">}</span><span class="s2"> &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;because there is a matching </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> material&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="c1"># For other run_type_1 entries, there is no correction</span>
+                <span class="k">return</span> <span class="n">adjustments</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># for run_type_2, determine whether there is a run_type_2 ground state at this composition</span>
+                <span class="n">df_slice</span> <span class="o">=</span> <span class="n">mixing_state_data</span><span class="p">[</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;formula&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">df_slice</span><span class="p">[</span><span class="n">df_slice</span><span class="p">[</span><span class="s2">&quot;is_stable_1&quot;</span><span class="p">]][</span><span class="s2">&quot;entry_id_2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()):</span>
+                    <span class="c1"># there is a run_type_2 entry corresponding to the run_type_1 ground state</span>
+                    <span class="c1"># adjust the run_type_2 energy to preserve the e_above_hull</span>
+                    <span class="n">gs_energy_type_2</span> <span class="o">=</span> <span class="n">df_slice</span><span class="p">[</span><span class="n">df_slice</span><span class="p">[</span><span class="s2">&quot;is_stable_1&quot;</span><span class="p">]][</span><span class="s2">&quot;energy_2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                    <span class="n">e_above_hull</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">energy_per_atom</span> <span class="o">-</span> <span class="n">gs_energy_type_2</span>
+                    <span class="n">hull_energy_1</span> <span class="o">=</span> <span class="n">df_slice</span><span class="p">[</span><span class="s2">&quot;hull_energy_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">correction</span> <span class="o">=</span> <span class="p">(</span><span class="n">hull_energy_1</span> <span class="o">+</span> <span class="n">e_above_hull</span> <span class="o">-</span> <span class="n">entry</span><span class="o">.</span><span class="n">energy_per_atom</span><span class="p">)</span> <span class="o">*</span> <span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">num_atoms</span>
+                    <span class="n">adjustments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">ConstantEnergyAdjustment</span><span class="p">(</span>
+                            <span class="n">correction</span><span class="p">,</span>
+                            <span class="mf">0.0</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;MP </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> mixing adjustment&quot;</span><span class="p">,</span>
+                            <span class="bp">cls</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span>
+                            <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Place </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> energy onto the </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> hull&quot;</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="k">return</span> <span class="n">adjustments</span>
+
+                <span class="c1"># this composition is not stable in run_type_1. If the run_type_2 entry matches a run_type_1</span>
+                <span class="c1"># entry, we can adjust the run_type_2 energy to match the run_type_1 energy.</span>
+                <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">df_slice</span><span class="p">[</span><span class="n">df_slice</span><span class="p">[</span><span class="s2">&quot;entry_id_2&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="p">][</span><span class="s2">&quot;entry_id_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()):</span>
+                    <span class="c1"># adjust the energy of the run_type_2 entry to match that of the run_type_1 entry</span>
+                    <span class="n">type_1_energy</span> <span class="o">=</span> <span class="n">df_slice</span><span class="p">[</span><span class="n">df_slice</span><span class="p">[</span><span class="s2">&quot;entry_id_2&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="p">][</span><span class="s2">&quot;energy_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">correction</span> <span class="o">=</span> <span class="p">(</span><span class="n">type_1_energy</span> <span class="o">-</span> <span class="n">entry</span><span class="o">.</span><span class="n">energy_per_atom</span><span class="p">)</span> <span class="o">*</span> <span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">num_atoms</span>
+                    <span class="n">adjustments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">ConstantEnergyAdjustment</span><span class="p">(</span>
+                            <span class="n">correction</span><span class="p">,</span>
+                            <span class="mf">0.0</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;MP </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> mixing adjustment&quot;</span><span class="p">,</span>
+                            <span class="bp">cls</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span>
+                            <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Replace </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> energy with </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> energy&quot;</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="k">return</span> <span class="n">adjustments</span>
+
+                <span class="c1"># there is no run_type_1 entry that matches this material, and no ground state. Discard.</span>
+                <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Discarding </span><span class="si">{</span><span class="n">run_type</span><span class="si">}</span><span class="s2"> entry </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;because there is no matching </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> entry and no </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="s2">&quot;ground state at this composition.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Third case - there are no run_type_2 energies available for any run_type_1</span>
+        <span class="c1"># ground states. There&#39;s no way to use the run_type_2 energies in this case.</span>
+        <span class="k">elif</span> <span class="nb">all</span><span class="p">(</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="n">mixing_state_data</span><span class="p">[</span><span class="s2">&quot;is_stable_1&quot;</span><span class="p">]][</span><span class="s2">&quot;entry_id_2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">run_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span><span class="p">:</span>
+                <span class="c1"># nothing to do for run_type_1, return as is</span>
+                <span class="k">return</span> <span class="n">adjustments</span>
+
+            <span class="c1"># for run_type_2, discard the entry</span>
+            <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Discarding </span><span class="si">{</span><span class="n">run_type</span><span class="si">}</span><span class="s2"> entry </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;because there are no </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> ground states at this composition.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># this statement is here to make pylint happy by guaranteeing a return or raise</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CompatibilityError</span><span class="p">(</span>
+                <span class="s2">&quot;WARNING! If you see this Exception it means you have encountered&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;an edge case in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">. Inspect your input carefully and post a bug report.&quot;</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="MaterialsProjectDFTMixingScheme.get_mixing_state_data"><a class="viewcode-back" href="../../../pymatgen.entries.mixing_scheme.html#pymatgen.entries.mixing_scheme.MaterialsProjectDFTMixingScheme.get_mixing_state_data">[docs]</a>    <span class="k">def</span> <span class="nf">get_mixing_state_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entries</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ComputedStructureEntry</span><span class="p">],</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate internal state data to be passed to get_adjustments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            entries: The list of ComputedStructureEntry to process. It is assumed that the entries have</span>
+<span class="sd">                already been filtered using _filter_and_sort_entries() to remove any irrelevant run types,</span>
+<span class="sd">                apply compat_1 and compat_2, and confirm that all have unique entry_id.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            DataFrame: A pandas DataFrame that contains information associating structures from</span>
+<span class="sd">                different functionals with specific materials and establishing how many run_type_1</span>
+<span class="sd">                ground states have been computed with run_type_2. The DataFrame contains one row</span>
+<span class="sd">                for each distinct material (Structure), with the following columns:</span>
+<span class="sd">                    formula: str the reduced_formula</span>
+<span class="sd">                    spacegroup: int the spacegroup</span>
+<span class="sd">                    num_sites: int the number of sites in the Structure</span>
+<span class="sd">                    entry_id_1: the entry_id of the run_type_1 entry</span>
+<span class="sd">                    entry_id_2: the entry_id of the run_type_2 entry</span>
+<span class="sd">                    run_type_1: Optional[str] the run_type_1 value</span>
+<span class="sd">                    run_type_2: Optional[str] the run_type_2 value</span>
+<span class="sd">                    energy_1: float or nan the ground state energy in run_type_1 in eV/atom</span>
+<span class="sd">                    energy_2: float or nan the ground state energy in run_type_2 in eV/atom</span>
+<span class="sd">                    is_stable_1: bool whether this material is stable on the run_type_1 PhaseDiagram</span>
+<span class="sd">                    hull_energy_1: float or nan the energy of the run_type_1 hull at this composition in eV/atom</span>
+<span class="sd">                    hull_energy_2: float or nan the energy of the run_type_1 hull at this composition in eV/atom</span>
+<span class="sd">            None: Returns None if the supplied ComputedStructureEntry are insufficient for applying</span>
+<span class="sd">                the mixing scheme.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">filtered_entries</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">ComputedStructureEntry</span><span class="p">):</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;Entry </span><span class="si">{}</span><span class="s2"> is not a ComputedStructureEntry and will be&quot;</span>
+                    <span class="s2">&quot;ignored. The DFT mixing scheme requires structures for&quot;</span>
+                    <span class="s2">&quot; all entries&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">filtered_entries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+
+        <span class="c1"># separate by run_type</span>
+        <span class="n">entries_type_1</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">filtered_entries</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;run_type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span><span class="p">]</span>
+        <span class="n">entries_type_2</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">filtered_entries</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;run_type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_2</span><span class="p">]</span>
+
+        <span class="c1"># construct PhaseDiagram for each run_type, if possible</span>
+        <span class="n">pd_type_1</span><span class="p">,</span> <span class="n">pd_type_2</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">pd_type_1</span> <span class="o">=</span> <span class="n">PhaseDiagram</span><span class="p">(</span><span class="n">entries_type_1</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> entries do not form a complete PhaseDiagram.&quot;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">pd_type_2</span> <span class="o">=</span> <span class="n">PhaseDiagram</span><span class="p">(</span><span class="n">entries_type_2</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> entries do not form a complete PhaseDiagram.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Objective: loop through all the entries, group them by structure matching (or fuzzy structure matching</span>
+        <span class="c1"># where relevant). For each group, put a row in a pandas DataFrame with the composition of the run_type_1 entry,</span>
+        <span class="c1"># the run_type_2 entry, whether or not that entry is a ground state (not necessarily on the hull), its energy,</span>
+        <span class="c1"># and the energy of the hull at that composition</span>
+        <span class="n">all_entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">entries_type_1</span><span class="p">)</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">entries_type_2</span><span class="p">)</span>
+        <span class="n">row_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;formula&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;spacegroup&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;num_sites&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;is_stable_1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;entry_id_1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;entry_id_2&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;run_type_1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;run_type_2&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;energy_1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;energy_2&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hull_energy_1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hull_energy_2&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+
+        <span class="k">def</span> <span class="nf">_get_sg</span><span class="p">(</span><span class="n">struc</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+            <span class="sd">&quot;&quot;&quot;helper function to get spacegroup with a loose tolerance&quot;&quot;&quot;</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">struc</span><span class="o">.</span><span class="n">get_space_group_info</span><span class="p">(</span><span class="n">symprec</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="c1"># loop through all structures</span>
+        <span class="c1"># this logic follows emmet.builders.vasp.materials.MaterialsBuilder.filter_and_group_tasks</span>
+        <span class="n">structures</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">all_entries</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">structure</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">entry_id</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span>
+            <span class="n">structures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+        <span class="c1"># First group by composition, then by spacegroup number, then by structure matching</span>
+        <span class="k">for</span> <span class="n">comp</span><span class="p">,</span> <span class="n">compgroup</span> <span class="ow">in</span> <span class="n">groupby</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">structures</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">composition</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">composition</span><span class="p">):</span>
+            <span class="n">l_compgroup</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">compgroup</span><span class="p">)</span>
+            <span class="c1"># group by spacegroup, then by number of sites (for diatmics) or by structure matching</span>
+            <span class="k">for</span> <span class="n">sg</span><span class="p">,</span> <span class="n">pregroup</span> <span class="ow">in</span> <span class="n">groupby</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">l_compgroup</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">_get_sg</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">_get_sg</span><span class="p">):</span>
+                <span class="n">l_pregroup</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">pregroup</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">comp</span><span class="o">.</span><span class="n">reduced_formula</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;O2&quot;</span><span class="p">,</span> <span class="s2">&quot;H2&quot;</span><span class="p">,</span> <span class="s2">&quot;Cl2&quot;</span><span class="p">,</span> <span class="s2">&quot;F2&quot;</span><span class="p">,</span> <span class="s2">&quot;N2&quot;</span><span class="p">,</span> <span class="s2">&quot;I&quot;</span><span class="p">,</span> <span class="s2">&quot;Br&quot;</span><span class="p">,</span> <span class="s2">&quot;H2O&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">fuzzy_matching</span><span class="p">:</span>
+                    <span class="c1"># group by number of sites</span>
+                    <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">sitegroup</span> <span class="ow">in</span> <span class="n">groupby</span><span class="p">(</span>
+                        <span class="nb">sorted</span><span class="p">(</span><span class="n">l_pregroup</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">num_sites</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">num_sites</span>
+                    <span class="p">):</span>
+                        <span class="n">l_sitegroup</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sitegroup</span><span class="p">)</span>
+                        <span class="n">row_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_populate_df_row</span><span class="p">(</span><span class="n">l_sitegroup</span><span class="p">,</span> <span class="n">comp</span><span class="p">,</span> <span class="n">sg</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">pd_type_1</span><span class="p">,</span> <span class="n">pd_type_2</span><span class="p">,</span> <span class="n">all_entries</span><span class="p">)</span>
+                        <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure_matcher</span><span class="o">.</span><span class="n">group_structures</span><span class="p">(</span><span class="n">l_pregroup</span><span class="p">):</span>
+                        <span class="n">grp</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+                        <span class="n">n</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">num_sites</span>
+                        <span class="c1"># StructureMatcher.group_structures returns a list of lists,</span>
+                        <span class="c1"># so each group should be a list containing matched structures</span>
+                        <span class="n">row_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_populate_df_row</span><span class="p">(</span><span class="n">grp</span><span class="p">,</span> <span class="n">comp</span><span class="p">,</span> <span class="n">sg</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">pd_type_1</span><span class="p">,</span> <span class="n">pd_type_2</span><span class="p">,</span> <span class="n">all_entries</span><span class="p">))</span>
+
+        <span class="n">mixing_state_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">row_list</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">)</span>
+        <span class="n">mixing_state_data</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;formula&quot;</span><span class="p">,</span> <span class="s2">&quot;energy_1&quot;</span><span class="p">,</span> <span class="s2">&quot;spacegroup&quot;</span><span class="p">,</span> <span class="s2">&quot;num_sites&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">mixing_state_data</span></div>
+
+    <span class="k">def</span> <span class="nf">_filter_and_sort_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entries</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Given a single list of entries, separate them by run_type and return two lists, one containin</span>
+<span class="sd">        only entries of each run_type</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">filtered_entries</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">entry</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_type&quot;</span><span class="p">):</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;Entry </span><span class="si">{}</span><span class="s2"> is missing parameters.run_type! This field&quot;</span>
+                    <span class="s2">&quot;is required. This entry will be ignored.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_type&quot;</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_2</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Invalid run_type </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;run_type&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2"> for entry </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2">. Must be one of &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_2</span><span class="si">}</span><span class="s2">. This entry will be ignored.&quot;</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Entry_id for </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span><span class="si">}</span><span class="s2"> entry </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> is invalid. &quot;</span>
+                    <span class="s2">&quot;Unique entry_ids are required for every ComputedStructureEntry. This entry will be ignored.&quot;</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">filtered_entries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+
+        <span class="n">filtered_entry_ids</span> <span class="o">=</span> <span class="p">{</span><span class="n">e</span><span class="o">.</span><span class="n">entry_id</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">filtered_entries</span><span class="p">}</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">filtered_entry_ids</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">filtered_entries</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The provided ComputedStructureEntry do not all have unique entry_ids.&quot;</span>
+                <span class="s2">&quot; Unique entry_ids are required for every ComputedStructureEntry.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># separate by run_type</span>
+        <span class="n">entries_type_1</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">filtered_entries</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;run_type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span><span class="p">]</span>
+        <span class="n">entries_type_2</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">filtered_entries</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;run_type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_2</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Processing </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">entries_type_1</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">entries_type_2</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> entries...&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># preprocess entries with any corrections</span>
+        <span class="c1"># make an EntrySet to enable some useful methods like .chemsys and .is_ground_state</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compat_1</span><span class="p">:</span>
+            <span class="n">entries_type_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compat_1</span><span class="o">.</span><span class="n">process_entries</span><span class="p">(</span><span class="n">entries_type_1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;  Processed </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">entries_type_1</span><span class="p">)</span><span class="si">}</span><span class="s2"> compatible </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> entries with &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">compat_1</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+        <span class="n">entries_type_1</span> <span class="o">=</span> <span class="n">EntrySet</span><span class="p">(</span><span class="n">entries_type_1</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compat_2</span><span class="p">:</span>
+            <span class="n">entries_type_2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compat_2</span><span class="o">.</span><span class="n">process_entries</span><span class="p">(</span><span class="n">entries_type_2</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;  Processed </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">entries_type_2</span><span class="p">)</span><span class="si">}</span><span class="s2"> compatible </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> entries with &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">compat_2</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+        <span class="n">entries_type_2</span> <span class="o">=</span> <span class="n">EntrySet</span><span class="p">(</span><span class="n">entries_type_2</span><span class="p">)</span>
+
+        <span class="c1"># make sure both sets of entries belong to the same chemical system</span>
+        <span class="c1"># assuming there are any gga entries at all</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries_type_1</span><span class="o">.</span><span class="n">chemsys</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">chemsys</span> <span class="o">=</span> <span class="n">entries_type_1</span><span class="o">.</span><span class="n">chemsys</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">entries_type_2</span><span class="o">.</span><span class="n">chemsys</span> <span class="o">&lt;=</span> <span class="n">entries_type_1</span><span class="o">.</span><span class="n">chemsys</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_2</span><span class="si">}</span><span class="s2"> entries chemical system </span><span class="si">{</span><span class="n">entries_type_2</span><span class="o">.</span><span class="n">chemsys</span><span class="si">}</span><span class="s2"> is larger than &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> entries chemical system </span><span class="si">{</span><span class="n">entries_type_1</span><span class="o">.</span><span class="n">chemsys</span><span class="si">}</span><span class="s2">. Entries outside the &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">run_type_1</span><span class="si">}</span><span class="s2"> chemical system will be discarded&quot;</span>
+                <span class="p">)</span>
+                <span class="n">entries_type_2</span> <span class="o">=</span> <span class="n">entries_type_2</span><span class="o">.</span><span class="n">get_subset_in_chemsys</span><span class="p">(</span><span class="n">chemsys</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># if only run_type_2 entries are present, then they define the chemsys</span>
+            <span class="n">chemsys</span> <span class="o">=</span> <span class="n">entries_type_2</span><span class="o">.</span><span class="n">chemsys</span>
+
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Entries belong to the </span><span class="si">{</span><span class="n">chemsys</span><span class="si">}</span><span class="s2"> chemical system&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">entries_type_1</span><span class="p">),</span> <span class="nb">list</span><span class="p">(</span><span class="n">entries_type_2</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_populate_df_row</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">struct_group</span><span class="p">,</span> <span class="n">comp</span><span class="p">,</span> <span class="n">sg</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">pd_type_1</span><span class="p">,</span> <span class="n">pd_type_2</span><span class="p">,</span> <span class="n">all_entries</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        helper function to populate a row of the mixing state DataFrame, given</span>
+<span class="sd">        a list of matched structures</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># within the group of matched structures, keep the lowest energy entry from</span>
+        <span class="c1"># each run_type</span>
+        <span class="n">entries_type_1</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">e</span>
+                <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">all_entries</span>
+                <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">entry_id</span> <span class="ow">in</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">entry_id</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">struct_group</span><span class="p">]</span> <span class="ow">and</span> <span class="n">e</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;run_type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_1</span>
+            <span class="p">),</span>
+            <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">energy_per_atom</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">first_entry</span> <span class="o">=</span> <span class="n">entries_type_1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries_type_1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="n">entries_type_2</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">e</span>
+                <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">all_entries</span>
+                <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">entry_id</span> <span class="ow">in</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">entry_id</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">struct_group</span><span class="p">]</span> <span class="ow">and</span> <span class="n">e</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;run_type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_rtypes_2</span>
+            <span class="p">),</span>
+            <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">energy_per_atom</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">second_entry</span> <span class="o">=</span> <span class="n">entries_type_2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries_type_2</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="c1"># generate info for the DataFrame</span>
+        <span class="n">stable_1</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="n">id1</span> <span class="o">=</span> <span class="n">first_entry</span><span class="o">.</span><span class="n">entry_id</span> <span class="k">if</span> <span class="n">first_entry</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">id2</span> <span class="o">=</span> <span class="n">second_entry</span><span class="o">.</span><span class="n">entry_id</span> <span class="k">if</span> <span class="n">second_entry</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">rt1</span> <span class="o">=</span> <span class="n">first_entry</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;run_type&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">first_entry</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">rt2</span> <span class="o">=</span> <span class="n">second_entry</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;run_type&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">second_entry</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="c1"># are the entries the lowest energy at this composition?</span>
+        <span class="n">energy_1</span> <span class="o">=</span> <span class="n">first_entry</span><span class="o">.</span><span class="n">energy_per_atom</span> <span class="k">if</span> <span class="n">first_entry</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="n">energy_2</span> <span class="o">=</span> <span class="n">second_entry</span><span class="o">.</span><span class="n">energy_per_atom</span> <span class="k">if</span> <span class="n">second_entry</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="c1"># are they stable?</span>
+        <span class="k">if</span> <span class="n">pd_type_1</span><span class="p">:</span>
+            <span class="n">stable_1</span> <span class="o">=</span> <span class="n">first_entry</span> <span class="ow">in</span> <span class="n">pd_type_1</span><span class="o">.</span><span class="n">stable_entries</span>
+
+        <span class="c1"># get the respective hull energies at this composition, if available</span>
+        <span class="n">hull_energy_1</span><span class="p">,</span> <span class="n">hull_energy_2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="k">if</span> <span class="n">pd_type_1</span><span class="p">:</span>
+            <span class="n">hull_energy_1</span> <span class="o">=</span> <span class="n">pd_type_1</span><span class="o">.</span><span class="n">get_hull_energy_per_atom</span><span class="p">(</span><span class="n">comp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">pd_type_2</span><span class="p">:</span>
+            <span class="n">hull_energy_2</span> <span class="o">=</span> <span class="n">pd_type_2</span><span class="o">.</span><span class="n">get_hull_energy_per_atom</span><span class="p">(</span><span class="n">comp</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">comp</span><span class="o">.</span><span class="n">reduced_formula</span><span class="p">,</span>
+            <span class="n">sg</span><span class="p">,</span>
+            <span class="n">n</span><span class="p">,</span>
+            <span class="n">stable_1</span><span class="p">,</span>
+            <span class="n">id1</span><span class="p">,</span>
+            <span class="n">id2</span><span class="p">,</span>
+            <span class="n">rt1</span><span class="p">,</span>
+            <span class="n">rt2</span><span class="p">,</span>
+            <span class="n">energy_1</span><span class="p">,</span>
+            <span class="n">energy_2</span><span class="p">,</span>
+            <span class="n">hull_energy_1</span><span class="p">,</span>
+            <span class="n">hull_energy_2</span><span class="p">,</span>
+        <span class="p">]</span>
+
+<div class="viewcode-block" id="MaterialsProjectDFTMixingScheme.display_entries"><a class="viewcode-back" href="../../../pymatgen.entries.mixing_scheme.html#pymatgen.entries.mixing_scheme.MaterialsProjectDFTMixingScheme.display_entries">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">display_entries</span><span class="p">(</span><span class="n">entries</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate a pretty printout of key properties of a list of ComputedEntry</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">entries</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">entries</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">energy_per_atom</span><span class="p">))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">pd</span> <span class="o">=</span> <span class="n">PhaseDiagram</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;</span><span class="si">{:&lt;12}{:&lt;12}{:&lt;12}{:&lt;10}{:&lt;8}</span><span class="s2"> </span><span class="si">{:&lt;9}</span><span class="s2"> </span><span class="si">{:&lt;9}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="s2">&quot;entry_id&quot;</span><span class="p">,</span> <span class="s2">&quot;formula&quot;</span><span class="p">,</span> <span class="s2">&quot;spacegroup&quot;</span><span class="p">,</span> <span class="s2">&quot;run_type&quot;</span><span class="p">,</span> <span class="s2">&quot;eV/atom&quot;</span><span class="p">,</span> <span class="s2">&quot;corr/atom&quot;</span><span class="p">,</span> <span class="s2">&quot;e_above_hull&quot;</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">{:&lt;12}{:&lt;12}{:&lt;12}{:&lt;10}{:&lt;8.3f}</span><span class="s2"> </span><span class="si">{:&lt;9.3f}</span><span class="s2"> </span><span class="si">{:&lt;9.3f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">e</span><span class="o">.</span><span class="n">entry_id</span><span class="p">,</span>
+                    <span class="n">e</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span><span class="p">,</span>
+                    <span class="n">e</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">get_space_group_info</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="n">e</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;run_type&quot;</span><span class="p">],</span>
+                    <span class="n">e</span><span class="o">.</span><span class="n">energy_per_atom</span><span class="p">,</span>
+                    <span class="n">e</span><span class="o">.</span><span class="n">correction</span> <span class="o">/</span> <span class="n">e</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">num_atoms</span><span class="p">,</span>
+                    <span class="n">pd</span><span class="o">.</span><span class="n">get_e_above_hull</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.3.7 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../entries.html" >pymatgen.entries</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.entries.mixing_scheme</a></li> 
+      </ul>
+    </div>
+
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
+    </div>
+<div class="footer">This page uses <a href="http://analytics.google.com/">
+Google Analytics</a> to collect statistics. You can disable it by blocking
+the JavaScript coming from www.google-analytics.com.
+<script type="text/javascript">
+  (function() {
+    var ga = document.createElement('script');
+    ga.src = ('https:' == document.location.protocol ?
+              'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    ga.setAttribute('async', 'true');
+    document.documentElement.firstChild.appendChild(ga);
+  })();
+</script>
+</div>
+
+  </body>
+</html>

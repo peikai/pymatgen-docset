@@ -5,10 +5,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.phonopy &#8212; pymatgen 2022.0.4 documentation</title>
-    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="../../../_static/basic.css" type="text/css" />
-    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <title>pymatgen.io.phonopy &#8212; pymatgen 2022.0.17 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
     <script src="../../../_static/jquery.js"></script>
     <script src="../../../_static/underscore.js"></script>
     <script src="../../../_static/doctools.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.phonopy</a></li> 
       </ul>
@@ -42,17 +42,18 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.io.phonopy</h1><div class="highlight"><pre>
-<span></span><span class="c1"># coding: utf-8</span>
-<span class="c1"># Copyright (c) Pymatgen Development Team.</span>
+<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
 <span class="c1"># Distributed under the terms of the MIT License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Module for interfacing with phonopy, see https://atztogo.github.io/phonopy/</span>
 <span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Any</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">monty.dev</span> <span class="kn">import</span> <span class="n">requires</span>
 <span class="kn">from</span> <span class="nn">monty.serialization</span> <span class="kn">import</span> <span class="n">loadfn</span>
+<span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="kn">import</span> <span class="n">InterpolatedUnivariateSpline</span>
 
 <span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">Lattice</span><span class="p">,</span> <span class="n">Structure</span>
 <span class="kn">from</span> <span class="nn">pymatgen.phonon.bandstructure</span> <span class="kn">import</span> <span class="p">(</span>
@@ -60,6 +61,7 @@
     <span class="n">PhononBandStructureSymmLine</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">pymatgen.phonon.dos</span> <span class="kn">import</span> <span class="n">CompletePhononDos</span><span class="p">,</span> <span class="n">PhononDos</span>
+<span class="kn">from</span> <span class="nn">pymatgen.phonon.gruneisen</span> <span class="kn">import</span> <span class="n">GruneisenParameter</span><span class="p">,</span> <span class="n">GruneisenPhononBandStructureSymmLine</span>
 <span class="kn">from</span> <span class="nn">pymatgen.symmetry.bandstructure</span> <span class="kn">import</span> <span class="n">HighSymmKpath</span>
 
 <span class="k">try</span><span class="p">:</span>
@@ -68,9 +70,11 @@
     <span class="kn">from</span> <span class="nn">phonopy.structure.atoms</span> <span class="kn">import</span> <span class="n">PhonopyAtoms</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="n">Phonopy</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">write_disp_yaml</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">PhonopyAtoms</span> <span class="o">=</span> <span class="kc">None</span>
 
 
-<div class="viewcode-block" id="get_pmg_structure"><a class="viewcode-back" href="../../../pymatgen.io.phonopy.html#pymatgen.io.phonopy.get_pmg_structure">[docs]</a><span class="nd">@requires</span><span class="p">(</span><span class="n">Phonopy</span><span class="p">,</span> <span class="s2">&quot;phonopy not installed!&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="get_pmg_structure"><a class="viewcode-back" href="../../../pymatgen.io.phonopy.html#pymatgen.io.phonopy.get_pmg_structure">[docs]</a><span class="nd">@requires</span><span class="p">(</span><span class="n">Phonopy</span><span class="p">,</span> <span class="s2">&quot;phonopy not installed!&quot;</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 <span class="k">def</span> <span class="nf">get_pmg_structure</span><span class="p">(</span><span class="n">phonopy_structure</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert a PhonopyAtoms object to pymatgen Structure object.</span>
@@ -95,7 +99,7 @@
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="get_phonopy_structure"><a class="viewcode-back" href="../../../pymatgen.io.phonopy.html#pymatgen.io.phonopy.get_phonopy_structure">[docs]</a><span class="nd">@requires</span><span class="p">(</span><span class="n">Phonopy</span><span class="p">,</span> <span class="s2">&quot;phonopy not installed!&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="get_phonopy_structure"><a class="viewcode-back" href="../../../pymatgen.io.phonopy.html#pymatgen.io.phonopy.get_phonopy_structure">[docs]</a><span class="nd">@requires</span><span class="p">(</span><span class="n">Phonopy</span><span class="p">,</span> <span class="s2">&quot;phonopy not installed!&quot;</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 <span class="k">def</span> <span class="nf">get_phonopy_structure</span><span class="p">(</span><span class="n">pmg_structure</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert a pymatgen Structure object to a PhonopyAtoms object.</span>
@@ -474,6 +478,249 @@
     <span class="n">labels_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">a</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">kpoints</span><span class="p">)</span> <span class="k">if</span> <span class="n">a</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">}</span>
 
     <span class="k">return</span> <span class="n">PhononBandStructureSymmLine</span><span class="p">(</span><span class="n">kpoints</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="p">,</span> <span class="n">labels_dict</span><span class="o">=</span><span class="n">labels_dict</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_gruneisenparameter"><a class="viewcode-back" href="../../../pymatgen.io.phonopy.html#pymatgen.io.phonopy.get_gruneisenparameter">[docs]</a><span class="k">def</span> <span class="nf">get_gruneisenparameter</span><span class="p">(</span><span class="n">gruneisen_path</span><span class="p">,</span> <span class="n">structure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">structure_path</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GruneisenParameter</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get Gruneisen object from gruneisen.yaml file, as obtained from phonopy (Frequencies in THz!).</span>
+<span class="sd">    The order is structure &gt; structure path &gt; structure from gruneisen dict.</span>
+<span class="sd">    Newer versions of phonopy include the structure in the yaml file,</span>
+<span class="sd">    the structure/structure_path is kept for compatibility.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        gruneisen_path: Path to gruneisen.yaml file (frequencies have to be in THz!)</span>
+<span class="sd">        structure: pymatgen Structure object</span>
+<span class="sd">        structure_path: path to structure in a file (e.g., POSCAR)</span>
+
+<span class="sd">    Returns: GruneisenParameter object</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">gruneisen_dict</span> <span class="o">=</span> <span class="n">loadfn</span><span class="p">(</span><span class="n">gruneisen_path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">structure_path</span> <span class="ow">and</span> <span class="n">structure</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">structure</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">structure_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">structure</span> <span class="o">=</span> <span class="n">get_structure_from_dict</span><span class="p">(</span><span class="n">gruneisen_dict</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Please provide a structure.</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">qpts</span><span class="p">,</span> <span class="n">multiplicities</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">gruneisen</span> <span class="o">=</span> <span class="p">([]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+    <span class="n">phonopy_labels_dict</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">gruneisen_dict</span><span class="p">[</span><span class="s2">&quot;phonon&quot;</span><span class="p">]:</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;q-position&quot;</span><span class="p">]</span>
+        <span class="n">qpts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;multiplicity&quot;</span> <span class="ow">in</span> <span class="n">p</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;multiplicity&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">multiplicities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="n">bands</span><span class="p">,</span> <span class="n">gruneisenband</span> <span class="o">=</span> <span class="p">([]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">]:</span>
+            <span class="n">bands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">&quot;frequency&quot;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="s2">&quot;gruneisen&quot;</span> <span class="ow">in</span> <span class="n">b</span><span class="p">:</span>
+                <span class="n">gruneisenband</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">&quot;gruneisen&quot;</span><span class="p">])</span>
+        <span class="n">frequencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
+        <span class="n">gruneisen</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gruneisenband</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;label&quot;</span> <span class="ow">in</span> <span class="n">p</span><span class="p">:</span>
+            <span class="n">phonopy_labels_dict</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;q-position&quot;</span><span class="p">]</span>
+
+    <span class="n">qpts_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">qpts</span><span class="p">)</span>
+    <span class="n">multiplicities_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">multiplicities</span><span class="p">)</span>
+    <span class="c1"># transpose to match the convention in PhononBandStructure</span>
+    <span class="n">frequencies_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">frequencies</span><span class="p">)</span>
+    <span class="n">gruneisen_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">gruneisen</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">GruneisenParameter</span><span class="p">(</span>
+        <span class="n">gruneisen</span><span class="o">=</span><span class="n">gruneisen_np</span><span class="p">,</span>
+        <span class="n">qpoints</span><span class="o">=</span><span class="n">qpts_np</span><span class="p">,</span>
+        <span class="n">multiplicities</span><span class="o">=</span><span class="n">multiplicities_np</span><span class="p">,</span>
+        <span class="n">frequencies</span><span class="o">=</span><span class="n">frequencies_np</span><span class="p">,</span>
+        <span class="n">structure</span><span class="o">=</span><span class="n">structure</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_gs_ph_bs_symm_line_from_dict"><a class="viewcode-back" href="../../../pymatgen.io.phonopy.html#pymatgen.io.phonopy.get_gs_ph_bs_symm_line_from_dict">[docs]</a><span class="k">def</span> <span class="nf">get_gs_ph_bs_symm_line_from_dict</span><span class="p">(</span>
+    <span class="n">gruneisen_dict</span><span class="p">,</span> <span class="n">structure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">structure_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">labels_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fit</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GruneisenPhononBandStructureSymmLine</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a pymatgen GruneisenPhononBandStructure object from the dictionary</span>
+<span class="sd">    extracted by the gruneisen.yaml file produced by phonopy. The labels</span>
+<span class="sd">    will be extracted from the dictionary, if present. If the &#39;eigenvector&#39;</span>
+<span class="sd">    key is found the eigendisplacements will be calculated according to the</span>
+<span class="sd">    formula::</span>
+
+<span class="sd">        exp(2*pi*i*(frac_coords \\dot q) / sqrt(mass) * v</span>
+
+<span class="sd">    and added to the object. A fit algorithm can be used to replace diverging</span>
+<span class="sd">    Gruneisen values close to gamma.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        gruneisen_dict (dict): the dictionary extracted from the gruneisen.yaml file</span>
+<span class="sd">        structure (Structure): pymatgen structure object</span>
+<span class="sd">        structure_path: path to structure file</span>
+<span class="sd">        labels_dict (dict): dict that links a qpoint in frac coords to a label.</span>
+<span class="sd">            Its value will replace the data contained in the band.yaml.</span>
+<span class="sd">        fit (bool): Substitute Grueneisen parameters close to the gamma point</span>
+<span class="sd">            with points obtained from a fit to a spline if the derivate from</span>
+<span class="sd">            a smooth curve (i.e. if the slope changes by more than 200% in the</span>
+<span class="sd">            range of 10% around the gamma point).</span>
+<span class="sd">            These derivations occur because of very small frequencies</span>
+<span class="sd">            (and therefore numerical inaccuracies) close to gamma.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">structure_path</span> <span class="ow">and</span> <span class="n">structure</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">structure</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">structure_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">structure</span> <span class="o">=</span> <span class="n">get_structure_from_dict</span><span class="p">(</span><span class="n">gruneisen_dict</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Please provide a structure.</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">qpts</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">gruneisenparameters</span> <span class="o">=</span> <span class="p">([]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+    <span class="n">phonopy_labels_dict</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># type: Dict[Any,Any]</span>
+
+    <span class="k">if</span> <span class="n">fit</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">pa</span> <span class="ow">in</span> <span class="n">gruneisen_dict</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">]:</span>
+            <span class="n">phonon</span> <span class="o">=</span> <span class="n">pa</span><span class="p">[</span><span class="s2">&quot;phonon&quot;</span><span class="p">]</span>  <span class="c1"># This is a list</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">pa</span><span class="p">[</span><span class="s2">&quot;phonon&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">pa</span><span class="p">[</span><span class="s2">&quot;phonon&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">start</span><span class="p">[</span><span class="s2">&quot;q-position&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]:</span>  <span class="c1"># Gamma at start of band</span>
+                <span class="n">qpts_temp</span><span class="p">,</span> <span class="n">frequencies_temp</span><span class="p">,</span> <span class="n">gruneisen_temp</span><span class="p">,</span> <span class="n">distance</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="p">[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+                <span class="p">)</span>  <span class="c1"># type: List[Any],List[Any],List[Any],List[Any]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pa</span><span class="p">[</span><span class="s2">&quot;nqpoint&quot;</span><span class="p">]):</span>
+                    <span class="n">bands</span><span class="p">,</span> <span class="n">gruneisenband</span> <span class="o">=</span> <span class="p">([]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>  <span class="c1"># type: List[Any], List[Any]</span>
+                    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">phonon</span><span class="p">[</span><span class="n">pa</span><span class="p">[</span><span class="s2">&quot;nqpoint&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="s2">&quot;band&quot;</span><span class="p">]:</span>
+                        <span class="n">bands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">&quot;frequency&quot;</span><span class="p">])</span>
+                        <span class="c1"># Fraction of leftover points in current band</span>
+                        <span class="n">gruen</span> <span class="o">=</span> <span class="n">_extrapolate_grun</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">distance</span><span class="p">,</span> <span class="n">gruneisen_temp</span><span class="p">,</span> <span class="n">gruneisenband</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">pa</span><span class="p">)</span>
+                        <span class="n">gruneisenband</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gruen</span><span class="p">)</span>
+                    <span class="n">q</span> <span class="o">=</span> <span class="n">phonon</span><span class="p">[</span><span class="n">pa</span><span class="p">[</span><span class="s2">&quot;nqpoint&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="s2">&quot;q-position&quot;</span><span class="p">]</span>
+                    <span class="n">qpts_temp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+                    <span class="n">d</span> <span class="o">=</span> <span class="n">phonon</span><span class="p">[</span><span class="n">pa</span><span class="p">[</span><span class="s2">&quot;nqpoint&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="s2">&quot;distance&quot;</span><span class="p">]</span>
+                    <span class="n">distance</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+                    <span class="n">frequencies_temp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
+                    <span class="n">gruneisen_temp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gruneisenband</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="s2">&quot;label&quot;</span> <span class="ow">in</span> <span class="n">phonon</span><span class="p">[</span><span class="n">pa</span><span class="p">[</span><span class="s2">&quot;nqpoint&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]:</span>
+                        <span class="n">phonopy_labels_dict</span><span class="p">[</span><span class="n">phonon</span><span class="p">[</span><span class="n">pa</span><span class="p">[</span><span class="s2">&quot;nqpoint&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]][</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">phonon</span><span class="p">[</span><span class="n">pa</span><span class="p">[</span><span class="s2">&quot;nqpoint&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span>
+                            <span class="s2">&quot;q-position&quot;</span>
+                        <span class="p">]</span>
+
+                <span class="n">qpts</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">qpts_temp</span><span class="p">)))</span>
+                <span class="n">frequencies</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">frequencies_temp</span><span class="p">)))</span>
+                <span class="n">gruneisenparameters</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">gruneisen_temp</span><span class="p">)))</span>
+
+            <span class="k">elif</span> <span class="n">end</span><span class="p">[</span><span class="s2">&quot;q-position&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]:</span>  <span class="c1"># Gamma at end of band</span>
+                <span class="n">distance</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pa</span><span class="p">[</span><span class="s2">&quot;nqpoint&quot;</span><span class="p">]):</span>
+                    <span class="n">bands</span><span class="p">,</span> <span class="n">gruneisenband</span> <span class="o">=</span> <span class="p">([]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;band&quot;</span><span class="p">]:</span>
+                        <span class="n">bands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">&quot;frequency&quot;</span><span class="p">])</span>
+                        <span class="n">gruen</span> <span class="o">=</span> <span class="n">_extrapolate_grun</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">distance</span><span class="p">,</span> <span class="n">gruneisenparameters</span><span class="p">,</span> <span class="n">gruneisenband</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">pa</span><span class="p">)</span>
+                        <span class="n">gruneisenband</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gruen</span><span class="p">)</span>
+                    <span class="n">q</span> <span class="o">=</span> <span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;q-position&quot;</span><span class="p">]</span>
+                    <span class="n">qpts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+                    <span class="n">d</span> <span class="o">=</span> <span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;distance&quot;</span><span class="p">]</span>
+                    <span class="n">distance</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+                    <span class="n">frequencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
+                    <span class="n">gruneisenparameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gruneisenband</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="s2">&quot;label&quot;</span> <span class="ow">in</span> <span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                        <span class="n">phonopy_labels_dict</span><span class="p">[</span><span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;label&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;q-position&quot;</span><span class="p">]</span>
+
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># No Gamma in band</span>
+                <span class="n">distance</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pa</span><span class="p">[</span><span class="s2">&quot;nqpoint&quot;</span><span class="p">]):</span>
+                    <span class="n">bands</span><span class="p">,</span> <span class="n">gruneisenband</span> <span class="o">=</span> <span class="p">([]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;band&quot;</span><span class="p">]:</span>
+                        <span class="n">bands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">&quot;frequency&quot;</span><span class="p">])</span>
+                        <span class="n">gruneisenband</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">&quot;gruneisen&quot;</span><span class="p">])</span>
+                    <span class="n">q</span> <span class="o">=</span> <span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;q-position&quot;</span><span class="p">]</span>
+                    <span class="n">qpts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+                    <span class="n">d</span> <span class="o">=</span> <span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;distance&quot;</span><span class="p">]</span>
+                    <span class="n">distance</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+                    <span class="n">frequencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
+                    <span class="n">gruneisenparameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gruneisenband</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="s2">&quot;label&quot;</span> <span class="ow">in</span> <span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                        <span class="n">phonopy_labels_dict</span><span class="p">[</span><span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;label&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">phonon</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;q-position&quot;</span><span class="p">]</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">pa</span> <span class="ow">in</span> <span class="n">gruneisen_dict</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pa</span><span class="p">[</span><span class="s2">&quot;phonon&quot;</span><span class="p">]:</span>
+                <span class="n">q</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;q-position&quot;</span><span class="p">]</span>
+                <span class="n">qpts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+                <span class="n">bands</span><span class="p">,</span> <span class="n">gruneisen_bands</span> <span class="o">=</span> <span class="p">([]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">]:</span>
+                    <span class="n">bands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">&quot;frequency&quot;</span><span class="p">])</span>
+                    <span class="n">gruneisen_bands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">&quot;gruneisen&quot;</span><span class="p">])</span>
+                <span class="n">frequencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
+                <span class="n">gruneisenparameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gruneisen_bands</span><span class="p">)</span>
+                <span class="k">if</span> <span class="s2">&quot;label&quot;</span> <span class="ow">in</span> <span class="n">p</span><span class="p">:</span>
+                    <span class="n">phonopy_labels_dict</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;q-position&quot;</span><span class="p">]</span>
+
+    <span class="n">qpts_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">qpts</span><span class="p">)</span>
+    <span class="c1"># transpose to match the convention in PhononBandStructure</span>
+    <span class="n">frequencies_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">frequencies</span><span class="p">)</span>
+    <span class="n">gruneisenparameters_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">gruneisenparameters</span><span class="p">)</span>
+
+    <span class="n">rec_latt</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">reciprocal_lattice</span>
+    <span class="n">labels_dict</span> <span class="o">=</span> <span class="n">labels_dict</span> <span class="ow">or</span> <span class="n">phonopy_labels_dict</span>
+    <span class="k">return</span> <span class="n">GruneisenPhononBandStructureSymmLine</span><span class="p">(</span>
+        <span class="n">qpoints</span><span class="o">=</span><span class="n">qpts_np</span><span class="p">,</span>
+        <span class="n">frequencies</span><span class="o">=</span><span class="n">frequencies_np</span><span class="p">,</span>
+        <span class="n">gruneisenparameters</span><span class="o">=</span><span class="n">gruneisenparameters_np</span><span class="p">,</span>
+        <span class="n">lattice</span><span class="o">=</span><span class="n">rec_latt</span><span class="p">,</span>
+        <span class="n">labels_dict</span><span class="o">=</span><span class="n">labels_dict</span><span class="p">,</span>
+        <span class="n">structure</span><span class="o">=</span><span class="n">structure</span><span class="p">,</span>
+        <span class="n">eigendisplacements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_extrapolate_grun</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">distance</span><span class="p">,</span> <span class="n">gruneisenparameter</span><span class="p">,</span> <span class="n">gruneisenband</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">pa</span><span class="p">):</span>
+    <span class="n">leftover_fraction</span> <span class="o">=</span> <span class="p">(</span><span class="n">pa</span><span class="p">[</span><span class="s2">&quot;nqpoint&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">pa</span><span class="p">[</span><span class="s2">&quot;nqpoint&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">leftover_fraction</span> <span class="o">&lt;</span> <span class="mf">0.1</span><span class="p">:</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">&quot;gruneisen&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">gruneisenparameter</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="n">gruneisenband</span><span class="p">)])</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span>
+            <span class="n">gruneisenparameter</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="n">gruneisenband</span><span class="p">)]</span> <span class="o">-</span> <span class="n">gruneisenparameter</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="n">gruneisenband</span><span class="p">)]</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">diff</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">distance</span><span class="p">)))</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">gruneisenband</span><span class="p">)]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">gruneisenparameter</span><span class="p">]</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="p">:]</span>  <span class="c1"># Only elements of current band</span>
+            <span class="n">extrapolator</span> <span class="o">=</span> <span class="n">InterpolatedUnivariateSpline</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+            <span class="n">g_extrapolated</span> <span class="o">=</span> <span class="n">extrapolator</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">distance</span><span class="p">))</span>
+            <span class="n">gruen</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">g_extrapolated</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">gruen</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="s2">&quot;gruneisen&quot;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">gruen</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="s2">&quot;gruneisen&quot;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">gruen</span>
+
+
+<div class="viewcode-block" id="get_gruneisen_ph_bs_symm_line"><a class="viewcode-back" href="../../../pymatgen.io.phonopy.html#pymatgen.io.phonopy.get_gruneisen_ph_bs_symm_line">[docs]</a><span class="k">def</span> <span class="nf">get_gruneisen_ph_bs_symm_line</span><span class="p">(</span><span class="n">gruneisen_path</span><span class="p">,</span> <span class="n">structure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">structure_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">labels_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fit</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a pymatgen GruneisenPhononBandStructure from a band.yaml file.</span>
+<span class="sd">    The labels will be extracted from the dictionary, if present.</span>
+<span class="sd">    If the &#39;eigenvector&#39; key is found the eigendisplacements will be</span>
+<span class="sd">    calculated according to the formula:</span>
+<span class="sd">    \\exp(2*pi*i*(frac_coords \\dot q) / sqrt(mass) * v</span>
+<span class="sd">     and added to the object.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        gruneisen_path: path to the band.yaml file</span>
+<span class="sd">        structure: pymaten Structure object</span>
+<span class="sd">        structure_path: path to a structure file (e.g., POSCAR)</span>
+<span class="sd">        labels_dict: dict that links a qpoint in frac coords to a label.</span>
+<span class="sd">        fit: Substitute Grueneisen parameters close to the gamma point</span>
+<span class="sd">            with points obtained from a fit to a spline if the derivate from</span>
+<span class="sd">            a smooth curve (i.e. if the slope changes by more than 200% in the</span>
+<span class="sd">            range of 10% around the gamma point).</span>
+<span class="sd">            These derivations occur because of very small frequencies</span>
+<span class="sd">            (and therefore numerical inaccuracies) close to gamma.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">get_gs_ph_bs_symm_line_from_dict</span><span class="p">(</span><span class="n">loadfn</span><span class="p">(</span><span class="n">gruneisen_path</span><span class="p">),</span> <span class="n">structure</span><span class="p">,</span> <span class="n">structure_path</span><span class="p">,</span> <span class="n">labels_dict</span><span class="p">,</span> <span class="n">fit</span><span class="p">)</span></div>
 </pre></div>
 
             <div class="clearer"></div>
@@ -490,7 +737,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.phonopy</a></li> 
       </ul>
@@ -498,7 +745,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

@@ -5,10 +5,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.ext.optimade &#8212; pymatgen 2022.0.4 documentation</title>
-    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="../../../_static/basic.css" type="text/css" />
-    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <title>pymatgen.ext.optimade &#8212; pymatgen 2022.0.17 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
     <script src="../../../_static/jquery.js"></script>
     <script src="../../../_static/underscore.js"></script>
     <script src="../../../_static/doctools.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.ext.optimade</a></li> 
       </ul>
@@ -46,27 +46,47 @@
 <span class="sd">Optimade support.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span>
+<span class="kn">from</span> <span class="nn">os.path</span> <span class="kn">import</span> <span class="n">join</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Set</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span>
 
 <span class="kn">import</span> <span class="nn">requests</span>
 
+<span class="c1"># from retrying import retry</span>
+
 <span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">DummySpecies</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
+<span class="kn">from</span> <span class="nn">pymatgen.util.provenance</span> <span class="kn">import</span> <span class="n">StructureNL</span>
 <span class="kn">from</span> <span class="nn">pymatgen.util.sequence</span> <span class="kn">import</span> <span class="n">PBar</span>
+
+
+<span class="c1"># TODO: importing optimade-python-tool&#39;s data structures will make more sense</span>
+<span class="n">Provider</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;Provider&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;base_url&quot;</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">,</span> <span class="s2">&quot;homepage&quot;</span><span class="p">,</span> <span class="s2">&quot;prefix&quot;</span><span class="p">])</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+<span class="n">_logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">_handler</span><span class="p">)</span>
+<span class="n">_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="OptimadeRester"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester">[docs]</a><span class="k">class</span> <span class="nc">OptimadeRester</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Class to call OPTIMADE-compliant APIs, see optimade.org</span>
+<span class="sd">    Class to call OPTIMADE-compliant APIs, see https://optimade.org and [1].</span>
 
-<span class="sd">    This class is ready to use but considered in-development and subject to change</span>
-<span class="sd">    until the OPTIMADE paper is published.</span>
+<span class="sd">    This class is ready to use but considered in-development and subject to change.</span>
+
+<span class="sd">    [1] Andersen, C.W., *et al*.</span>
+<span class="sd">        OPTIMADE, an API for exchanging materials data.</span>
+<span class="sd">        Sci Data 8, 217 (2021). https://doi.org/10.1038/s41597-021-00974-z</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># regenerate on-demand from official providers.json using OptimadeRester.refresh_aliases()</span>
     <span class="c1"># these aliases are provided as a convenient shortcut for users of the OptimadeRester class</span>
-    <span class="n">aliases</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">aliases</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;aflow&quot;</span><span class="p">:</span> <span class="s2">&quot;http://aflow.org/API/optimade/&quot;</span><span class="p">,</span>
         <span class="s2">&quot;cod&quot;</span><span class="p">:</span> <span class="s2">&quot;https://www.crystallography.net/cod/optimade&quot;</span><span class="p">,</span>
         <span class="s2">&quot;mcloud.2dstructures&quot;</span><span class="p">:</span> <span class="s2">&quot;https://aiida.materialscloud.org/2dstructures/optimade&quot;</span><span class="p">,</span>
@@ -81,13 +101,18 @@
         <span class="s2">&quot;mcloud.tc-applicability&quot;</span><span class="p">:</span> <span class="s2">&quot;https://aiida.materialscloud.org/tc-applicability/optimade&quot;</span><span class="p">,</span>
         <span class="s2">&quot;mcloud.threedd&quot;</span><span class="p">:</span> <span class="s2">&quot;https://aiida.materialscloud.org/3dd/optimade&quot;</span><span class="p">,</span>
         <span class="s2">&quot;mp&quot;</span><span class="p">:</span> <span class="s2">&quot;https://optimade.materialsproject.org&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mpds&quot;</span><span class="p">:</span> <span class="s2">&quot;https://api.mpds.io&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;nmd&quot;</span><span class="p">:</span> <span class="s2">&quot;https://nomad-lab.eu/prod/rae/optimade/&quot;</span><span class="p">,</span>
         <span class="s2">&quot;odbx&quot;</span><span class="p">:</span> <span class="s2">&quot;https://optimade.odbx.science&quot;</span><span class="p">,</span>
         <span class="s2">&quot;omdb.omdb_production&quot;</span><span class="p">:</span> <span class="s2">&quot;http://optimade.openmaterialsdb.se&quot;</span><span class="p">,</span>
         <span class="s2">&quot;oqmd&quot;</span><span class="p">:</span> <span class="s2">&quot;http://oqmd.org/optimade/&quot;</span><span class="p">,</span>
         <span class="s2">&quot;tcod&quot;</span><span class="p">:</span> <span class="s2">&quot;https://www.crystallography.net/tcod/optimade&quot;</span><span class="p">,</span>
     <span class="p">}</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alias_or_structure_resource_url</span><span class="o">=</span><span class="s2">&quot;mp&quot;</span><span class="p">):</span>
+    <span class="c1"># The set of OPTIMADE fields that are required to define a `pymatgen.core.Structure`</span>
+    <span class="n">mandatory_response_fields</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;lattice_vectors&quot;</span><span class="p">,</span> <span class="s2">&quot;cartesian_site_positions&quot;</span><span class="p">,</span> <span class="s2">&quot;species&quot;</span><span class="p">,</span> <span class="s2">&quot;species_at_sites&quot;</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">aliases_or_resource_urls</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        OPTIMADE is an effort to provide a standardized interface to retrieve information</span>
 <span class="sd">        from many different materials science databases.</span>
@@ -97,7 +122,7 @@
 <span class="sd">        as a way to quickly search an endpoint in a way familiar to users of pymatgen without</span>
 <span class="sd">        needing to know the full OPTIMADE specification.</span>
 
-<span class="sd">        For advanced usage, please see the OPTIMADE documentation at optimate.org and</span>
+<span class="sd">        For advanced usage, please see the OPTIMADE documentation at optimade.org and</span>
 <span class="sd">        consider calling the APIs directly.</span>
 
 <span class="sd">        For convenience, known OPTIMADE endpoints have been given aliases in pymatgen to save</span>
@@ -111,22 +136,79 @@
 <span class="sd">        at optimade.org, call the refresh_aliases() method.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            alias_or_structure_resource_url: the alias or structure resource URL</span>
+<span class="sd">            aliases_or_resource_urls: the alias or structure resource URL or a list of</span>
+<span class="sd">            aliases or resource URLs, if providing the resource URL directly it should not</span>
+<span class="sd">            be an index, this interface can only currently access the &quot;v1/structures&quot;</span>
+<span class="sd">            information from the specified resource URL</span>
+<span class="sd">            timeout: number of seconds before an attempted request is abandoned, a good</span>
+<span class="sd">            timeout is useful when querying many providers, some of which may be offline</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># TODO: maybe we should use the nice pydantic models from optimade-python-tools</span>
         <span class="c1">#  for response validation, and use the Lark parser for filter validation</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_timeout</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># seconds</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeout</span> <span class="o">=</span> <span class="n">timeout</span>  <span class="c1"># seconds</span>
 
-        <span class="k">if</span> <span class="n">alias_or_structure_resource_url</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">resource</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">[</span><span class="n">alias_or_structure_resource_url</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">resource</span> <span class="o">=</span> <span class="n">alias_or_structure_resource_url</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">aliases_or_resource_urls</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">aliases_or_resource_urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">aliases_or_resource_urls</span><span class="p">]</span>
+
+        <span class="c1"># this stores a dictionary with keys provider id (in the same format as the aliases)</span>
+        <span class="c1"># and values as the corresponding URL</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resources</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">aliases_or_resource_urls</span><span class="p">:</span>
+            <span class="n">aliases_or_resource_urls</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Connecting to all known OPTIMADE providers, this will be slow. Please connect to only the &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;OPTIMADE providers you want to query. Choose from: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">alias_or_resource_url</span> <span class="ow">in</span> <span class="n">aliases_or_resource_urls</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="n">alias_or_resource_url</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="n">alias_or_resource_url</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">[</span><span class="n">alias_or_resource_url</span><span class="p">]</span>
+
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_provider</span><span class="p">(</span><span class="n">alias_or_resource_url</span><span class="p">):</span>
+
+                <span class="c1"># TODO: unclear what the key should be here, the &quot;prefix&quot; is for the root provider,</span>
+                <span class="c1"># may need to walk back to the index for the given provider to find the correct identifier</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="p">[</span><span class="n">alias_or_resource_url</span><span class="p">]</span> <span class="o">=</span> <span class="n">alias_or_resource_url</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The following is not a known alias or a valid url: </span><span class="si">{</span><span class="n">alias_or_resource_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_providers</span> <span class="o">=</span> <span class="p">{</span><span class="n">url</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_provider</span><span class="p">(</span><span class="n">provider_url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span> <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">values</span><span class="p">()}</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;OptimadeRester connected to: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">values</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span>
+
+<div class="viewcode-block" id="OptimadeRester.describe"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.describe">[docs]</a>    <span class="k">def</span> <span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Provides human-readable information about the resources being searched by the OptimadeRester.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">provider_text</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="p">(</span><span class="n">provider</span> <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_providers</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="n">provider</span><span class="p">)))</span>
+        <span class="n">description</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;OptimadeRester connected to:</span><span class="se">\n</span><span class="si">{</span><span class="n">provider_text</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="n">description</span></div>
+
+    <span class="c1"># @retry(stop_max_attempt_number=3, wait_random_min=1000, wait_random_max=2000)</span>
+    <span class="k">def</span> <span class="nf">_get_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieves JSON, will attempt to (politely) try again on failure subject to a</span>
+<span class="sd">        random delay and a maximum number of attempts.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_timeout</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_build_filter</span><span class="p">(</span>
-        <span class="n">elements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nelements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nsites</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">chemical_formula_anonymous</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">chemical_formula_hill</span><span class="o">=</span><span class="kc">None</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">nelements</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">nsites</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">chemical_formula_anonymous</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">chemical_formula_hill</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Convenience method to build an OPTIMADE filter.</span>
@@ -162,14 +244,14 @@
 
 <div class="viewcode-block" id="OptimadeRester.get_structures"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.get_structures">[docs]</a>    <span class="k">def</span> <span class="nf">get_structures</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">elements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">nelements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">nsites</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">chemical_formula_anonymous</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">chemical_formula_hill</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Structure</span><span class="p">]:</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">nelements</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">nsites</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">chemical_formula_anonymous</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">chemical_formula_hill</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Structure</span><span class="p">]]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Retrieve structures from the OPTIMADE database.</span>
+<span class="sd">        Retrieve Structures from OPTIMADE providers.</span>
 
 <span class="sd">        Not all functionality of OPTIMADE is currently exposed in this convenience method. To</span>
 <span class="sd">        use a custom filter, call get_structures_with_filter().</span>
@@ -181,7 +263,7 @@
 <span class="sd">            chemical_formula_anonymous: Anonymous chemical formula</span>
 <span class="sd">            chemical_formula_hill: Chemical formula following Hill convention</span>
 
-<span class="sd">        Returns: Dict of Structures keyed by that database&#39;s id system</span>
+<span class="sd">        Returns: Dict of (Dict Structures keyed by that database&#39;s id system) keyed by provider</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">optimade_filter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_filter</span><span class="p">(</span>
@@ -194,7 +276,48 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_structures_with_filter</span><span class="p">(</span><span class="n">optimade_filter</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="OptimadeRester.get_structures_with_filter"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.get_structures_with_filter">[docs]</a>    <span class="k">def</span> <span class="nf">get_structures_with_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimade_filter</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Structure</span><span class="p">]:</span>
+<div class="viewcode-block" id="OptimadeRester.get_snls"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.get_snls">[docs]</a>    <span class="k">def</span> <span class="nf">get_snls</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">nelements</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">nsites</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">chemical_formula_anonymous</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">chemical_formula_hill</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">additional_response_fields</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StructureNL</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve StructureNL from OPTIMADE providers.</span>
+
+<span class="sd">        A StructureNL is an object provided by pymatgen which combines Structure with</span>
+<span class="sd">        associated metadata, such as the URL is was downloaded from and any additional namespaced</span>
+<span class="sd">        data.</span>
+
+<span class="sd">        Not all functionality of OPTIMADE is currently exposed in this convenience method. To</span>
+<span class="sd">        use a custom filter, call get_structures_with_filter().</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            elements: List of elements</span>
+<span class="sd">            nelements: Number of elements, e.g. 4 or [2, 5] for the range &gt;=2 and &lt;=5</span>
+<span class="sd">            nsites: Number of sites, e.g. 4 or [2, 5] for the range &gt;=2 and &lt;=5</span>
+<span class="sd">            chemical_formula_anonymous: Anonymous chemical formula</span>
+<span class="sd">            chemical_formula_hill: Chemical formula following Hill convention</span>
+<span class="sd">            additional_response_fields: Any additional fields desired from the OPTIMADE API,</span>
+<span class="sd">            these will be stored under the `&#39;_optimade&#39;` key in each `StructureNL.data` dictionary.</span>
+
+<span class="sd">        Returns: Dict of (Dict of StructureNLs keyed by that database&#39;s id system) keyed by provider</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">optimade_filter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_filter</span><span class="p">(</span>
+            <span class="n">elements</span><span class="o">=</span><span class="n">elements</span><span class="p">,</span>
+            <span class="n">nelements</span><span class="o">=</span><span class="n">nelements</span><span class="p">,</span>
+            <span class="n">nsites</span><span class="o">=</span><span class="n">nsites</span><span class="p">,</span>
+            <span class="n">chemical_formula_anonymous</span><span class="o">=</span><span class="n">chemical_formula_anonymous</span><span class="p">,</span>
+            <span class="n">chemical_formula_hill</span><span class="o">=</span><span class="n">chemical_formula_hill</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_snls_with_filter</span><span class="p">(</span><span class="n">optimade_filter</span><span class="p">,</span> <span class="n">additional_response_fields</span><span class="o">=</span><span class="n">additional_response_fields</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OptimadeRester.get_structures_with_filter"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.get_structures_with_filter">[docs]</a>    <span class="k">def</span> <span class="nf">get_structures_with_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimade_filter</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Structure</span><span class="p">]]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get structures satisfying a given OPTIMADE filter.</span>
 
@@ -204,27 +327,75 @@
 <span class="sd">        Returns: Dict of Structures keyed by that database&#39;s id system</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="n">fields</span> <span class="o">=</span> <span class="s2">&quot;response_fields=lattice_vectors,cartesian_site_positions,species,species_at_sites&quot;</span>
+        <span class="n">all_snls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_snls_with_filter</span><span class="p">(</span><span class="n">optimade_filter</span><span class="p">)</span>
+        <span class="n">all_structures</span> <span class="o">=</span> <span class="p">{}</span>
 
-        <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">resource</span><span class="si">}</span><span class="s2">/v1/structures?filter=</span><span class="si">{</span><span class="n">optimade_filter</span><span class="si">}</span><span class="s2">&amp;fields=</span><span class="si">{</span><span class="n">fields</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">for</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">snls_dict</span> <span class="ow">in</span> <span class="n">all_snls</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">all_structures</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">snl</span><span class="o">.</span><span class="n">structure</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">snl</span> <span class="ow">in</span> <span class="n">snls_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
-        <span class="n">json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_timeout</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">all_structures</span></div>
 
-        <span class="n">structures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_structures_from_resource</span><span class="p">(</span><span class="n">json</span><span class="p">)</span>
+<div class="viewcode-block" id="OptimadeRester.get_snls_with_filter"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.get_snls_with_filter">[docs]</a>    <span class="k">def</span> <span class="nf">get_snls_with_filter</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">optimade_filter</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">additional_response_fields</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StructureNL</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get structures satisfying a given OPTIMADE filter.</span>
 
-        <span class="k">if</span> <span class="s2">&quot;next&quot;</span> <span class="ow">in</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">][</span><span class="s2">&quot;next&quot;</span><span class="p">]:</span>
-            <span class="n">pbar</span> <span class="o">=</span> <span class="n">PBar</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">json</span><span class="p">[</span><span class="s2">&quot;meta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data_returned&quot;</span><span class="p">))</span>
-            <span class="k">while</span> <span class="s2">&quot;next&quot;</span> <span class="ow">in</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">][</span><span class="s2">&quot;next&quot;</span><span class="p">]:</span>
-                <span class="n">json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">][</span><span class="s2">&quot;next&quot;</span><span class="p">],</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_timeout</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-                <span class="n">structures</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_structures_from_resource</span><span class="p">(</span><span class="n">json</span><span class="p">))</span>
-                <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">structures</span><span class="p">))</span>
+<span class="sd">        Args:</span>
+<span class="sd">            filter: An OPTIMADE-compliant filter</span>
 
-        <span class="k">return</span> <span class="n">structures</span></div>
+<span class="sd">        Returns: Dict of Structures keyed by that database&#39;s id system</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">all_snls</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="n">fields</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle_response_fields</span><span class="p">(</span><span class="n">additional_response_fields</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">resource</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+
+            <span class="n">url</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">resource</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;v1/structures?filter=</span><span class="si">{</span><span class="n">optimade_filter</span><span class="si">}</span><span class="s2">&amp;response_fields=</span><span class="si">{</span><span class="n">fields</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+
+                <span class="n">json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_json</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+
+                <span class="n">structures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_snls_from_resource</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
+
+                <span class="n">pbar</span> <span class="o">=</span> <span class="n">PBar</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">json</span><span class="p">[</span><span class="s2">&quot;meta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data_returned&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">structures</span><span class="p">))</span>
+
+                <span class="c1"># TODO: check spec for `more_data_available` boolean, may simplify this conditional</span>
+                <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;links&quot;</span> <span class="ow">in</span> <span class="n">json</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;next&quot;</span> <span class="ow">in</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">])</span> <span class="ow">and</span> <span class="p">(</span><span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">][</span><span class="s2">&quot;next&quot;</span><span class="p">]):</span>
+                    <span class="k">while</span> <span class="s2">&quot;next&quot;</span> <span class="ow">in</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">][</span><span class="s2">&quot;next&quot;</span><span class="p">]:</span>
+                        <span class="n">next_link</span> <span class="o">=</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">][</span><span class="s2">&quot;next&quot;</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">next_link</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;href&quot;</span> <span class="ow">in</span> <span class="n">next_link</span><span class="p">:</span>
+                            <span class="n">next_link</span> <span class="o">=</span> <span class="n">next_link</span><span class="p">[</span><span class="s2">&quot;href&quot;</span><span class="p">]</span>
+                        <span class="n">json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_json</span><span class="p">(</span><span class="n">next_link</span><span class="p">)</span>
+                        <span class="n">additional_structures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_snls_from_resource</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
+                        <span class="n">structures</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">additional_structures</span><span class="p">)</span>
+                        <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">additional_structures</span><span class="p">))</span>
+
+                <span class="k">if</span> <span class="n">structures</span><span class="p">:</span>
+
+                    <span class="n">all_snls</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span> <span class="o">=</span> <span class="n">structures</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+
+                <span class="c1"># TODO: manually inspect failures to either (a) correct a bug or (b) raise more appropriate error</span>
+
+                <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Could not retrieve required information from provider </span><span class="si">{</span><span class="n">identifier</span><span class="si">}</span><span class="s2"> and url </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">all_snls</span></div>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_get_structures_from_resource</span><span class="p">(</span><span class="n">json</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_snls_from_resource</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StructureNL</span><span class="p">]:</span>
 
-        <span class="n">structures</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">snls</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="n">exceptions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
 
         <span class="k">def</span> <span class="nf">_sanitize_symbol</span><span class="p">(</span><span class="n">symbol</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">symbol</span> <span class="o">==</span> <span class="s2">&quot;vacancy&quot;</span><span class="p">:</span>
@@ -242,6 +413,7 @@
         <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]:</span>
 
             <span class="c1"># TODO: check the spec! and remove this try/except (are all providers following spec?)</span>
+            <span class="c1"># e.g. can check data[&quot;type&quot;] == &quot;structures&quot;</span>
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="c1"># e.g. COD</span>
@@ -251,7 +423,24 @@
                     <span class="n">coords</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">][</span><span class="s2">&quot;cartesian_site_positions&quot;</span><span class="p">],</span>
                     <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="p">)</span>
-                <span class="n">structures</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">structure</span>
+                <span class="c1"># Grab any custom fields or non-mandatory fields if they were requested</span>
+                <span class="n">namespaced_data</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="n">k</span><span class="p">:</span> <span class="n">v</span>
+                    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;lattice_vectors&quot;</span><span class="p">,</span> <span class="s2">&quot;species&quot;</span><span class="p">,</span> <span class="s2">&quot;cartesian_site_positions&quot;</span><span class="p">}</span>
+                <span class="p">}</span>
+
+                <span class="c1"># TODO: follow `references` to add reference information here</span>
+                <span class="n">snl</span> <span class="o">=</span> <span class="n">StructureNL</span><span class="p">(</span>
+                    <span class="n">structure</span><span class="p">,</span>
+                    <span class="n">authors</span><span class="o">=</span><span class="p">{},</span>
+                    <span class="n">history</span><span class="o">=</span><span class="p">[{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">identifier</span><span class="p">,</span> <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">url</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]}}],</span>
+                    <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;_optimade&quot;</span><span class="p">:</span> <span class="n">namespaced_data</span><span class="p">},</span>
+                <span class="p">)</span>
+
+                <span class="n">snls</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">snl</span>
+
+            <span class="c1"># TODO: bare exception, remove...</span>
             <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
 
                 <span class="k">try</span><span class="p">:</span>
@@ -262,31 +451,101 @@
                         <span class="n">coords</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">][</span><span class="s2">&quot;cartesian_site_positions&quot;</span><span class="p">],</span>
                         <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="p">)</span>
-                    <span class="n">structures</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">structure</span>
-                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                    <span class="k">pass</span>
+                    <span class="c1"># Grab any custom fields or non-mandatory fields if they were requested</span>
+                    <span class="n">namespaced_data</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="n">k</span><span class="p">:</span> <span class="n">v</span>
+                        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;lattice_vectors&quot;</span><span class="p">,</span> <span class="s2">&quot;species&quot;</span><span class="p">,</span> <span class="s2">&quot;cartesian_site_positions&quot;</span><span class="p">}</span>
+                    <span class="p">}</span>
 
-        <span class="k">return</span> <span class="n">structures</span>
+                    <span class="c1"># TODO: follow `references` to add reference information here</span>
+                    <span class="n">snl</span> <span class="o">=</span> <span class="n">StructureNL</span><span class="p">(</span>
+                        <span class="n">structure</span><span class="p">,</span>
+                        <span class="n">authors</span><span class="o">=</span><span class="p">{},</span>
+                        <span class="n">history</span><span class="o">=</span><span class="p">[{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">identifier</span><span class="p">,</span> <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">url</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]}}],</span>
+                        <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;_optimade&quot;</span><span class="p">:</span> <span class="n">namespaced_data</span><span class="p">},</span>
+                    <span class="p">)</span>
 
-<div class="viewcode-block" id="OptimadeRester.refresh_aliases"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.refresh_aliases">[docs]</a>    <span class="k">def</span> <span class="nf">refresh_aliases</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">providers_url</span><span class="o">=</span><span class="s2">&quot;https://providers.optimade.org/providers.json&quot;</span><span class="p">):</span>
+                    <span class="n">snls</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">snl</span>
+
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">exceptions</span><span class="p">:</span>
+                        <span class="n">exceptions</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">exceptions</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Failed to parse returned data for </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">exceptions</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">snls</span>
+
+    <span class="k">def</span> <span class="nf">_validate_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_url</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Provider</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Updates available OPTIMADE structure resources based on the current list of OPTIMADE</span>
-<span class="sd">        providers.</span>
+<span class="sd">        Checks that a given URL is indeed an OPTIMADE provider,</span>
+<span class="sd">        returning None if it is not a provider, or the provider</span>
+<span class="sd">        prefix if it is.</span>
+
+<span class="sd">        TODO: careful reading of OPTIMADE specification required</span>
+<span class="sd">        TODO: add better exception handling, intentionally permissive currently</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">providers_url</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_timeout</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-        <span class="n">providers_from_url</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]:</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">][</span><span class="s2">&quot;base_url&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">][</span><span class="s2">&quot;base_url&quot;</span><span class="p">]</span>
-        <span class="p">}</span>
 
-        <span class="n">providers</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">provider</span><span class="p">,</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">providers_from_url</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">def</span> <span class="nf">is_url</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Basic URL validation thanks to https://stackoverflow.com/a/52455972</span>
+<span class="sd">            &quot;&quot;&quot;</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">providers</span><span class="p">[</span><span class="n">provider</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">link</span><span class="si">}</span><span class="s2">/v1/links&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_timeout</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to parse </span><span class="si">{</span><span class="n">provider</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">link</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+                <span class="k">return</span> <span class="nb">all</span><span class="p">([</span><span class="n">result</span><span class="o">.</span><span class="n">scheme</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">netloc</span><span class="p">])</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
 
-        <span class="c1"># TODO: importing optimade-python-tool&#39;s data structures will make more sense</span>
-        <span class="n">Provider</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;Provider&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;base_url&quot;</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">,</span> <span class="s2">&quot;homepage&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_url</span><span class="p">(</span><span class="n">provider_url</span><span class="p">):</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;An invalid url was supplied: </span><span class="si">{</span><span class="n">provider_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">provider_url</span><span class="p">,</span> <span class="s2">&quot;v1/info&quot;</span><span class="p">)</span>
+            <span class="n">provider_info_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_json</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to parse </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2"> when validating: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Provider</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">provider_info_json</span><span class="p">[</span><span class="s2">&quot;meta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;provider&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">),</span>
+                <span class="n">base_url</span><span class="o">=</span><span class="n">provider_url</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="n">provider_info_json</span><span class="p">[</span><span class="s2">&quot;meta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;provider&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;description&quot;</span><span class="p">,</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">),</span>
+                <span class="n">homepage</span><span class="o">=</span><span class="n">provider_info_json</span><span class="p">[</span><span class="s2">&quot;meta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;provider&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;homepage&quot;</span><span class="p">),</span>
+                <span class="n">prefix</span><span class="o">=</span><span class="n">provider_info_json</span><span class="p">[</span><span class="s2">&quot;meta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;provider&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;prefix&quot;</span><span class="p">,</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to extract required information from </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_parse_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">provider_url</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Provider</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Used internally to update the list of providers or to</span>
+<span class="sd">        check a given URL is valid.</span>
+
+<span class="sd">        It does not raise exceptions but will instead _logger.warning and provide</span>
+<span class="sd">        an empty dictionary in the case of invalid data.</span>
+
+<span class="sd">        In future, when the specification  is sufficiently well adopted,</span>
+<span class="sd">        we might be more strict here.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            provider: the provider prefix</span>
+<span class="sd">            provider_url: An OPTIMADE provider URL</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dictionary of keys (in format of &quot;provider.database&quot;) to</span>
+<span class="sd">            Provider objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">provider_url</span><span class="p">,</span> <span class="s2">&quot;v1/links&quot;</span><span class="p">)</span>
+            <span class="n">provider_link_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_json</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to parse </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2"> when following links: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{}</span>
 
         <span class="k">def</span> <span class="nf">_parse_provider_link</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">provider_link_json</span><span class="p">):</span>
             <span class="sd">&quot;&quot;&quot;No validation attempted.&quot;&quot;&quot;</span>
@@ -301,6 +560,7 @@
                             <span class="n">base_url</span><span class="o">=</span><span class="n">link</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">][</span><span class="s2">&quot;base_url&quot;</span><span class="p">],</span>
                             <span class="n">description</span><span class="o">=</span><span class="n">link</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">][</span><span class="s2">&quot;description&quot;</span><span class="p">],</span>
                             <span class="n">homepage</span><span class="o">=</span><span class="n">link</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;homepage&quot;</span><span class="p">),</span>
+                            <span class="n">prefix</span><span class="o">=</span><span class="n">link</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;prefix&quot;</span><span class="p">),</span>
                         <span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                 <span class="c1"># print(f&quot;Failed to parse {provider}: {exc}&quot;)</span>
@@ -308,12 +568,41 @@
                 <span class="k">pass</span>
             <span class="k">return</span> <span class="n">ps</span>
 
+        <span class="k">return</span> <span class="n">_parse_provider_link</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">provider_link_json</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_handle_response_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">additional_response_fields</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Used internally to handle the mandatory and additional response fields.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            additional_response_fields: A set of additional fields to request.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A string of comma-separated OPTIMADE response fields.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">additional_response_fields</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">additional_response_fields</span> <span class="o">=</span> <span class="p">[</span><span class="n">additional_response_fields</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">additional_response_fields</span><span class="p">:</span>
+            <span class="n">additional_response_fields</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">return</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">additional_response_fields</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mandatory_response_fields</span><span class="p">))</span>
+
+<div class="viewcode-block" id="OptimadeRester.refresh_aliases"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.refresh_aliases">[docs]</a>    <span class="k">def</span> <span class="nf">refresh_aliases</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">providers_url</span><span class="o">=</span><span class="s2">&quot;https://providers.optimade.org/providers.json&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Updates available OPTIMADE structure resources based on the current list of OPTIMADE</span>
+<span class="sd">        providers.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_json</span><span class="p">(</span><span class="n">providers_url</span><span class="p">)</span>
+        <span class="n">providers_from_url</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]:</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">][</span><span class="s2">&quot;base_url&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">][</span><span class="s2">&quot;base_url&quot;</span><span class="p">]</span>
+        <span class="p">}</span>
+
         <span class="n">structure_providers</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">provider</span><span class="p">,</span> <span class="n">provider_link_json</span> <span class="ow">in</span> <span class="n">providers</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">structure_providers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_parse_provider_link</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">provider_link_json</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">provider</span><span class="p">,</span> <span class="n">provider_link</span> <span class="ow">in</span> <span class="n">providers_from_url</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">structure_providers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parse_provider</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">provider_link</span><span class="p">))</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span> <span class="o">=</span> <span class="p">{</span><span class="n">alias</span><span class="p">:</span> <span class="n">provider</span><span class="o">.</span><span class="n">base_url</span> <span class="k">for</span> <span class="n">alias</span><span class="p">,</span> <span class="n">provider</span> <span class="ow">in</span> <span class="n">structure_providers</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
 
+    <span class="c1"># TODO: revisit context manager logic here and in MPRester</span>
     <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Support for &quot;with&quot; context.</span>
@@ -341,7 +630,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.ext.optimade</a></li> 
       </ul>
@@ -349,7 +638,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

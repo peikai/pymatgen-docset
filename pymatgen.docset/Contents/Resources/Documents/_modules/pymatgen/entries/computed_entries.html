@@ -5,10 +5,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.entries.computed_entries &#8212; pymatgen 2022.0.4 documentation</title>
-    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="../../../_static/basic.css" type="text/css" />
-    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <title>pymatgen.entries.computed_entries &#8212; pymatgen 2022.0.17 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
     <script src="../../../_static/jquery.js"></script>
     <script src="../../../_static/underscore.js"></script>
     <script src="../../../_static/doctools.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="../entries.html" accesskey="U">pymatgen.entries</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.entries.computed_entries</a></li> 
@@ -43,8 +43,7 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.entries.computed_entries</h1><div class="highlight"><pre>
-<span></span><span class="c1"># coding: utf-8</span>
-<span class="c1"># Copyright (c) Pymatgen Development Team.</span>
+<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
 <span class="c1"># Distributed under the terms of the MIT License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
@@ -58,9 +57,10 @@
 <span class="kn">import</span> <span class="nn">abc</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">combinations</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MontyDecoder</span><span class="p">,</span> <span class="n">MontyEncoder</span><span class="p">,</span> <span class="n">MSONable</span>
@@ -70,6 +70,11 @@
 <span class="kn">from</span> <span class="nn">pymatgen.core.composition</span> <span class="kn">import</span> <span class="n">Composition</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
 <span class="kn">from</span> <span class="nn">pymatgen.entries</span> <span class="kn">import</span> <span class="n">Entry</span>
+
+<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
 
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Ryan Kingsbury, Matt McDermott, Shyue Ping Ong, Anubhav Jain&quot;</span>
 <span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2011-2020, The Materials Project&quot;</span>
@@ -143,11 +148,11 @@
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">output</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">:&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">),</span>
-            <span class="s2">&quot;  Name: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
-            <span class="s2">&quot;  Value: </span><span class="si">{:.3f}</span><span class="s2"> eV&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">),</span>
-            <span class="s2">&quot;  Uncertainty: </span><span class="si">{:.3f}</span><span class="s2"> eV&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">uncertainty</span><span class="p">),</span>
-            <span class="s2">&quot;  Description: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">explain</span><span class="p">),</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;  Name: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;  Value: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> eV&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;  Uncertainty: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">uncertainty</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> eV&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;  Description: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">explain</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="s2">&quot;  Generated by: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;@class&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
         <span class="p">]</span>
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">)</span></div>
@@ -186,7 +191,7 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return an explanaion of how the energy adjustment is calculated.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">+</span> <span class="s2">&quot; (</span><span class="si">{:.3f}</span><span class="s2"> eV)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> eV)&quot;</span>
 
 <div class="viewcode-block" id="ConstantEnergyAdjustment.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ConstantEnergyAdjustment.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factor</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -266,7 +271,7 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return an explanaion of how the energy adjustment is calculated.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">+</span> <span class="s2">&quot; (</span><span class="si">{:.3f}</span><span class="s2"> eV/atom x </span><span class="si">{}</span><span class="s2"> atoms)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_adj_per_atom</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_adj_per_atom</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> eV/atom x </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="si">}</span><span class="s2"> atoms)&quot;</span>
 
 <div class="viewcode-block" id="CompositionEnergyAdjustment.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.CompositionEnergyAdjustment.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factor</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -355,7 +360,7 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">composition</span><span class="p">:</span> <span class="n">Composition</span><span class="p">,</span>
+        <span class="n">composition</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Composition</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
         <span class="n">energy</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">correction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
         <span class="n">energy_adjustments</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -434,7 +439,7 @@
 <span class="sd">                in eV.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># adds to ufloat(0.0, 0.0) to ensure that no corrections still result in ufloat object</span>
-        <span class="n">corr</span> <span class="o">=</span> <span class="n">ufloat</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">([</span><span class="n">ufloat</span><span class="p">(</span><span class="n">ea</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">uncertainty</span><span class="p">)</span> <span class="k">for</span> <span class="n">ea</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_adjustments</span><span class="p">])</span>
+        <span class="n">corr</span> <span class="o">=</span> <span class="n">ufloat</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">(</span><span class="n">ufloat</span><span class="p">(</span><span class="n">ea</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">uncertainty</span><span class="p">)</span> <span class="k">for</span> <span class="n">ea</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_adjustments</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">corr</span><span class="o">.</span><span class="n">nominal_value</span>
 
     <span class="nd">@correction</span><span class="o">.</span><span class="n">setter</span>
@@ -459,10 +464,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># adds to ufloat(0.0, 0.0) to ensure that no corrections still result in ufloat object</span>
         <span class="n">unc</span> <span class="o">=</span> <span class="n">ufloat</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">(</span>
-            <span class="p">[</span>
-                <span class="n">ufloat</span><span class="p">(</span><span class="n">ea</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">uncertainty</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">ea</span><span class="o">.</span><span class="n">uncertainty</span><span class="p">)</span> <span class="k">else</span> <span class="n">ufloat</span><span class="p">(</span><span class="n">ea</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">ea</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_adjustments</span>
-            <span class="p">]</span>
+            <span class="n">ufloat</span><span class="p">(</span><span class="n">ea</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">uncertainty</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">ea</span><span class="o">.</span><span class="n">uncertainty</span><span class="p">)</span> <span class="k">else</span> <span class="n">ufloat</span><span class="p">(</span><span class="n">ea</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">ea</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_adjustments</span>
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">unc</span><span class="o">.</span><span class="n">nominal_value</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">unc</span><span class="o">.</span><span class="n">std_dev</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -479,14 +482,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">correction_uncertainty</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">num_atoms</span>
 
-<div class="viewcode-block" id="ComputedEntry.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedEntry.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;formula_unit&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ComputedEntry&quot;</span><span class="p">:</span>
+<div class="viewcode-block" id="ComputedEntry.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedEntry.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;formula_unit&quot;</span><span class="p">,</span> <span class="s2">&quot;atom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;formula_unit&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ComputedEntry&quot;</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Normalize the entry&#39;s composition and energy.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            mode: &quot;formula_unit&quot; is the default, which normalizes to</span>
-<span class="sd">                composition.reduced_formula. The other option is &quot;atom&quot;, which</span>
-<span class="sd">                normalizes such that the composition amounts sum to 1.</span>
+<span class="sd">            mode (&quot;formula_unit&quot; | &quot;atom&quot;): &quot;formula_unit&quot; (the default) normalizes to composition.reduced_formula.</span>
+<span class="sd">                &quot;atom&quot; normalizes such that the composition amounts sum to 1.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalization_factor</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span>
@@ -525,13 +527,13 @@
             <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;  None&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_adjustments</span><span class="p">:</span>
-                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">{:&lt;23}</span><span class="s2">: </span><span class="si">{:&lt;9.4f}</span><span class="s2"> eV (</span><span class="si">{:&lt;8.4f}</span><span class="s2"> eV/atom)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">value</span> <span class="o">/</span> <span class="n">n_atoms</span><span class="p">))</span>
+                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;23</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">value</span><span class="si">:</span><span class="s2">&lt;9.4f</span><span class="si">}</span><span class="s2"> eV (</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">value</span> <span class="o">/</span> <span class="n">n_atoms</span><span class="si">:</span><span class="s2">&lt;8.4f</span><span class="si">}</span><span class="s2"> eV/atom)&quot;</span><span class="p">)</span>
         <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Parameters:&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">{:&lt;22}</span><span class="s2"> = </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">:</span><span class="s2">&lt;22</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Data:&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">{:&lt;22}</span><span class="s2"> = </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">:</span><span class="s2">&lt;22</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -546,13 +548,13 @@
         <span class="c1"># Equality is defined based on composition and energy</span>
         <span class="c1"># If structures are involved, it is assumed that a {composition, energy} is</span>
         <span class="c1"># vanishingly unlikely to be the same if the structures are different</span>
+        <span class="c1"># if entry_ids are equivalent, skip the more expensive composition check</span>
+
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;entry_id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="s2">&quot;entry_id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">entry_id</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">energy</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">False</span>
-
-        <span class="c1"># if entry_ids are equivalent, skip the more expensive composition check</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span> <span class="ow">and</span> <span class="n">other</span><span class="o">.</span><span class="n">entry_id</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">entry_id</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">True</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">composition</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
@@ -627,7 +629,7 @@
         <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span>
         <span class="n">energy</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">correction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">composition</span><span class="p">:</span> <span class="n">Composition</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">composition</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Composition</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">energy_adjustments</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -643,6 +645,10 @@
 <span class="sd">            energy_adjustments: An optional list of EnergyAdjustment to</span>
 <span class="sd">                be applied to the energy. This is used to modify the energy for</span>
 <span class="sd">                certain analyses. Defaults to None.</span>
+<span class="sd">            composition (Composition): Composition of the entry. For</span>
+<span class="sd">                flexibility, this can take the form of all the typical input</span>
+<span class="sd">                taken by a Composition, including a {symbol: amt} dict,</span>
+<span class="sd">                a string formula, and others.</span>
 <span class="sd">            parameters: An optional dict of parameters associated with</span>
 <span class="sd">                the entry. Defaults to None.</span>
 <span class="sd">            data: An optional dict of any additional data associated</span>
@@ -719,30 +725,27 @@
             <span class="n">entry_id</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;entry_id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="ComputedStructureEntry.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedStructureEntry.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;formula_unit&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ComputedStructureEntry&quot;</span><span class="p">:</span>
+<div class="viewcode-block" id="ComputedStructureEntry.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedStructureEntry.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;formula_unit&quot;</span><span class="p">,</span> <span class="s2">&quot;atom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;formula_unit&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ComputedStructureEntry&quot;</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Normalize the entry&#39;s composition and energy. The structure remains</span>
 <span class="sd">        unchanged.</span>
 <span class="sd">        Args:</span>
-<span class="sd">            mode: &quot;formula_unit&quot; is the default, which normalizes to</span>
-<span class="sd">                composition.reduced_formula. The other option is &quot;atom&quot;,</span>
-<span class="sd">                which normalizes such that the composition amounts sum to 1.</span>
+<span class="sd">            mode (&quot;formula_unit&quot; | &quot;atom&quot;): &quot;formula_unit&quot; (the default) normalizes to composition.reduced_formula.</span>
+<span class="sd">                &quot;atom&quot; normalizes such that the composition amounts sum to 1.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># TODO this should raise TypeError</span>
+        <span class="c1"># TODO: this should raise TypeError since normalization does not make sense</span>
         <span class="c1"># raise TypeError(&quot;You cannot normalize a structure.&quot;)</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-            <span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Normalization of a `</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">` makes &quot;</span>
-                <span class="s2">&quot;`self.composition` and `self.structure.composition` inconsistent&quot;</span>
-                <span class="s2">&quot; - please use self.composition for all further calculations.&quot;</span>
-            <span class="p">)</span>
+            <span class="sa">f</span><span class="s2">&quot;Normalization of a `</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">` makes &quot;</span>
+            <span class="s2">&quot;`self.composition` and `self.structure.composition` inconsistent&quot;</span>
+            <span class="s2">&quot; - please use self.composition for all further calculations.&quot;</span>
         <span class="p">)</span>
         <span class="c1"># TODO: find a better solution for creating copies instead of as/from dict</span>
         <span class="n">factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalization_factor</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span>
         <span class="n">d</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
         <span class="n">d</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
         <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
-        <span class="n">entry</span><span class="o">.</span><span class="n">_composition</span> <span class="o">/=</span> <span class="n">factor</span>
+        <span class="n">entry</span><span class="o">.</span><span class="n">_composition</span> <span class="o">/=</span> <span class="n">factor</span>  <span class="c1"># pylint: disable=E1101</span>
         <span class="k">return</span> <span class="n">entry</span></div></div>
 
 
@@ -757,7 +760,7 @@
         <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span>
         <span class="n">formation_enthalpy_per_atom</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">temp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
-        <span class="n">gibbs_model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;SISSO&quot;</span><span class="p">,</span>
+        <span class="n">gibbs_model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;SISSO&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;SISSO&quot;</span><span class="p">,</span>
         <span class="n">composition</span><span class="p">:</span> <span class="n">Composition</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">correction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
         <span class="n">energy_adjustments</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -774,9 +777,9 @@
 <span class="sd">            temp (float): Temperature in Kelvin. If temperature is not selected from</span>
 <span class="sd">                one of [300, 400, 500, ... 2000 K], then free energies will</span>
 <span class="sd">                be interpolated. Defaults to 300 K.</span>
-<span class="sd">            gibbs_model (str): Model for Gibbs Free energy. Currently the default (and</span>
-<span class="sd">                only supported) option is &quot;SISSO&quot;, the descriptor created by Bartel et</span>
-<span class="sd">                al. (2018) -- see reference in documentation.</span>
+<span class="sd">            gibbs_model (&#39;SISSO&#39;): Model for Gibbs Free energy. &quot;SISSO&quot;, the descriptor</span>
+<span class="sd">                created by Bartel et al. (2018) -- see reference in documentation, is</span>
+<span class="sd">                currently the only supported) option.</span>
 <span class="sd">            correction (float): A correction to be applied to the energy. Defaults to 0</span>
 <span class="sd">            parameters (dict): An optional dict of parameters associated with</span>
 <span class="sd">                the entry. Defaults to None.</span>
@@ -890,7 +893,7 @@
                 <span class="p">)</span>
                 <span class="n">sum_g_i</span> <span class="o">+=</span> <span class="n">amt</span> <span class="o">*</span> <span class="n">g_interp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">sum_g_i</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">amt</span> <span class="o">*</span> <span class="n">G_ELEMS</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="p">)][</span><span class="n">elem</span><span class="p">]</span> <span class="k">for</span> <span class="n">elem</span><span class="p">,</span> <span class="n">amt</span> <span class="ow">in</span> <span class="n">elems</span><span class="o">.</span><span class="n">items</span><span class="p">()])</span>
+            <span class="n">sum_g_i</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">amt</span> <span class="o">*</span> <span class="n">G_ELEMS</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="p">)][</span><span class="n">elem</span><span class="p">]</span> <span class="k">for</span> <span class="n">elem</span><span class="p">,</span> <span class="n">amt</span> <span class="ow">in</span> <span class="n">elems</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
 
         <span class="k">return</span> <span class="n">sum_g_i</span>
 
@@ -1039,8 +1042,8 @@
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">output</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="s2">&quot;GibbsComputedStructureEntry </span><span class="si">{}</span><span class="s2"> - </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="p">),</span>
-            <span class="s2">&quot;Gibbs Free Energy (Formation) = </span><span class="si">{:.4f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy</span><span class="p">),</span>
+            <span class="sa">f</span><span class="s2">&quot;GibbsComputedStructureEntry </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;Gibbs Free Energy (Formation) = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">energy</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="p">]</span>
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">)</span></div>
 </pre></div>
@@ -1059,7 +1062,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="../entries.html" >pymatgen.entries</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.entries.computed_entries</a></li> 
@@ -1068,7 +1071,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.5.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking
