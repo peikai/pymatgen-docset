@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.analysis.chempot_diagram &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.analysis.chempot_diagram &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.chempot_diagram</a></li> 
       </ul>
@@ -52,30 +52,35 @@
 
 <span class="sd">For more information, please cite/reference the paper below:</span>
 
-<span class="sd">Todd, Paul K., McDermott, M.J., et al. “Selectivity in yttrium manganese oxide</span>
-<span class="sd">synthesis via local chemical potentials in hyperdimensional phase space.”</span>
-<span class="sd">ArXiv:2104.05986 [Cond-Mat], Aug. 2021. arXiv.org, http://arxiv.org/abs/2104.05986.</span>
+<span class="sd">    Todd, P. K., McDermott, M. J., Rom, C. L., Corrao, A. A., Denney, J. J., Dwaraknath,</span>
+<span class="sd">    S. S.,  Khalifah, P. G., Persson, K. A., &amp; Neilson, J. R. (2021). Selectivity in</span>
+<span class="sd">    Yttrium Manganese Oxide Synthesis via Local Chemical Potentials in Hyperdimensional</span>
+<span class="sd">    Phase Space. Journal of the American Chemical Society, 143(37), 15185–15194.</span>
+<span class="sd">    https://doi.org/10.1021/jacs.1c06229</span>
 
 <span class="sd">Please also consider referencing the original 1999 paper by H. Yokokawa,</span>
 <span class="sd">who outlined many of its possible uses:</span>
 
-<span class="sd">Yokokawa, H. &quot;Generalized chemical potential diagram and its applications to</span>
-<span class="sd">chemical reactions at interfaces between dissimilar materials.&quot; JPE 20,</span>
-<span class="sd">258 (1999). https://doi.org/10.1361/105497199770335794</span>
+<span class="sd">    Yokokawa, H. &quot;Generalized chemical potential diagram and its applications to</span>
+<span class="sd">    chemical reactions at interfaces between dissimilar materials.&quot; JPE 20,</span>
+<span class="sd">    258 (1999). https://doi.org/10.1361/105497199770335794</span>
 <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">lru_cache</span>
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">groupby</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">plotly.express</span> <span class="k">as</span> <span class="nn">px</span>
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
-<span class="kn">from</span> <span class="nn">plotly.graph_objects</span> <span class="kn">import</span> <span class="n">Scatter</span><span class="p">,</span> <span class="n">Scatter3d</span><span class="p">,</span> <span class="n">Mesh3d</span><span class="p">,</span> <span class="n">Figure</span>
+<span class="kn">from</span> <span class="nn">plotly.graph_objects</span> <span class="kn">import</span> <span class="n">Figure</span><span class="p">,</span> <span class="n">Mesh3d</span><span class="p">,</span> <span class="n">Scatter</span><span class="p">,</span> <span class="n">Scatter3d</span>
 <span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="kn">import</span> <span class="n">ConvexHull</span><span class="p">,</span> <span class="n">HalfspaceIntersection</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.phase_diagram</span> <span class="kn">import</span> <span class="n">PhaseDiagram</span><span class="p">,</span> <span class="n">PDEntry</span>
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.phase_diagram</span> <span class="kn">import</span> <span class="n">PDEntry</span><span class="p">,</span> <span class="n">PhaseDiagram</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.composition</span> <span class="kn">import</span> <span class="n">Composition</span><span class="p">,</span> <span class="n">Element</span>
 <span class="kn">from</span> <span class="nn">pymatgen.entries.computed_entries</span> <span class="kn">import</span> <span class="n">ComputedEntry</span>
 <span class="kn">from</span> <span class="nn">pymatgen.util.coord</span> <span class="kn">import</span> <span class="n">Simplex</span>
@@ -87,7 +92,7 @@
 
 <div class="viewcode-block" id="ChemicalPotentialDiagram"><a class="viewcode-back" href="../../../pymatgen.analysis.chempot_diagram.html#pymatgen.analysis.chempot_diagram.ChemicalPotentialDiagram">[docs]</a><span class="k">class</span> <span class="nc">ChemicalPotentialDiagram</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    The chemical potential diagram is the mathematical dual to the  compositional</span>
+<span class="sd">    The chemical potential diagram is the mathematical dual to the compositional</span>
 <span class="sd">    phase diagram. To create the diagram, convex minimization is</span>
 <span class="sd">    performed in energy (E) vs. chemical potential (μ) space by taking the lower convex</span>
 <span class="sd">    envelope of hyperplanes. Accordingly, &quot;points&quot; on the compositional phase diagram</span>
@@ -96,32 +101,33 @@
 <span class="sd">    For more information on this specific implementation of the algorithm,</span>
 <span class="sd">    please cite/reference the paper below:</span>
 
-<span class="sd">    Todd, Paul K., McDermott, M.J., et al. “Selectivity in yttrium manganese oxide</span>
-<span class="sd">    synthesis via local chemical potentials in hyperdimensional phase space.”</span>
-<span class="sd">    ArXiv:2104.05986 [Cond-Mat], Apr. 2021. arXiv.org, http://arxiv.org/abs/2104.05986</span>
+<span class="sd">        Todd, P. K., McDermott, M. J., Rom, C. L., Corrao, A. A., Denney, J. J., Dwaraknath,</span>
+<span class="sd">        S. S.,  Khalifah, P. G., Persson, K. A., &amp; Neilson, J. R. (2021). Selectivity in</span>
+<span class="sd">        Yttrium Manganese Oxide Synthesis via Local Chemical Potentials in Hyperdimensional</span>
+<span class="sd">        Phase Space. Journal of the American Chemical Society, 143(37), 15185–15194.</span>
+<span class="sd">        https://doi.org/10.1021/jacs.1c06229</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">entries</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PDEntry</span><span class="p">],</span>
-        <span class="n">limits</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">Element</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">default_min_limit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">20.0</span><span class="p">,</span>
+        <span class="n">entries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PDEntry</span><span class="p">],</span>
+        <span class="n">limits</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Element</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">default_min_limit</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="o">-</span><span class="mf">50.0</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            entries: List of PDEntry-like objects containing a composition and</span>
 <span class="sd">                energy. Must contain elemental references and be suitable for typical</span>
 <span class="sd">                phase diagram construction. Entries must be within a chemical system</span>
-<span class="sd">                of with 2+ elements</span>
+<span class="sd">                of with 2+ elements.</span>
 <span class="sd">            limits: Bounds of elemental chemical potentials (min, max), which are</span>
 <span class="sd">                used to construct the border hyperplanes used in the</span>
 <span class="sd">                HalfSpaceIntersection algorithm; these constrain the space over which the</span>
 <span class="sd">                domains are calculated and also determine the size of the plotted</span>
 <span class="sd">                diagram. Any elemental limits not specified are covered in the</span>
-<span class="sd">                default_min_limit argument</span>
-<span class="sd">            default_min_limit (float): Default minimum chemical potential limit for</span>
-<span class="sd">                unspecified elements within the &quot;limits&quot; argument. This results in</span>
-<span class="sd">                default limits of (default_min_limit, 0)</span>
+<span class="sd">                default_min_limit argument. e.g., {Element(&quot;Li&quot;): [-12.0, 0.0], ...}</span>
+<span class="sd">            default_min_limit (float): Default minimum chemical potential limit (i.e.,</span>
+<span class="sd">                lower bound) for unspecified elements within the &quot;limits&quot; argument.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">entries</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_composition</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">limits</span> <span class="o">=</span> <span class="n">limits</span>
@@ -145,12 +151,13 @@
 
 <div class="viewcode-block" id="ChemicalPotentialDiagram.get_plot"><a class="viewcode-back" href="../../../pymatgen.analysis.chempot_diagram.html#pymatgen.analysis.chempot_diagram.ChemicalPotentialDiagram.get_plot">[docs]</a>    <span class="k">def</span> <span class="nf">get_plot</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">elements</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Element</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">label_stable</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">formulas_to_draw</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">draw_formula_meshes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">draw_formula_lines</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">formula_colors</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">qualitative</span><span class="o">.</span><span class="n">Dark2</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Element</span> <span class="o">|</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">label_stable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">formulas_to_draw</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">draw_formula_meshes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">draw_formula_lines</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">formula_colors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">qualitative</span><span class="o">.</span><span class="n">Dark2</span><span class="p">,</span>
+        <span class="n">element_padding</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Figure</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Plot the 2-dimensional or 3-dimensional chemical potential diagram using an</span>
@@ -162,23 +169,26 @@
 <span class="sd">        In 3D, this method also allows for plotting of lower-dimensional &quot;slices&quot; of</span>
 <span class="sd">        hyperdimensional polytopes (e.g., the LiMnO2 domain within a Y-Mn-O diagram).</span>
 <span class="sd">        This allows for visualization of some of the phase boundaries that can only</span>
-<span class="sd">        be seen fully in high dimensional space.</span>
+<span class="sd">        be seen fully in high dimensional space; see the &quot;formulas_to_draw&quot; argument.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            elements: list of elements to use as axes in the diagram. If None,</span>
 <span class="sd">                automatically defaults to the first 2 or elements within the</span>
 <span class="sd">                object&#39;s &quot;elements&quot; attribute.</span>
-<span class="sd">            label_stable: whether or not to label stable phases by their reduced</span>
+<span class="sd">            label_stable: whether to label stable phases by their reduced</span>
 <span class="sd">                formulas. Defaults to True.</span>
 <span class="sd">            formulas_to_draw: for 3-dimensional diagrams, an optional list of</span>
 <span class="sd">                formulas to plot on the diagram; if these are from a different</span>
-<span class="sd">                chemical system a 3-d polyhedron &quot;slice&quot; will be plotted.</span>
-<span class="sd">            draw_formula_meshes: whether or not to draw a colored mesh for the</span>
+<span class="sd">                chemical system a 3-d polyhedron &quot;slice&quot; will be plotted. Defaults to None.</span>
+<span class="sd">            draw_formula_meshes: whether to draw a colored mesh for the</span>
 <span class="sd">                optionally specified formulas_to_draw. Defaults to True.</span>
-<span class="sd">            draw_formula_lines: whether or not to draw bounding lines for the</span>
+<span class="sd">            draw_formula_lines: whether to draw bounding lines for the</span>
 <span class="sd">                optionally specified formulas_to_draw. Defaults to True.</span>
 <span class="sd">            formula_colors: a list of colors to use in the plotting of the optionally</span>
-<span class="sd">                specified formulas_to-draw. Defaults to a Plotly color scheme.</span>
+<span class="sd">                specified formulas_to-draw. Defaults to the Plotly Dark2 color scheme.</span>
+<span class="sd">            element_padding: if provided, automatically adjusts chemical potential axis</span>
+<span class="sd">                limits of the plot such that elemental domains have the specified padding</span>
+<span class="sd">                (in eV/atom), helping provide visual clarity. Defaults to 1.0.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            A Plotly Figure object</span>
@@ -191,7 +201,7 @@
                 <span class="n">elems</span> <span class="o">=</span> <span class="n">elems</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span>  <span class="c1"># default to first three elements</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">elems</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="n">fig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_2d_plot</span><span class="p">(</span><span class="n">elements</span><span class="o">=</span><span class="n">elems</span><span class="p">,</span> <span class="n">label_stable</span><span class="o">=</span><span class="n">label_stable</span><span class="p">)</span>
+            <span class="n">fig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_2d_plot</span><span class="p">(</span><span class="n">elements</span><span class="o">=</span><span class="n">elems</span><span class="p">,</span> <span class="n">label_stable</span><span class="o">=</span><span class="n">label_stable</span><span class="p">,</span> <span class="n">element_padding</span><span class="o">=</span><span class="n">element_padding</span><span class="p">)</span>
         <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">elems</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">entries</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span> <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">elements</span><span class="p">)</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">elems</span><span class="p">)]</span>
             <span class="n">cpd</span> <span class="o">=</span> <span class="n">ChemicalPotentialDiagram</span><span class="p">(</span>
@@ -208,19 +218,20 @@
                 <span class="n">draw_formula_meshes</span><span class="o">=</span><span class="n">draw_formula_meshes</span><span class="p">,</span>
                 <span class="n">draw_formula_lines</span><span class="o">=</span><span class="n">draw_formula_lines</span><span class="p">,</span>
                 <span class="n">formula_colors</span><span class="o">=</span><span class="n">formula_colors</span><span class="p">,</span>
+                <span class="n">element_padding</span><span class="o">=</span><span class="n">element_padding</span><span class="p">,</span>
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">fig</span></div>
 
-    <span class="k">def</span> <span class="nf">_get_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_get_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;Returns a dictionary of domains as {formula: np.ndarray}&quot;&quot;&quot;</span>
         <span class="n">hyperplanes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hyperplanes</span>
         <span class="n">border_hyperplanes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_border_hyperplanes</span>
         <span class="n">entries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hyperplane_entries</span>
 
         <span class="n">hs_hyperplanes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">hyperplanes</span><span class="p">,</span> <span class="n">border_hyperplanes</span><span class="p">])</span>
-        <span class="n">interior_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lims</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-        <span class="n">hs_int</span> <span class="o">=</span> <span class="n">HalfspaceIntersection</span><span class="p">(</span><span class="n">hs_hyperplanes</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">interior_point</span><span class="p">))</span>
+        <span class="n">interior_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lims</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-1</span>
+        <span class="n">hs_int</span> <span class="o">=</span> <span class="n">HalfspaceIntersection</span><span class="p">(</span><span class="n">hs_hyperplanes</span><span class="p">,</span> <span class="n">interior_point</span><span class="p">)</span>
 
         <span class="n">domains</span> <span class="o">=</span> <span class="p">{</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">}</span>  <span class="c1"># type: ignore</span>
 
@@ -245,9 +256,11 @@
 
         <span class="k">return</span> <span class="n">border_hyperplanes</span>
 
-    <span class="k">def</span> <span class="nf">_get_hyperplanes_and_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">PDEntry</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;Returns both the array of hyperplanes, as well as a list of the minimum</span>
-<span class="sd">        entries&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_get_hyperplanes_and_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">PDEntry</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns both the array of hyperplanes, as well as a list of the minimum</span>
+<span class="sd">        entries.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
             <span class="p">[</span>
                 <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">get_atomic_fraction</span><span class="p">(</span><span class="n">el</span><span class="p">)</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">energy_per_atom</span><span class="p">]</span>
@@ -267,17 +280,28 @@
 
         <span class="k">return</span> <span class="n">hyperplanes</span><span class="p">,</span> <span class="n">hyperplane_entries</span>
 
-    <span class="k">def</span> <span class="nf">_get_2d_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">elements</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Element</span><span class="p">],</span> <span class="n">label_stable</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Figure</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_get_2d_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Element</span><span class="p">],</span> <span class="n">label_stable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">element_padding</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Figure</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Returns a Plotly figure for a 2-dimensional chemical potential diagram&quot;&quot;&quot;</span>
         <span class="n">domains</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domains</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">elem_indices</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">]</span>
 
         <span class="n">annotations</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">draw_domains</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="n">element_padding</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">element_padding</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">new_lims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_new_limits_from_padding</span><span class="p">(</span><span class="n">domains</span><span class="p">,</span> <span class="n">elem_indices</span><span class="p">,</span> <span class="n">element_padding</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_min_limit</span><span class="p">)</span>
+
         <span class="k">for</span> <span class="n">formula</span><span class="p">,</span> <span class="n">pts</span> <span class="ow">in</span> <span class="n">domains</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">formula_elems</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">Composition</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span><span class="o">.</span><span class="n">elements</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">formula_elems</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>
                 <span class="k">continue</span>
+
             <span class="n">pts_2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="n">elem_indices</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">element_padding</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">element_padding</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">new_lim</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">new_lims</span><span class="p">):</span>
+                    <span class="n">col</span> <span class="o">=</span> <span class="n">pts_2d</span><span class="p">[:,</span> <span class="n">idx</span><span class="p">]</span>
+                    <span class="n">pts_2d</span><span class="p">[:,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_min_limit</span><span class="p">),</span> <span class="n">new_lim</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span>
+
             <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_dict</span><span class="p">[</span><span class="n">formula</span><span class="p">]</span>
             <span class="n">ann_formula</span> <span class="o">=</span> <span class="n">formula</span>
             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="s2">&quot;original_entry&quot;</span><span class="p">):</span>
@@ -285,16 +309,18 @@
 
             <span class="n">center</span> <span class="o">=</span> <span class="n">pts_2d</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
             <span class="n">normal</span> <span class="o">=</span> <span class="n">get_2d_orthonormal_vector</span><span class="p">(</span><span class="n">pts_2d</span><span class="p">)</span>
-            <span class="n">ann_loc</span> <span class="o">=</span> <span class="n">center</span> <span class="o">+</span> <span class="mf">0.8</span> <span class="o">*</span> <span class="n">normal</span>
+            <span class="n">ann_loc</span> <span class="o">=</span> <span class="n">center</span> <span class="o">+</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="n">normal</span>  <span class="c1"># offset annotation location by arb. amount</span>
             <span class="n">annotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_annotation</span><span class="p">(</span><span class="n">ann_loc</span><span class="p">,</span> <span class="n">ann_formula</span><span class="p">)</span>
             <span class="n">annotations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">annotation</span><span class="p">)</span>
+
+            <span class="n">draw_domains</span><span class="p">[</span><span class="n">formula</span><span class="p">]</span> <span class="o">=</span> <span class="n">pts_2d</span>
 
         <span class="n">layout</span> <span class="o">=</span> <span class="n">plotly_layouts</span><span class="p">[</span><span class="s2">&quot;default_layout_2d&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">layout</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_axis_layout_dict</span><span class="p">(</span><span class="n">elements</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">label_stable</span><span class="p">:</span>
             <span class="n">layout</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;annotations&quot;</span><span class="p">:</span> <span class="n">annotations</span><span class="p">})</span>
 
-        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_2d_domain_lines</span><span class="p">(</span><span class="n">domains</span><span class="p">,</span> <span class="n">elements</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_2d_domain_lines</span><span class="p">(</span><span class="n">draw_domains</span><span class="p">)</span>
 
         <span class="n">fig</span> <span class="o">=</span> <span class="n">Figure</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">layout</span><span class="p">)</span>
 
@@ -302,32 +328,44 @@
 
     <span class="k">def</span> <span class="nf">_get_3d_plot</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">elements</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Element</span><span class="p">],</span>
-        <span class="n">label_stable</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span>
-        <span class="n">formulas_to_draw</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
-        <span class="n">draw_formula_meshes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span>
-        <span class="n">draw_formula_lines</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span>
-        <span class="n">formula_colors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">qualitative</span><span class="o">.</span><span class="n">Dark2</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Element</span><span class="p">],</span>
+        <span class="n">label_stable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">formulas_to_draw</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">draw_formula_meshes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">draw_formula_lines</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">formula_colors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">element_padding</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Figure</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns a Plotly figure for a 3-dimensional chemical potential diagram&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Returns a Plotly figure for a 3-dimensional chemical potential diagram.&quot;&quot;&quot;</span>
+
         <span class="k">if</span> <span class="ow">not</span> <span class="n">formulas_to_draw</span><span class="p">:</span>
             <span class="n">formulas_to_draw</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="n">elem_indices</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">]</span>
 
         <span class="n">domains</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domains</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">draw_domains</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">domain_simplexes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">Simplex</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">draw_domains</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">draw_comps</span> <span class="o">=</span> <span class="p">[</span><span class="n">Composition</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span><span class="o">.</span><span class="n">reduced_composition</span> <span class="k">for</span> <span class="n">formula</span> <span class="ow">in</span> <span class="n">formulas_to_draw</span><span class="p">]</span>
         <span class="n">annotations</span> <span class="o">=</span> <span class="p">[]</span>
 
+        <span class="k">if</span> <span class="n">element_padding</span> <span class="ow">and</span> <span class="n">element_padding</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">new_lims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_new_limits_from_padding</span><span class="p">(</span><span class="n">domains</span><span class="p">,</span> <span class="n">elem_indices</span><span class="p">,</span> <span class="n">element_padding</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_min_limit</span><span class="p">)</span>
+
         <span class="k">for</span> <span class="n">formula</span><span class="p">,</span> <span class="n">pts</span> <span class="ow">in</span> <span class="n">domains</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_dict</span><span class="p">[</span><span class="n">formula</span><span class="p">]</span>
+
             <span class="n">pts_3d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="n">elem_indices</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">element_padding</span> <span class="ow">and</span> <span class="n">element_padding</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">new_lim</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">new_lims</span><span class="p">):</span>
+                    <span class="n">col</span> <span class="o">=</span> <span class="n">pts_3d</span><span class="p">[:,</span> <span class="n">idx</span><span class="p">]</span>
+                    <span class="n">pts_3d</span><span class="p">[:,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_min_limit</span><span class="p">),</span> <span class="n">new_lim</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span>
+
             <span class="n">contains_target_elems</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">elements</span><span class="p">)</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">formulas_to_draw</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_composition</span> <span class="ow">in</span> <span class="n">draw_comps</span><span class="p">:</span>
-                    <span class="n">domains</span><span class="p">[</span><span class="n">formula</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">domain_simplexes</span><span class="p">[</span><span class="n">formula</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
                     <span class="n">draw_domains</span><span class="p">[</span><span class="n">formula</span><span class="p">]</span> <span class="o">=</span> <span class="n">pts_3d</span>
 
                     <span class="k">if</span> <span class="n">contains_target_elems</span><span class="p">:</span>
@@ -336,7 +374,7 @@
                         <span class="k">continue</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">contains_target_elems</span><span class="p">:</span>
-                <span class="n">domains</span><span class="p">[</span><span class="n">formula</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">domain_simplexes</span><span class="p">[</span><span class="n">formula</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">continue</span>
 
             <span class="n">simplexes</span><span class="p">,</span> <span class="n">ann_loc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_3d_domain_simplexes_and_ann_loc</span><span class="p">(</span><span class="n">pts_3d</span><span class="p">)</span>
@@ -348,7 +386,7 @@
             <span class="n">annotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_annotation</span><span class="p">(</span><span class="n">ann_loc</span><span class="p">,</span> <span class="n">ann_formula</span><span class="p">)</span>
             <span class="n">annotations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">annotation</span><span class="p">)</span>
 
-            <span class="n">domains</span><span class="p">[</span><span class="n">formula</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplexes</span>
+            <span class="n">domain_simplexes</span><span class="p">[</span><span class="n">formula</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplexes</span>
 
         <span class="n">layout</span> <span class="o">=</span> <span class="n">plotly_layouts</span><span class="p">[</span><span class="s2">&quot;default_layout_3d&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">layout</span><span class="p">[</span><span class="s2">&quot;scene&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_axis_layout_dict</span><span class="p">(</span><span class="n">elements</span><span class="p">))</span>
@@ -356,9 +394,18 @@
 
         <span class="k">if</span> <span class="n">label_stable</span><span class="p">:</span>
             <span class="n">layout</span><span class="p">[</span><span class="s2">&quot;scene&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;annotations&quot;</span><span class="p">:</span> <span class="n">annotations</span><span class="p">})</span>
-        <span class="n">layout</span><span class="p">[</span><span class="s2">&quot;scene_camera&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">eye</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mf">2.0</span><span class="p">),</span> <span class="n">projection</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;orthographic&quot;</span><span class="p">))</span>
+        <span class="n">layout</span><span class="p">[</span><span class="s2">&quot;scene_camera&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">eye</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span>  <span class="c1"># zoomed out</span>
+            <span class="n">projection</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;orthographic&quot;</span><span class="p">),</span>
+            <span class="n">center</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="p">)</span>
 
-        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_3d_domain_lines</span><span class="p">(</span><span class="n">domains</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_3d_domain_lines</span><span class="p">(</span><span class="n">domain_simplexes</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">formulas_to_draw</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">formulas_to_draw</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">f</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">domain_simplexes</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Specified formula to draw, </span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">, not found!&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">draw_formula_lines</span><span class="p">:</span>
             <span class="n">data</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_3d_formula_lines</span><span class="p">(</span><span class="n">draw_domains</span><span class="p">,</span> <span class="n">formula_colors</span><span class="p">))</span>
@@ -370,16 +417,35 @@
         <span class="k">return</span> <span class="n">fig</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_get_2d_domain_lines</span><span class="p">(</span><span class="n">domains</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">elements</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Element</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Scatter</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Returns a list of Scatter objects tracing the domain lines on a</span>
-<span class="sd">        2-dimensional chemical potential diagram&quot;&quot;&quot;</span>
-        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
-        <span class="n">elems</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">formula</span><span class="p">,</span> <span class="n">pts</span> <span class="ow">in</span> <span class="n">domains</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">formula_elems</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">Composition</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span><span class="o">.</span><span class="n">elements</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">formula_elems</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">elems</span><span class="p">):</span>
-                <span class="k">continue</span>
+    <span class="k">def</span> <span class="nf">_get_new_limits_from_padding</span><span class="p">(</span>
+        <span class="n">domains</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">elem_indices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">element_padding</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">default_min_limit</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets new minimum limits for each element by subtracting specified padding</span>
+<span class="sd">        from the minimum for each axis found in any of the domains.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">all_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">domains</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="n">new_lims</span> <span class="o">=</span> <span class="p">[]</span>
 
+        <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">elem_indices</span><span class="p">:</span>
+            <span class="n">pts</span> <span class="o">=</span> <span class="n">all_pts</span><span class="p">[:,</span> <span class="n">el</span><span class="p">]</span>
+            <span class="n">new_lim</span> <span class="o">=</span> <span class="n">pts</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">default_min_limit</span><span class="p">)]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">-</span> <span class="n">element_padding</span>
+            <span class="n">new_lims</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_lim</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">new_lims</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_2d_domain_lines</span><span class="p">(</span><span class="n">draw_domains</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Scatter</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of Scatter objects tracing the domain lines on a</span>
+<span class="sd">        2-dimensional chemical potential diagram.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">pts</span> <span class="ow">in</span> <span class="n">draw_domains</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="n">x</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">+</span> <span class="p">[</span><span class="kc">None</span><span class="p">])</span>
             <span class="n">y</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">+</span> <span class="p">[</span><span class="kc">None</span><span class="p">])</span>
 
@@ -395,9 +461,11 @@
         <span class="k">return</span> <span class="n">lines</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_get_3d_domain_lines</span><span class="p">(</span><span class="n">domains</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Simplex</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Scatter3d</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Returns a list of Scatter3d objects tracing the domain lines on a</span>
-<span class="sd">        3-dimensional chemical potential diagram&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_get_3d_domain_lines</span><span class="p">(</span><span class="n">domains</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">Simplex</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Scatter3d</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of Scatter3d objects tracing the domain lines on a</span>
+<span class="sd">        3-dimensional chemical potential diagram.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">phase</span><span class="p">,</span> <span class="n">simplexes</span> <span class="ow">in</span> <span class="n">domains</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">simplexes</span><span class="p">:</span>
@@ -421,11 +489,13 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_get_3d_domain_simplexes_and_ann_loc</span><span class="p">(</span>
         <span class="n">points_3d</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Simplex</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Returns a list of Simplex objects and coordinates of annotation for one</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Simplex</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of Simplex objects and coordinates of annotation for one</span>
 <span class="sd">        domain in a 3-d chemical potential diagram. Uses PCA to project domain</span>
 <span class="sd">        into 2-dimensional space so that ConvexHull can be used to identify the</span>
-<span class="sd">        bounding polygon&quot;&quot;&quot;</span>
+<span class="sd">        bounding polygon.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">points_2d</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">simple_pca</span><span class="p">(</span><span class="n">points_3d</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
         <span class="n">domain</span> <span class="o">=</span> <span class="n">ConvexHull</span><span class="p">(</span><span class="n">points_2d</span><span class="p">)</span>
         <span class="n">centroid_2d</span> <span class="o">=</span> <span class="n">get_centroid_2d</span><span class="p">(</span><span class="n">points_2d</span><span class="p">[</span><span class="n">domain</span><span class="o">.</span><span class="n">vertices</span><span class="p">])</span>
@@ -437,11 +507,13 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_get_3d_formula_meshes</span><span class="p">(</span>
-        <span class="n">draw_domains</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
-        <span class="n">formula_colors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Mesh3d</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Returns a list of Mesh3d objects for the domains specified by the</span>
-<span class="sd">        user (i.e., draw_domains)&quot;&quot;&quot;</span>
+        <span class="n">draw_domains</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">formula_colors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Mesh3d</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of Mesh3d objects for the domains specified by the</span>
+<span class="sd">        user (i.e., draw_domains).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">meshes</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="n">formula_colors</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">formula_colors</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">qualitative</span><span class="o">.</span><span class="n">Dark2</span>
@@ -464,9 +536,9 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_get_3d_formula_lines</span><span class="p">(</span>
-        <span class="n">draw_domains</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
-        <span class="n">formula_colors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Scatter3d</span><span class="p">]:</span>
+        <span class="n">draw_domains</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">formula_colors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Scatter3d</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;Returns a list of Scatter3d objects defining the bounding polyhedra&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">formula_colors</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">formula_colors</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">qualitative</span><span class="o">.</span><span class="n">Dark2</span>
@@ -497,10 +569,12 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_get_min_entries_and_el_refs</span><span class="p">(</span>
-        <span class="n">entries</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PDEntry</span><span class="p">],</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">PDEntry</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Element</span><span class="p">,</span> <span class="n">PDEntry</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;Returns a list of the minimum-energy entries at each composition and the</span>
-<span class="sd">        entries corresponding to the elemental references&quot;&quot;&quot;</span>
+        <span class="n">entries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PDEntry</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">PDEntry</span><span class="p">],</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Element</span><span class="p">,</span> <span class="n">PDEntry</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of the minimum-energy entries at each composition and the</span>
+<span class="sd">        entries corresponding to the elemental references.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">el_refs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">min_entries</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -515,7 +589,7 @@
         <span class="k">return</span> <span class="n">min_entries</span><span class="p">,</span> <span class="n">el_refs</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_get_annotation</span><span class="p">(</span><span class="n">ann_loc</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">formula</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+    <span class="k">def</span> <span class="nf">_get_annotation</span><span class="p">(</span><span class="n">ann_loc</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">formula</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;Returns a Plotly annotation dict given a formula and location&quot;&quot;&quot;</span>
         <span class="n">formula</span> <span class="o">=</span> <span class="n">htmlify</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span>
         <span class="n">annotation</span> <span class="o">=</span> <span class="n">plotly_layouts</span><span class="p">[</span><span class="s2">&quot;default_annotation_layout&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -525,7 +599,7 @@
         <span class="k">return</span> <span class="n">annotation</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_get_axis_layout_dict</span><span class="p">(</span><span class="n">elements</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Element</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_get_axis_layout_dict</span><span class="p">(</span><span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Element</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;Returns a Plotly layout dict for either 2-d or 3-d axes&quot;&quot;&quot;</span>
         <span class="n">axes</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;xaxis&quot;</span><span class="p">,</span> <span class="s2">&quot;yaxis&quot;</span><span class="p">]</span>
         <span class="n">layout_name</span> <span class="o">=</span> <span class="s2">&quot;default_2d_axis_layout&quot;</span>
@@ -535,7 +609,7 @@
             <span class="n">layout_name</span> <span class="o">=</span> <span class="s2">&quot;default_3d_axis_layout&quot;</span>
 
         <span class="k">def</span> <span class="nf">get_chempot_axis_title</span><span class="p">(</span><span class="n">element</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;μ&lt;sub&gt;</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">element</span><span class="p">)</span><span class="si">}</span><span class="s2">&lt;/sub&gt; - μ&lt;sub&gt;&quot;</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">element</span><span class="p">)</span><span class="si">}</span><span class="s2">&lt;/sub&gt;&lt;sup&gt;o&lt;/sup&gt; (eV)&quot;</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;br&gt; μ&lt;sub&gt;</span><span class="si">{</span><span class="n">element</span><span class="si">}</span><span class="s2">&lt;/sub&gt; - μ&lt;sub&gt;</span><span class="si">{</span><span class="n">element</span><span class="si">}</span><span class="s2">&lt;/sub&gt;&lt;sup&gt;o&lt;/sup&gt; (eV)&quot;</span>
 
         <span class="n">axes_layout</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="n">el</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="n">elements</span><span class="p">):</span>
@@ -545,11 +619,10 @@
 
         <span class="k">return</span> <span class="n">axes_layout</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">domains</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Mapping of formulas to array of domain boundary points</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+    <span class="nd">@property</span>  <span class="c1"># type: ignore</span>
+    <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">domains</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Mapping of formulas to array of domain boundary points&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_domains</span><span class="p">()</span>
 
     <span class="nd">@property</span>
@@ -562,7 +635,7 @@
         <span class="k">return</span> <span class="n">lims</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">entry_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ComputedEntry</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">entry_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ComputedEntry</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;Mapping between reduced formula and ComputedEntry&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entry_dict</span>
 
@@ -572,7 +645,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hyperplanes</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">hyperplane_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">PDEntry</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">hyperplane_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PDEntry</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;Returns list of entries corresponding to hyperplanes&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hyperplane_entries</span>
 
@@ -582,7 +655,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_border_hyperplanes</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">el_refs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Element</span><span class="p">,</span> <span class="n">PDEntry</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">el_refs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Element</span><span class="p">,</span> <span class="n">PDEntry</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;Returns a dictionary of elements and reference entries&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_el_refs</span>
 
@@ -592,10 +665,10 @@
         <span class="k">return</span> <span class="s2">&quot;-&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">symbol</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="p">))</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;ChemicalPotentialDiagram for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">chemical_system</span><span class="si">}</span><span class="s2"> with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span> <span class="sa">f</span><span class="s2">&quot;entries&quot;</span></div>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;ChemicalPotentialDiagram for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">chemical_system</span><span class="si">}</span><span class="s2"> with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">)</span><span class="si">}</span><span class="s2"> entries&quot;</span></div>
 
 
-<div class="viewcode-block" id="simple_pca"><a class="viewcode-back" href="../../../pymatgen.analysis.chempot_diagram.html#pymatgen.analysis.chempot_diagram.simple_pca">[docs]</a><span class="k">def</span> <span class="nf">simple_pca</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<div class="viewcode-block" id="simple_pca"><a class="viewcode-back" href="../../../pymatgen.analysis.chempot_diagram.html#pymatgen.analysis.chempot_diagram.simple_pca">[docs]</a><span class="k">def</span> <span class="nf">simple_pca</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A barebones implementation of principal component analysis (PCA) used in the</span>
 <span class="sd">    ChemicalPotentialDiagram class for plotting.</span>
@@ -697,7 +770,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.chempot_diagram</a></li> 
       </ul>
@@ -705,7 +778,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

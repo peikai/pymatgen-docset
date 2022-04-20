@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.electronic_structure.dos &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.electronic_structure.dos &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.electronic_structure.dos</a></li> 
       </ul>
@@ -49,19 +49,21 @@
 <span class="sd">This module defines classes to represent the density of states, etc.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span> <span class="nn">functools</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
-<span class="kn">from</span> <span class="nn">scipy.constants.codata</span> <span class="kn">import</span> <span class="n">value</span> <span class="k">as</span> <span class="n">_cd</span>
+<span class="kn">from</span> <span class="nn">scipy.constants</span> <span class="kn">import</span> <span class="n">value</span> <span class="k">as</span> <span class="n">_cd</span>
+<span class="kn">from</span> <span class="nn">scipy.signal</span> <span class="kn">import</span> <span class="n">hilbert</span>
 
 <span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">get_el_sp</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.sites</span> <span class="kn">import</span> <span class="n">PeriodicSite</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.spectrum</span> <span class="kn">import</span> <span class="n">Spectrum</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
-<span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.core</span> <span class="kn">import</span> <span class="n">Orbital</span><span class="p">,</span> <span class="n">Spin</span>
+<span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.core</span> <span class="kn">import</span> <span class="n">Orbital</span><span class="p">,</span> <span class="n">OrbitalType</span><span class="p">,</span> <span class="n">Spin</span>
 <span class="kn">from</span> <span class="nn">pymatgen.util.coord</span> <span class="kn">import</span> <span class="n">get_linear_interpolated_value</span>
 <span class="kn">from</span> <span class="nn">pymatgen.util.typing</span> <span class="kn">import</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">SpeciesLike</span>
 
@@ -122,7 +124,7 @@
             <span class="n">tdos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">abs_tol</span><span class="p">:</span>
-            <span class="n">tol</span> <span class="o">=</span> <span class="n">tol</span> <span class="o">*</span> <span class="n">tdos</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">tdos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+            <span class="n">tol</span> <span class="o">=</span> <span class="n">tol</span> <span class="o">*</span> <span class="n">tdos</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">tdos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">energies</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span>
         <span class="n">below_fermi</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">energies</span><span class="p">))</span> <span class="k">if</span> <span class="n">energies</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">efermi</span> <span class="ow">and</span> <span class="n">tdos</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">]</span>
         <span class="n">above_fermi</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">energies</span><span class="p">))</span> <span class="k">if</span> <span class="n">energies</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">efermi</span> <span class="ow">and</span> <span class="n">tdos</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">]</span>
@@ -162,7 +164,7 @@
             <span class="n">tdos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">abs_tol</span><span class="p">:</span>
-            <span class="n">tol</span> <span class="o">=</span> <span class="n">tol</span> <span class="o">*</span> <span class="n">tdos</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">tdos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+            <span class="n">tol</span> <span class="o">=</span> <span class="n">tol</span> <span class="o">*</span> <span class="n">tdos</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">tdos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
         <span class="c1"># find index of fermi energy</span>
         <span class="n">i_fermi</span> <span class="o">=</span> <span class="mi">0</span>
@@ -203,11 +205,11 @@
 <span class="sd">        Returns a string which can be easily plotted (using gnuplot).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">densities</span><span class="p">:</span>
-            <span class="n">stringarray</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;#</span><span class="si">{:30s}</span><span class="s2"> </span><span class="si">{:30s}</span><span class="s2"> </span><span class="si">{:30s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;Energy&quot;</span><span class="p">,</span> <span class="s2">&quot;DensityUp&quot;</span><span class="p">,</span> <span class="s2">&quot;DensityDown&quot;</span><span class="p">)]</span>
+            <span class="n">stringarray</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;#</span><span class="si">{</span><span class="s1">&#39;Energy&#39;</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;DensityUp&#39;</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;DensityDown&#39;</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">energy</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">):</span>
                 <span class="n">stringarray</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">energy</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">densities</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">][</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">densities</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">][</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">stringarray</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;#</span><span class="si">{:30s}</span><span class="s2"> </span><span class="si">{:30s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;Energy&quot;</span><span class="p">,</span> <span class="s2">&quot;DensityUp&quot;</span><span class="p">)]</span>
+            <span class="n">stringarray</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;#</span><span class="si">{</span><span class="s1">&#39;Energy&#39;</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;DensityUp&#39;</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">energy</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">):</span>
                 <span class="n">stringarray</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">energy</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">densities</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">][</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">stringarray</span><span class="p">)</span></div>
@@ -231,7 +233,7 @@
 <span class="sd">        Fermi level</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">efermi</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">energies</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">densities</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">]):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">efermi</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">energies</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">densities</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">]):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            efermi: Fermi level energy</span>
@@ -268,8 +270,7 @@
 <div class="viewcode-block" id="Dos.get_smeared_densities"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.Dos.get_smeared_densities">[docs]</a>    <span class="k">def</span> <span class="nf">get_smeared_densities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the Dict representation of the densities, {Spin: densities},</span>
-<span class="sd">        but with a Gaussian smearing of std dev sigma applied about the fermi</span>
-<span class="sd">        level.</span>
+<span class="sd">        but with a Gaussian smearing of std dev sigma</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sigma: Std dev of Gaussian smearing function.</span>
@@ -409,17 +410,17 @@
 <span class="sd">        Returns a string which can be easily plotted (using gnuplot).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">densities</span><span class="p">:</span>
-            <span class="n">stringarray</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;#</span><span class="si">{:30s}</span><span class="s2"> </span><span class="si">{:30s}</span><span class="s2"> </span><span class="si">{:30s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;Energy&quot;</span><span class="p">,</span> <span class="s2">&quot;DensityUp&quot;</span><span class="p">,</span> <span class="s2">&quot;DensityDown&quot;</span><span class="p">)]</span>
+            <span class="n">stringarray</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;#</span><span class="si">{</span><span class="s1">&#39;Energy&#39;</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;DensityUp&#39;</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;DensityDown&#39;</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">energy</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">):</span>
                 <span class="n">stringarray</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">energy</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">densities</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">][</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">densities</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">][</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">stringarray</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;#</span><span class="si">{:30s}</span><span class="s2"> </span><span class="si">{:30s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;Energy&quot;</span><span class="p">,</span> <span class="s2">&quot;DensityUp&quot;</span><span class="p">)]</span>
+            <span class="n">stringarray</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;#</span><span class="si">{</span><span class="s1">&#39;Energy&#39;</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;DensityUp&#39;</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">energy</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">):</span>
                 <span class="n">stringarray</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">energy</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">densities</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">][</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">stringarray</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Dos.from_dict"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.Dos.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Dos&quot;</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dos</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns Dos object from dict representation of Dos.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -431,11 +432,11 @@
 
 <div class="viewcode-block" id="Dos.as_dict"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.Dos.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Json-serializable dict representation of Dos.</span>
+<span class="sd">        JSON-serializable dict representation of Dos.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;efermi&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span>
             <span class="s2">&quot;energies&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
             <span class="s2">&quot;densities&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nb">str</span><span class="p">(</span><span class="n">spin</span><span class="p">):</span> <span class="n">dens</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">for</span> <span class="n">spin</span><span class="p">,</span> <span class="n">dens</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">densities</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
@@ -542,7 +543,7 @@
             <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">de</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">idx_vbm</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span>
             <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="p">(</span><span class="n">vb_integral</span> <span class="o">-</span> <span class="n">cb_integral</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">volume</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">A_to_cm</span> <span class="o">**</span> <span class="mi">3</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="p">(</span><span class="n">vb_integral</span> <span class="o">-</span> <span class="n">cb_integral</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">volume</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">A_to_cm</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="FermiDos.get_fermi_interextrapolated"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.FermiDos.get_fermi_interextrapolated">[docs]</a>    <span class="k">def</span> <span class="nf">get_fermi_interextrapolated</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">concentration</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">temperature</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">warn</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">c_ref</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e10</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
@@ -623,7 +624,7 @@
 <span class="sd">            precision: Essentially the decimal places of calculated Fermi level.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            The fermi level in eV.. Note that this is different from the default</span>
+<span class="sd">            The fermi level in eV. Note that this is different from the default</span>
 <span class="sd">            dos.efermi.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">fermi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">efermi</span>  <span class="c1"># initialize target fermi</span>
@@ -640,7 +641,7 @@
         <span class="k">return</span> <span class="n">fermi</span></div>
 
 <div class="viewcode-block" id="FermiDos.from_dict"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.FermiDos.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;FermiDos&quot;</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FermiDos</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns Dos object from dict representation of Dos.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -653,11 +654,11 @@
 
 <div class="viewcode-block" id="FermiDos.as_dict"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.FermiDos.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Json-serializable dict representation of Dos.</span>
+<span class="sd">        JSON-serializable dict representation of Dos.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;efermi&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span>
             <span class="s2">&quot;energies&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
             <span class="s2">&quot;densities&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nb">str</span><span class="p">(</span><span class="n">spin</span><span class="p">):</span> <span class="n">dens</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">for</span> <span class="n">spin</span><span class="p">,</span> <span class="n">dens</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">densities</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
@@ -683,7 +684,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">total_dos</span><span class="p">:</span> <span class="n">Dos</span><span class="p">,</span> <span class="n">pdoss</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">PeriodicSite</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Orbital</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">]]]</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">total_dos</span><span class="p">:</span> <span class="n">Dos</span><span class="p">,</span> <span class="n">pdoss</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">PeriodicSite</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Orbital</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">]]]</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
@@ -726,7 +727,7 @@
         <span class="n">site_dos</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">add_densities</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdos</span><span class="p">[</span><span class="n">site</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">site_dos</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="CompleteDos.get_site_spd_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_site_spd_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_site_spd_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site</span><span class="p">:</span> <span class="n">PeriodicSite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Orbital</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
+<div class="viewcode-block" id="CompleteDos.get_site_spd_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_site_spd_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_site_spd_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site</span><span class="p">:</span> <span class="n">PeriodicSite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">OrbitalType</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get orbital projected Dos of a particular site</span>
 
@@ -734,9 +735,9 @@
 <span class="sd">            site: Site in Structure associated with CompleteDos.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            dict of {orbital: Dos}, e.g. {&quot;s&quot;: Dos object, ...}</span>
+<span class="sd">            dict of {OrbitalType: Dos}, e.g. {OrbitalType.s: Dos object, ...}</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">spd_dos</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Orbital</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">spd_dos</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">OrbitalType</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">orb</span><span class="p">,</span> <span class="n">pdos</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdos</span><span class="p">[</span><span class="n">site</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">orbital_type</span> <span class="o">=</span> <span class="n">_get_orb_type</span><span class="p">(</span><span class="n">orb</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">orbital_type</span> <span class="ow">in</span> <span class="n">spd_dos</span><span class="p">:</span>
@@ -745,7 +746,7 @@
                 <span class="n">spd_dos</span><span class="p">[</span><span class="n">orbital_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">pdos</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">orb</span><span class="p">:</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span> <span class="k">for</span> <span class="n">orb</span><span class="p">,</span> <span class="n">densities</span> <span class="ow">in</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
 
-<div class="viewcode-block" id="CompleteDos.get_site_t2g_eg_resolved_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_site_t2g_eg_resolved_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_site_t2g_eg_resolved_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site</span><span class="p">:</span> <span class="n">PeriodicSite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
+<div class="viewcode-block" id="CompleteDos.get_site_t2g_eg_resolved_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_site_t2g_eg_resolved_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_site_t2g_eg_resolved_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site</span><span class="p">:</span> <span class="n">PeriodicSite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get the t2g, eg projected DOS for a particular site.</span>
 
@@ -770,12 +771,12 @@
             <span class="s2">&quot;e_g&quot;</span><span class="p">:</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">functools</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">add_densities</span><span class="p">,</span> <span class="n">eg_dos</span><span class="p">)),</span>
         <span class="p">}</span></div>
 
-<div class="viewcode-block" id="CompleteDos.get_spd_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_spd_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_spd_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Orbital</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
+<div class="viewcode-block" id="CompleteDos.get_spd_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_spd_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_spd_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">OrbitalType</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get orbital projected Dos.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            dict of {orbital: Dos}, e.g. {&quot;s&quot;: Dos object, ...}</span>
+<span class="sd">            dict of {OrbitalType: Dos}, e.g. {OrbitalType.s: Dos object, ...}</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">spd_dos</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">atom_dos</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdos</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
@@ -787,7 +788,7 @@
                     <span class="n">spd_dos</span><span class="p">[</span><span class="n">orbital_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">add_densities</span><span class="p">(</span><span class="n">spd_dos</span><span class="p">[</span><span class="n">orbital_type</span><span class="p">],</span> <span class="n">pdos</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">orb</span><span class="p">:</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span> <span class="k">for</span> <span class="n">orb</span><span class="p">,</span> <span class="n">densities</span> <span class="ow">in</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
 
-<div class="viewcode-block" id="CompleteDos.get_element_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_element_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_element_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">SpeciesLike</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
+<div class="viewcode-block" id="CompleteDos.get_element_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_element_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_element_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">SpeciesLike</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get element projected Dos.</span>
 
@@ -805,7 +806,7 @@
                     <span class="n">el_dos</span><span class="p">[</span><span class="n">el</span><span class="p">]</span> <span class="o">=</span> <span class="n">add_densities</span><span class="p">(</span><span class="n">el_dos</span><span class="p">[</span><span class="n">el</span><span class="p">],</span> <span class="n">pdos</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">el</span><span class="p">:</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span> <span class="k">for</span> <span class="n">el</span><span class="p">,</span> <span class="n">densities</span> <span class="ow">in</span> <span class="n">el_dos</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
 
-<div class="viewcode-block" id="CompleteDos.get_element_spd_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_element_spd_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_element_spd_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">el</span><span class="p">:</span> <span class="n">SpeciesLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Orbital</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
+<div class="viewcode-block" id="CompleteDos.get_element_spd_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_element_spd_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_element_spd_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">el</span><span class="p">:</span> <span class="n">SpeciesLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">OrbitalType</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get element and spd projected Dos</span>
 
@@ -813,7 +814,7 @@
 <span class="sd">            el: Element in Structure.composition associated with CompleteDos</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            dict of {orbital: Dos}, e.g. {&quot;s&quot;: Dos object, ...}</span>
+<span class="sd">            dict of {OrbitalType: Dos}, e.g. {OrbitalType.s: Dos object, ...}</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">el</span> <span class="o">=</span> <span class="n">get_el_sp</span><span class="p">(</span><span class="n">el</span><span class="p">)</span>
         <span class="n">el_dos</span> <span class="o">=</span> <span class="p">{}</span>
@@ -829,9 +830,11 @@
         <span class="k">return</span> <span class="p">{</span><span class="n">orb</span><span class="p">:</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span> <span class="k">for</span> <span class="n">orb</span><span class="p">,</span> <span class="n">densities</span> <span class="ow">in</span> <span class="n">el_dos</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">spin_polarization</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">spin_polarization</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Calculates spin polarization at Fermi level.</span>
+<span class="sd">        Calculates spin polarization at Fermi level. If the</span>
+<span class="sd">        calculation is not spin-polarized, None will be</span>
+<span class="sd">        returned.</span>
 
 <span class="sd">        See Sanvito et al., doi: 10.1126/sciadv.1602241 for</span>
 <span class="sd">        an example usage.</span>
@@ -843,6 +846,8 @@
         <span class="n">n_F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_interpolated_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">)</span>
 
         <span class="n">n_F_up</span> <span class="o">=</span> <span class="n">n_F</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">n_F</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
         <span class="n">n_F_down</span> <span class="o">=</span> <span class="n">n_F</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]</span>
 
         <span class="k">if</span> <span class="p">(</span><span class="n">n_F_up</span> <span class="o">+</span> <span class="n">n_F_down</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -853,8 +858,356 @@
 
         <span class="k">return</span> <span class="nb">abs</span><span class="p">(</span><span class="n">spin_polarization</span><span class="p">)</span>
 
+<div class="viewcode-block" id="CompleteDos.get_band_filling"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_band_filling">[docs]</a>    <span class="k">def</span> <span class="nf">get_band_filling</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">band</span><span class="p">:</span> <span class="n">OrbitalType</span> <span class="o">=</span> <span class="n">OrbitalType</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SpeciesLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sites</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PeriodicSite</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spin</span><span class="p">:</span> <span class="n">Spin</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes the orbital-projected band filling, defined as the zeroth moment</span>
+<span class="sd">        up to the Fermi level</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            elements: Elements to get the band center of (cannot be used in conjunction with site)</span>
+<span class="sd">            sites: Sites to get the band center of (cannot be used in conjunction with el)</span>
+<span class="sd">            band: Orbital type to get the band center of (default is d-band)</span>
+<span class="sd">            spin: Spin channel to use. By default, the spin channels will be combined.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            band filling in eV, often denoted f_d for the d-band</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Get the projected DOS</span>
+        <span class="k">if</span> <span class="n">elements</span> <span class="ow">and</span> <span class="n">sites</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Both element and site cannot be specified.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">elements</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">el</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>
+                <span class="n">spd_dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_element_spd_dos</span><span class="p">(</span><span class="n">el</span><span class="p">)[</span><span class="n">band</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">add_densities</span><span class="p">(</span><span class="n">densities</span><span class="p">,</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span><span class="p">)</span>
+            <span class="n">dos</span> <span class="o">=</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">sites</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sites</span><span class="p">):</span>
+                <span class="n">spd_dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_site_spd_dos</span><span class="p">(</span><span class="n">site</span><span class="p">)[</span><span class="n">band</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">add_densities</span><span class="p">(</span><span class="n">densities</span><span class="p">,</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span><span class="p">)</span>
+            <span class="n">dos</span> <span class="o">=</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_spd_dos</span><span class="p">()[</span><span class="n">band</span><span class="p">]</span>
+
+        <span class="n">energies</span> <span class="o">=</span> <span class="n">dos</span><span class="o">.</span><span class="n">energies</span> <span class="o">-</span> <span class="n">dos</span><span class="o">.</span><span class="n">efermi</span>
+        <span class="n">densities</span> <span class="o">=</span> <span class="n">dos</span><span class="o">.</span><span class="n">get_densities</span><span class="p">(</span><span class="n">spin</span><span class="o">=</span><span class="n">spin</span><span class="p">)</span>
+
+        <span class="c1"># Only consider up to Fermi level in numerator</span>
+        <span class="n">energies</span> <span class="o">=</span> <span class="n">dos</span><span class="o">.</span><span class="n">energies</span> <span class="o">-</span> <span class="n">dos</span><span class="o">.</span><span class="n">efermi</span>
+        <span class="n">band_filling</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trapz</span><span class="p">(</span><span class="n">densities</span><span class="p">[</span><span class="n">energies</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">=</span><span class="n">energies</span><span class="p">[</span><span class="n">energies</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">trapz</span><span class="p">(</span><span class="n">densities</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">energies</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">band_filling</span></div>
+
+<div class="viewcode-block" id="CompleteDos.get_band_center"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_band_center">[docs]</a>    <span class="k">def</span> <span class="nf">get_band_center</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">band</span><span class="p">:</span> <span class="n">OrbitalType</span> <span class="o">=</span> <span class="n">OrbitalType</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SpeciesLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sites</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PeriodicSite</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spin</span><span class="p">:</span> <span class="n">Spin</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">erange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes the orbital-projected band center, defined as the first moment</span>
+<span class="sd">        relative to the Fermi level</span>
+<span class="sd">            int_{-inf}^{+inf} rho(E)*E dE/int_{-inf}^{+inf} rho(E) dE</span>
+<span class="sd">        based on the work of Hammer and Norskov, Surf. Sci., 343 (1995) where the</span>
+<span class="sd">        limits of the integration can be modified by erange and E is the set</span>
+<span class="sd">        of energies taken with respect to the Fermi level. Note that the band center</span>
+<span class="sd">        is often highly sensitive to the selected erange.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            elements: Elements to get the band center of (cannot be used in conjunction with site)</span>
+<span class="sd">            sites: Sites to get the band center of (cannot be used in conjunction with el)</span>
+<span class="sd">            band: Orbital type to get the band center of (default is d-band)</span>
+<span class="sd">            spin: Spin channel to use. By default, the spin channels will be combined.</span>
+<span class="sd">            erange: [min, max] energy range to consider, with respect to the Fermi level.</span>
+<span class="sd">                Default is None, which means all energies are considered.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            band center in eV, often denoted epsilon_d for the d-band center</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">band_center</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_n_moment</span><span class="p">(</span>
+            <span class="mi">1</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="n">elements</span><span class="p">,</span> <span class="n">sites</span><span class="o">=</span><span class="n">sites</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">spin</span><span class="o">=</span><span class="n">spin</span><span class="p">,</span> <span class="n">erange</span><span class="o">=</span><span class="n">erange</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">band_center</span></div>
+
+<div class="viewcode-block" id="CompleteDos.get_band_width"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_band_width">[docs]</a>    <span class="k">def</span> <span class="nf">get_band_width</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">band</span><span class="p">:</span> <span class="n">OrbitalType</span> <span class="o">=</span> <span class="n">OrbitalType</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SpeciesLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sites</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PeriodicSite</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spin</span><span class="p">:</span> <span class="n">Spin</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">erange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the orbital-projected band width, defined as the square root of the second moment</span>
+<span class="sd">            sqrt(int_{-inf}^{+inf} rho(E)*(E-E_center)^2 dE/int_{-inf}^{+inf} rho(E) dE)</span>
+<span class="sd">        where E_center is the orbital-projected band center, the limits of the integration can be</span>
+<span class="sd">        modified by erange, and E is the set of energies taken with respect to the Fermi level.</span>
+<span class="sd">        Note that the band width is often highly sensitive to the selected erange.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            elements: Elements to get the band center of (cannot be used in conjunction with site)</span>
+<span class="sd">            sites: Sites to get the band center of (cannot be used in conjunction with el)</span>
+<span class="sd">            band: Orbital type to get the band center of (default is d-band)</span>
+<span class="sd">            spin: Spin channel to use. By default, the spin channels will be combined.</span>
+<span class="sd">            erange: [min, max] energy range to consider, with respect to the Fermi level.</span>
+<span class="sd">                Default is None, which means all energies are considered.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Orbital-projected band width in eV</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">band_width</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_n_moment</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="n">elements</span><span class="p">,</span> <span class="n">sites</span><span class="o">=</span><span class="n">sites</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">spin</span><span class="o">=</span><span class="n">spin</span><span class="p">,</span> <span class="n">erange</span><span class="o">=</span><span class="n">erange</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">band_width</span></div>
+
+<div class="viewcode-block" id="CompleteDos.get_band_skewness"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_band_skewness">[docs]</a>    <span class="k">def</span> <span class="nf">get_band_skewness</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">band</span><span class="p">:</span> <span class="n">OrbitalType</span> <span class="o">=</span> <span class="n">OrbitalType</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SpeciesLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sites</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PeriodicSite</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spin</span><span class="p">:</span> <span class="n">Spin</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">erange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the orbital-projected skewness, defined as the third standardized moment</span>
+<span class="sd">            int_{-inf}^{+inf} rho(E)*(E-E_center)^3 dE/int_{-inf}^{+inf} rho(E) dE)</span>
+<span class="sd">            /</span>
+<span class="sd">            (int_{-inf}^{+inf} rho(E)*(E-E_center)^2 dE/int_{-inf}^{+inf} rho(E) dE))^(3/2)</span>
+<span class="sd">        where E_center is the orbital-projected band center, the limits of the integration can be</span>
+<span class="sd">        modified by erange, and E is the set of energies taken with respect to the Fermi level.</span>
+<span class="sd">        Note that the skewness is often highly sensitive to the selected erange.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            elements: Elements to get the band center of (cannot be used in conjunction with site)</span>
+<span class="sd">            sites: Sites to get the band center of (cannot be used in conjunction with el)</span>
+<span class="sd">            band: Orbitals to get the band center of (default is d-band)</span>
+<span class="sd">            spin: Spin channel to use. By default, the spin channels will be combined.</span>
+<span class="sd">            erange: [min, max] energy range to consider, with respect to the Fermi level.</span>
+<span class="sd">                Default is None, which means all energies are considered.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Orbital-projected skewness in eV</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">skewness</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_n_moment</span><span class="p">(</span>
+            <span class="mi">3</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="n">elements</span><span class="p">,</span> <span class="n">sites</span><span class="o">=</span><span class="n">sites</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">spin</span><span class="o">=</span><span class="n">spin</span><span class="p">,</span> <span class="n">erange</span><span class="o">=</span><span class="n">erange</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_n_moment</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="n">elements</span><span class="p">,</span> <span class="n">sites</span><span class="o">=</span><span class="n">sites</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">spin</span><span class="o">=</span><span class="n">spin</span><span class="p">,</span> <span class="n">erange</span><span class="o">=</span><span class="n">erange</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mi">3</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">skewness</span></div>
+
+<div class="viewcode-block" id="CompleteDos.get_band_kurtosis"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_band_kurtosis">[docs]</a>    <span class="k">def</span> <span class="nf">get_band_kurtosis</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">band</span><span class="p">:</span> <span class="n">OrbitalType</span> <span class="o">=</span> <span class="n">OrbitalType</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SpeciesLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sites</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PeriodicSite</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spin</span><span class="p">:</span> <span class="n">Spin</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">erange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the orbital-projected kurtosis, defined as the fourth standardized moment</span>
+<span class="sd">            int_{-inf}^{+inf} rho(E)*(E-E_center)^4 dE/int_{-inf}^{+inf} rho(E) dE)</span>
+<span class="sd">            /</span>
+<span class="sd">            (int_{-inf}^{+inf} rho(E)*(E-E_center)^2 dE/int_{-inf}^{+inf} rho(E) dE))^2</span>
+<span class="sd">        where E_center is the orbital-projected band center, the limits of the integration can be</span>
+<span class="sd">        modified by erange, and E is the set of energies taken with respect to the Fermi level.</span>
+<span class="sd">        Note that the skewness is often highly sensitive to the selected erange.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            elements: Elements to get the band center of (cannot be used in conjunction with site)</span>
+<span class="sd">            sites: Sites to get the band center of (cannot be used in conjunction with el)</span>
+<span class="sd">            band: Orbital type to get the band center of (default is d-band)</span>
+<span class="sd">            spin: Spin channel to use. By default, the spin channels will be combined.</span>
+<span class="sd">            erange: [min, max] energy range to consider, with respect to the Fermi level.</span>
+<span class="sd">                Default is None, which means all energies are considered.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Orbital-projected kurtosis in eV</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">kurtosis</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">get_n_moment</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="n">elements</span><span class="p">,</span> <span class="n">sites</span><span class="o">=</span><span class="n">sites</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">spin</span><span class="o">=</span><span class="n">spin</span><span class="p">,</span> <span class="n">erange</span><span class="o">=</span><span class="n">erange</span><span class="p">)</span>
+            <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_n_moment</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="n">elements</span><span class="p">,</span> <span class="n">sites</span><span class="o">=</span><span class="n">sites</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">spin</span><span class="o">=</span><span class="n">spin</span><span class="p">,</span> <span class="n">erange</span><span class="o">=</span><span class="n">erange</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">kurtosis</span></div>
+
+<div class="viewcode-block" id="CompleteDos.get_n_moment"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_n_moment">[docs]</a>    <span class="k">def</span> <span class="nf">get_n_moment</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">band</span><span class="p">:</span> <span class="n">OrbitalType</span> <span class="o">=</span> <span class="n">OrbitalType</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SpeciesLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sites</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PeriodicSite</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spin</span><span class="p">:</span> <span class="n">Spin</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">erange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">center</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the nth moment of the DOS centered around the orbital-projected band center, defined as</span>
+<span class="sd">            int_{-inf}^{+inf} rho(E)*(E-E_center)^n dE/int_{-inf}^{+inf} rho(E) dE</span>
+<span class="sd">        where n is the order, E_center is the orbital-projected band center, the limits of the integration can be</span>
+<span class="sd">        modified by erange, and E is the set of energies taken with respect to the Fermi level. If center is False,</span>
+<span class="sd">        then the E_center reference is not used.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            n: The order for the moment</span>
+<span class="sd">            elements: Elements to get the band center of (cannot be used in conjunction with site)</span>
+<span class="sd">            sites: Sites to get the band center of (cannot be used in conjunction with el)</span>
+<span class="sd">            band: Orbital type to get the band center of (default is d-band)</span>
+<span class="sd">            spin: Spin channel to use. By default, the spin channels will be combined.</span>
+<span class="sd">            erange: [min, max] energy range to consider, with respect to the Fermi level.</span>
+<span class="sd">                Default is None, which means all energies are considered.</span>
+<span class="sd">            center: Take moments with respect to the band center</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Orbital-projected nth moment in eV</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Get the projected DOS</span>
+        <span class="k">if</span> <span class="n">elements</span> <span class="ow">and</span> <span class="n">sites</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Both element and site cannot be specified.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">elements</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">el</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>
+                <span class="n">spd_dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_element_spd_dos</span><span class="p">(</span><span class="n">el</span><span class="p">)[</span><span class="n">band</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">add_densities</span><span class="p">(</span><span class="n">densities</span><span class="p">,</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span><span class="p">)</span>
+            <span class="n">dos</span> <span class="o">=</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">sites</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sites</span><span class="p">):</span>
+                <span class="n">spd_dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_site_spd_dos</span><span class="p">(</span><span class="n">site</span><span class="p">)[</span><span class="n">band</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">add_densities</span><span class="p">(</span><span class="n">densities</span><span class="p">,</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span><span class="p">)</span>
+            <span class="n">dos</span> <span class="o">=</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_spd_dos</span><span class="p">()[</span><span class="n">band</span><span class="p">]</span>
+
+        <span class="n">energies</span> <span class="o">=</span> <span class="n">dos</span><span class="o">.</span><span class="n">energies</span> <span class="o">-</span> <span class="n">dos</span><span class="o">.</span><span class="n">efermi</span>
+        <span class="n">densities</span> <span class="o">=</span> <span class="n">dos</span><span class="o">.</span><span class="n">get_densities</span><span class="p">(</span><span class="n">spin</span><span class="o">=</span><span class="n">spin</span><span class="p">)</span>
+
+        <span class="c1"># Only consider a given erange, if desired</span>
+        <span class="k">if</span> <span class="n">erange</span><span class="p">:</span>
+            <span class="n">densities</span> <span class="o">=</span> <span class="n">densities</span><span class="p">[(</span><span class="n">energies</span> <span class="o">&gt;=</span> <span class="n">erange</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">energies</span> <span class="o">&lt;=</span> <span class="n">erange</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span>
+            <span class="n">energies</span> <span class="o">=</span> <span class="n">energies</span><span class="p">[(</span><span class="n">energies</span> <span class="o">&gt;=</span> <span class="n">erange</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">energies</span> <span class="o">&lt;=</span> <span class="n">erange</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span>
+
+        <span class="c1"># Center the energies about the band center if requested</span>
+        <span class="k">if</span> <span class="n">center</span><span class="p">:</span>
+            <span class="n">band_center</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_band_center</span><span class="p">(</span><span class="n">elements</span><span class="o">=</span><span class="n">elements</span><span class="p">,</span> <span class="n">sites</span><span class="o">=</span><span class="n">sites</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">spin</span><span class="o">=</span><span class="n">spin</span><span class="p">,</span> <span class="n">erange</span><span class="o">=</span><span class="n">erange</span><span class="p">)</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">energies</span> <span class="o">-</span> <span class="n">band_center</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">energies</span>
+
+        <span class="c1"># Take the nth moment</span>
+        <span class="n">nth_moment</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trapz</span><span class="p">(</span><span class="n">p</span><span class="o">**</span><span class="n">n</span> <span class="o">*</span> <span class="n">densities</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">energies</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">trapz</span><span class="p">(</span><span class="n">densities</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">energies</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">nth_moment</span></div>
+
+<div class="viewcode-block" id="CompleteDos.get_hilbert_transform"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_hilbert_transform">[docs]</a>    <span class="k">def</span> <span class="nf">get_hilbert_transform</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">band</span><span class="p">:</span> <span class="n">OrbitalType</span> <span class="o">=</span> <span class="n">OrbitalType</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SpeciesLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sites</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PeriodicSite</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dos</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the Hilbert transform of the orbital-projected density of states,</span>
+<span class="sd">        often plotted for a Newns-Anderson analysis.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            elements: Elements to get the band center of (cannot be used in conjunction with site)</span>
+<span class="sd">            sites: Sites to get the band center of (cannot be used in conjunction with el)</span>
+<span class="sd">            band: Orbitals to get the band center of (default is d-band)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Hilbert transformation of the projected DOS.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Get the projected DOS</span>
+        <span class="k">if</span> <span class="n">elements</span> <span class="ow">and</span> <span class="n">sites</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Both element and site cannot be specified.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">elements</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">el</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>
+                <span class="n">spd_dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_element_spd_dos</span><span class="p">(</span><span class="n">el</span><span class="p">)[</span><span class="n">band</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">add_densities</span><span class="p">(</span><span class="n">densities</span><span class="p">,</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span><span class="p">)</span>
+            <span class="n">dos</span> <span class="o">=</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">sites</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sites</span><span class="p">):</span>
+                <span class="n">spd_dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_site_spd_dos</span><span class="p">(</span><span class="n">site</span><span class="p">)[</span><span class="n">band</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">densities</span> <span class="o">=</span> <span class="n">add_densities</span><span class="p">(</span><span class="n">densities</span><span class="p">,</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">densities</span><span class="p">)</span>
+            <span class="n">dos</span> <span class="o">=</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_spd_dos</span><span class="p">()[</span><span class="n">band</span><span class="p">]</span>
+
+        <span class="c1"># Get Hilbert-transformed densities</span>
+        <span class="n">densities_transformed</span> <span class="o">=</span> <span class="p">{</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">hilbert</span><span class="p">(</span><span class="n">dos</span><span class="o">.</span><span class="n">get_densities</span><span class="p">(</span><span class="n">spin</span><span class="o">=</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">)))}</span>
+        <span class="k">if</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">densities</span><span class="p">:</span>
+            <span class="n">densities_transformed</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">hilbert</span><span class="p">(</span><span class="n">dos</span><span class="o">.</span><span class="n">get_densities</span><span class="p">(</span><span class="n">spin</span><span class="o">=</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">)))</span>
+
+        <span class="k">return</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities_transformed</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CompleteDos.get_upper_band_edge"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.get_upper_band_edge">[docs]</a>    <span class="k">def</span> <span class="nf">get_upper_band_edge</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">band</span><span class="p">:</span> <span class="n">OrbitalType</span> <span class="o">=</span> <span class="n">OrbitalType</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SpeciesLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sites</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PeriodicSite</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spin</span><span class="p">:</span> <span class="n">Spin</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">erange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the orbital-projected upper band edge. The definition by Xin et al.</span>
+<span class="sd">        Phys. Rev. B, 89, 115114 (2014) is used, which is the highest peak position of the</span>
+<span class="sd">        Hilbert transform of the orbital-projected DOS.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            elements: Elements to get the band center of (cannot be used in conjunction with site)</span>
+<span class="sd">            sites: Sites to get the band center of (cannot be used in conjunction with el)</span>
+<span class="sd">            band: Orbital type to get the band center of (default is d-band)</span>
+<span class="sd">            spin: Spin channel to use. By default, the spin channels will be combined.</span>
+<span class="sd">            erange: [min, max] energy range to consider, with respect to the Fermi level.</span>
+<span class="sd">                Default is None, which means all energies are considered.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Upper band edge in eV, often denoted epsilon_u</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Get the Hilbert-transformed DOS</span>
+        <span class="n">transformed_dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hilbert_transform</span><span class="p">(</span><span class="n">elements</span><span class="o">=</span><span class="n">elements</span><span class="p">,</span> <span class="n">sites</span><span class="o">=</span><span class="n">sites</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">)</span>
+
+        <span class="n">energies</span> <span class="o">=</span> <span class="n">transformed_dos</span><span class="o">.</span><span class="n">energies</span> <span class="o">-</span> <span class="n">transformed_dos</span><span class="o">.</span><span class="n">efermi</span>
+        <span class="n">densities</span> <span class="o">=</span> <span class="n">transformed_dos</span><span class="o">.</span><span class="n">get_densities</span><span class="p">(</span><span class="n">spin</span><span class="o">=</span><span class="n">spin</span><span class="p">)</span>
+
+        <span class="c1"># Only consider a given erange, if specified</span>
+        <span class="k">if</span> <span class="n">erange</span><span class="p">:</span>
+            <span class="n">densities</span> <span class="o">=</span> <span class="n">densities</span><span class="p">[(</span><span class="n">energies</span> <span class="o">&gt;=</span> <span class="n">erange</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">energies</span> <span class="o">&lt;=</span> <span class="n">erange</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span>
+            <span class="n">energies</span> <span class="o">=</span> <span class="n">energies</span><span class="p">[(</span><span class="n">energies</span> <span class="o">&gt;=</span> <span class="n">erange</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">energies</span> <span class="o">&lt;=</span> <span class="n">erange</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span>
+
+        <span class="c1"># Calculate the upper band edge</span>
+        <span class="n">upper_band_edge</span> <span class="o">=</span> <span class="n">energies</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">densities</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">upper_band_edge</span></div>
+
 <div class="viewcode-block" id="CompleteDos.from_dict"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CompleteDos&quot;</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CompleteDos</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns CompleteDos object from dict representation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -872,11 +1225,11 @@
 
 <div class="viewcode-block" id="CompleteDos.as_dict"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.CompleteDos.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Json-serializable dict representation of CompleteDos.</span>
+<span class="sd">        JSON-serializable dict representation of CompleteDos.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">d</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;efermi&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span>
             <span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span>
             <span class="s2">&quot;energies&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
@@ -940,7 +1293,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;orbital is not correct&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pdos</span><span class="p">[</span><span class="n">site</span><span class="p">][</span><span class="n">orbital</span><span class="p">])</span>  <span class="c1"># type: ignore</span></div>
 
-<div class="viewcode-block" id="LobsterCompleteDos.get_site_t2g_eg_resolved_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.LobsterCompleteDos.get_site_t2g_eg_resolved_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_site_t2g_eg_resolved_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site</span><span class="p">:</span> <span class="n">PeriodicSite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
+<div class="viewcode-block" id="LobsterCompleteDos.get_site_t2g_eg_resolved_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.LobsterCompleteDos.get_site_t2g_eg_resolved_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_site_t2g_eg_resolved_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site</span><span class="p">:</span> <span class="n">PeriodicSite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get the t2g, eg projected DOS for a particular site.</span>
 <span class="sd">        Args:</span>
@@ -968,7 +1321,7 @@
             <span class="s2">&quot;e_g&quot;</span><span class="p">:</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">functools</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">add_densities</span><span class="p">,</span> <span class="n">eg_dos</span><span class="p">)),</span>
         <span class="p">}</span></div>
 
-<div class="viewcode-block" id="LobsterCompleteDos.get_spd_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.LobsterCompleteDos.get_spd_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_spd_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>  <span class="c1"># type: ignore</span>
+<div class="viewcode-block" id="LobsterCompleteDos.get_spd_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.LobsterCompleteDos.get_spd_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_spd_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>  <span class="c1"># type: ignore</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get orbital projected Dos.</span>
 <span class="sd">        For example, if 3s and 4s are included in the basis of some element, they will be both summed in the orbital</span>
@@ -988,7 +1341,7 @@
 
         <span class="k">return</span> <span class="p">{</span><span class="n">orb</span><span class="p">:</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span> <span class="k">for</span> <span class="n">orb</span><span class="p">,</span> <span class="n">densities</span> <span class="ow">in</span> <span class="n">spd_dos</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
 
-<div class="viewcode-block" id="LobsterCompleteDos.get_element_spd_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.LobsterCompleteDos.get_element_spd_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_element_spd_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">el</span><span class="p">:</span> <span class="n">SpeciesLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>  <span class="c1"># type: ignore</span>
+<div class="viewcode-block" id="LobsterCompleteDos.get_element_spd_dos"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.LobsterCompleteDos.get_element_spd_dos">[docs]</a>    <span class="k">def</span> <span class="nf">get_element_spd_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">el</span><span class="p">:</span> <span class="n">SpeciesLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dos</span><span class="p">]:</span>  <span class="c1"># type: ignore</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get element and spd projected Dos</span>
 
@@ -997,7 +1350,7 @@
 <span class="sd">            el: Element in Structure.composition associated with LobsterCompleteDos</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            dict of {&quot;S&quot;: densities, &quot;P&quot;: densities, &quot;D&quot;: densities}</span>
+<span class="sd">            dict of {OrbitalType.s: densities, OrbitalType.p: densities, OrbitalType.d: densities}</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">el</span> <span class="o">=</span> <span class="n">get_el_sp</span><span class="p">(</span><span class="n">el</span><span class="p">)</span>
         <span class="n">el_dos</span> <span class="o">=</span> <span class="p">{}</span>
@@ -1013,7 +1366,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="n">orb</span><span class="p">:</span> <span class="n">Dos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">,</span> <span class="n">densities</span><span class="p">)</span> <span class="k">for</span> <span class="n">orb</span><span class="p">,</span> <span class="n">densities</span> <span class="ow">in</span> <span class="n">el_dos</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
 
 <div class="viewcode-block" id="LobsterCompleteDos.from_dict"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.LobsterCompleteDos.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;LobsterCompleteDos&quot;</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LobsterCompleteDos</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns: CompleteDos object from dict representation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -1030,7 +1383,7 @@
         <span class="k">return</span> <span class="n">LobsterCompleteDos</span><span class="p">(</span><span class="n">struct</span><span class="p">,</span> <span class="n">tdos</span><span class="p">,</span> <span class="n">pdoss</span><span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="add_densities"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.add_densities">[docs]</a><span class="k">def</span> <span class="nf">add_densities</span><span class="p">(</span><span class="n">density1</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">],</span> <span class="n">density2</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">]:</span>
+<div class="viewcode-block" id="add_densities"><a class="viewcode-back" href="../../../pymatgen.electronic_structure.dos.html#pymatgen.electronic_structure.dos.add_densities">[docs]</a><span class="k">def</span> <span class="nf">add_densities</span><span class="p">(</span><span class="n">density1</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">],</span> <span class="n">density2</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Spin</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">]:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Method to sum two densities.</span>
 
@@ -1144,7 +1497,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.electronic_structure.dos</a></li> 
       </ul>
@@ -1152,7 +1505,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

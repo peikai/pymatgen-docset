@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.entries.correction_calculator &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.entries.correction_calculator &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="../entries.html" accesskey="U">pymatgen.entries</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.entries.correction_calculator</a></li> 
@@ -48,21 +48,21 @@
 <span class="sd">entries given to the CorrectionCalculator constructor.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Optional</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">plotly.graph_objects</span> <span class="k">as</span> <span class="nn">go</span>
 <span class="kn">from</span> <span class="nn">monty.serialization</span> <span class="kn">import</span> <span class="n">loadfn</span>
+<span class="kn">from</span> <span class="nn">ruamel</span> <span class="kn">import</span> <span class="n">yaml</span>
 <span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="kn">import</span> <span class="n">curve_fit</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">yaml</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.composition</span> <span class="kn">import</span> <span class="n">Composition</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">Element</span>
 <span class="kn">from</span> <span class="nn">pymatgen.analysis.reaction_calculator</span> <span class="kn">import</span> <span class="n">ComputedReaction</span>
 <span class="kn">from</span> <span class="nn">pymatgen.analysis.structure_analyzer</span> <span class="kn">import</span> <span class="n">sulfide_type</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.composition</span> <span class="kn">import</span> <span class="n">Composition</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">Element</span>
 
 
 <span class="k">def</span> <span class="nf">_func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">m</span><span class="p">):</span>
@@ -91,7 +91,7 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">species</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">species</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
             <span class="s2">&quot;oxide&quot;</span><span class="p">,</span>
             <span class="s2">&quot;peroxide&quot;</span><span class="p">,</span>
             <span class="s2">&quot;superoxide&quot;</span><span class="p">,</span>
@@ -116,8 +116,8 @@
             <span class="s2">&quot;H&quot;</span><span class="p">,</span>
         <span class="p">],</span>
         <span class="n">max_error</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
-        <span class="n">allow_unstable</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
-        <span class="n">exclude_polyanions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">allow_unstable</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">bool</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">exclude_polyanions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
             <span class="s2">&quot;SO4&quot;</span><span class="p">,</span>
             <span class="s2">&quot;SO3&quot;</span><span class="p">,</span>
             <span class="s2">&quot;CO3&quot;</span><span class="p">,</span>
@@ -165,19 +165,19 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">allow_unstable</span> <span class="o">=</span> <span class="n">allow_unstable</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">exclude_polyanions</span> <span class="o">=</span> <span class="n">exclude_polyanions</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">corrections</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">corrections_std_error</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">corrections_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># {&#39;species&#39;: (value, uncertainty)}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">corrections</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">corrections_std_error</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">corrections_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># {&#39;species&#39;: (value, uncertainty)}</span>
 
         <span class="c1"># to help the graph_residual_error_per_species() method differentiate between oxygen containing compounds</span>
         <span class="k">if</span> <span class="s2">&quot;oxide&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">oxides</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">oxides</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="s2">&quot;peroxide&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">peroxides</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">peroxides</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="s2">&quot;superoxide&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">superoxides</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">superoxides</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="s2">&quot;S&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">sulfides</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sulfides</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
 <div class="viewcode-block" id="CorrectionCalculator.compute_from_files"><a class="viewcode-back" href="../../../pymatgen.entries.correction_calculator.html#pymatgen.entries.correction_calculator.CorrectionCalculator.compute_from_files">[docs]</a>    <span class="k">def</span> <span class="nf">compute_from_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exp_gz</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">comp_gz</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -212,10 +212,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">exp_compounds</span> <span class="o">=</span> <span class="n">exp_entries</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">calc_compounds</span> <span class="o">=</span> <span class="n">calc_entries</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">coeff_mat</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">exp_uncer</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coeff_mat</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exp_uncer</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="c1"># remove any corrections in calc_compounds</span>
         <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_compounds</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
@@ -353,7 +353,7 @@
                 <span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">corrections_std_error</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">4</span><span class="p">),</span>
             <span class="p">)</span>
 
-        <span class="c1"># set ozonide correction to 0 so that this species does not recieve a correction</span>
+        <span class="c1"># set ozonide correction to 0 so that this species does not receive a correction</span>
         <span class="c1"># while other oxide types do</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">corrections_dict</span><span class="p">[</span><span class="s2">&quot;ozonide&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
@@ -465,7 +465,7 @@
 
         <span class="k">return</span> <span class="n">fig</span></div>
 
-<div class="viewcode-block" id="CorrectionCalculator.make_yaml"><a class="viewcode-back" href="../../../pymatgen.entries.correction_calculator.html#pymatgen.entries.correction_calculator.CorrectionCalculator.make_yaml">[docs]</a>    <span class="k">def</span> <span class="nf">make_yaml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MP2020&quot;</span><span class="p">,</span> <span class="nb">dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="CorrectionCalculator.make_yaml"><a class="viewcode-back" href="../../../pymatgen.entries.correction_calculator.html#pymatgen.entries.correction_calculator.CorrectionCalculator.make_yaml">[docs]</a>    <span class="k">def</span> <span class="nf">make_yaml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MP2020&quot;</span><span class="p">,</span> <span class="nb">dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Creates the _name_Compatibility.yaml that stores corrections as well as _name_CompatibilityUncertainties.yaml</span>
 <span class="sd">        for correction uncertainties.</span>
@@ -483,13 +483,13 @@
         <span class="c1"># elements with U values</span>
         <span class="n">ggaucorrection_species</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;V&quot;</span><span class="p">,</span> <span class="s2">&quot;Cr&quot;</span><span class="p">,</span> <span class="s2">&quot;Mn&quot;</span><span class="p">,</span> <span class="s2">&quot;Fe&quot;</span><span class="p">,</span> <span class="s2">&quot;Co&quot;</span><span class="p">,</span> <span class="s2">&quot;Ni&quot;</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="s2">&quot;Mo&quot;</span><span class="p">]</span>
 
-        <span class="n">comp_corr</span><span class="p">:</span> <span class="s2">&quot;OrderedDict[str, float]&quot;</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
-        <span class="n">o</span><span class="p">:</span> <span class="s2">&quot;OrderedDict[str, float]&quot;</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
-        <span class="n">f</span><span class="p">:</span> <span class="s2">&quot;OrderedDict[str, float]&quot;</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="n">comp_corr</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">o</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">f</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
-        <span class="n">comp_corr_error</span><span class="p">:</span> <span class="s2">&quot;OrderedDict[str, float]&quot;</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
-        <span class="n">o_error</span><span class="p">:</span> <span class="s2">&quot;OrderedDict[str, float]&quot;</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
-        <span class="n">f_error</span><span class="p">:</span> <span class="s2">&quot;OrderedDict[str, float]&quot;</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="n">comp_corr_error</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">o_error</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">f_error</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="k">for</span> <span class="n">specie</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">)</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;ozonide&quot;</span><span class="p">]:</span>
             <span class="k">if</span> <span class="n">specie</span> <span class="ow">in</span> <span class="n">ggaucorrection_species</span><span class="p">:</span>
@@ -523,7 +523,6 @@
             <span class="n">path</span> <span class="o">=</span> <span class="n">fn</span>
 
         <span class="n">yml</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">YAML</span><span class="p">()</span>
-        <span class="n">yml</span><span class="o">.</span><span class="n">Representer</span><span class="o">.</span><span class="n">add_representer</span><span class="p">(</span><span class="n">OrderedDict</span><span class="p">,</span> <span class="n">yml</span><span class="o">.</span><span class="n">Representer</span><span class="o">.</span><span class="n">represent_dict</span><span class="p">)</span>
         <span class="n">yml</span><span class="o">.</span><span class="n">default_flow_style</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">contents</span> <span class="o">=</span> <span class="n">yml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">outline</span><span class="p">)</span>
 
@@ -568,7 +567,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="../entries.html" >pymatgen.entries</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.entries.correction_calculator</a></li> 
@@ -577,7 +576,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

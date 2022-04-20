@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.alchemy.materials &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.alchemy.materials &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.alchemy.materials</a></li> 
       </ul>
@@ -51,20 +51,24 @@
 <span class="sd">series of transformations.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
 <span class="kn">from</span> <span class="nn">warnings</span> <span class="kn">import</span> <span class="n">warn</span>
 
-<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MontyDecoder</span><span class="p">,</span> <span class="n">MSONable</span><span class="p">,</span> <span class="n">jsanitize</span>
+<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span><span class="p">,</span> <span class="n">jsanitize</span>
 
+<span class="kn">from</span> <span class="nn">pymatgen.alchemy.filters</span> <span class="kn">import</span> <span class="n">AbstractStructureFilter</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
 <span class="kn">from</span> <span class="nn">pymatgen.io.cif</span> <span class="kn">import</span> <span class="n">CifParser</span>
 <span class="kn">from</span> <span class="nn">pymatgen.io.vasp.inputs</span> <span class="kn">import</span> <span class="n">Poscar</span>
-<span class="kn">from</span> <span class="nn">pymatgen.io.vasp.sets</span> <span class="kn">import</span> <span class="n">MPRelaxSet</span>
-
-<span class="n">dec</span> <span class="o">=</span> <span class="n">MontyDecoder</span><span class="p">()</span>
+<span class="kn">from</span> <span class="nn">pymatgen.io.vasp.sets</span> <span class="kn">import</span> <span class="n">MPRelaxSet</span><span class="p">,</span> <span class="n">VaspInputSet</span>
+<span class="kn">from</span> <span class="nn">pymatgen.transformations.transformation_abc</span> <span class="kn">import</span> <span class="n">AbstractTransformation</span>
+<span class="kn">from</span> <span class="nn">pymatgen.util.provenance</span> <span class="kn">import</span> <span class="n">StructureNL</span>
 
 
 <div class="viewcode-block" id="TransformedStructure"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure">[docs]</a><span class="k">class</span> <span class="nc">TransformedStructure</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
@@ -76,27 +80,33 @@
 <span class="sd">    associated transformation history.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">,</span> <span class="n">transformations</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">other_parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span>
+        <span class="n">transformations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AbstractTransformation</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">history</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AbstractTransformation</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">other_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initializes a transformed structure from a structure.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            structure (Structure): Input structure</span>
-<span class="sd">            transformations ([Transformations]): List of transformations to</span>
+<span class="sd">            transformations (list[Transformation]): List of transformations to</span>
 <span class="sd">                apply.</span>
-<span class="sd">            history (list): Previous history.</span>
+<span class="sd">            history (list[Transformation]): Previous history.</span>
 <span class="sd">            other_parameters (dict): Additional parameters to be added.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">final_structure</span> <span class="o">=</span> <span class="n">structure</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="n">history</span> <span class="ow">or</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">other_parameters</span> <span class="o">=</span> <span class="n">other_parameters</span> <span class="ow">or</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_undone</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_undone</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">AbstractTransformation</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">Structure</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="n">transformations</span> <span class="o">=</span> <span class="n">transformations</span> <span class="ow">or</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">transformations</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">append_transformation</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
 
-<div class="viewcode-block" id="TransformedStructure.undo_last_change"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.undo_last_change">[docs]</a>    <span class="k">def</span> <span class="nf">undo_last_change</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="TransformedStructure.undo_last_change"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.undo_last_change">[docs]</a>    <span class="k">def</span> <span class="nf">undo_last_change</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Undo the last change in the TransformedStructure.</span>
 
@@ -114,7 +124,7 @@
             <span class="n">s</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">final_structure</span> <span class="o">=</span> <span class="n">s</span></div>
 
-<div class="viewcode-block" id="TransformedStructure.redo_next_change"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.redo_next_change">[docs]</a>    <span class="k">def</span> <span class="nf">redo_next_change</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="TransformedStructure.redo_next_change"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.redo_next_change">[docs]</a>    <span class="k">def</span> <span class="nf">redo_next_change</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Redo the last undone change in the TransformedStructure.</span>
 
@@ -127,11 +137,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">final_structure</span> <span class="o">=</span> <span class="n">s</span></div>
 
-    <span class="k">def</span> <span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;final_structure&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">)</span>
 
 <div class="viewcode-block" id="TransformedStructure.append_transformation"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.append_transformation">[docs]</a>    <span class="k">def</span> <span class="nf">append_transformation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transformation</span><span class="p">,</span> <span class="n">return_alternatives</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">clear_redo</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
@@ -190,20 +200,21 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">final_structure</span> <span class="o">=</span> <span class="n">s</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 
-<div class="viewcode-block" id="TransformedStructure.append_filter"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.append_filter">[docs]</a>    <span class="k">def</span> <span class="nf">append_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure_filter</span><span class="p">):</span>
+<div class="viewcode-block" id="TransformedStructure.append_filter"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.append_filter">[docs]</a>    <span class="k">def</span> <span class="nf">append_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure_filter</span><span class="p">:</span> <span class="n">AbstractStructureFilter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Adds a filter.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            structure_filter (StructureFilter): A filter implementating the</span>
-<span class="sd">                AbstractStructureFilter API. Tells transmuter waht structures</span>
-<span class="sd">                to retain.</span>
+<span class="sd">            structure_filter (StructureFilter): A filter implementing the</span>
+<span class="sd">                AbstractStructureFilter API. Tells transmuter what structures to retain.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">hdict</span> <span class="o">=</span> <span class="n">structure_filter</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
         <span class="n">hdict</span><span class="p">[</span><span class="s2">&quot;input_structure&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">final_structure</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hdict</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="TransformedStructure.extend_transformations"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.extend_transformations">[docs]</a>    <span class="k">def</span> <span class="nf">extend_transformations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transformations</span><span class="p">,</span> <span class="n">return_alternatives</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="TransformedStructure.extend_transformations"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.extend_transformations">[docs]</a>    <span class="k">def</span> <span class="nf">extend_transformations</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">transformations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AbstractTransformation</span><span class="p">],</span> <span class="n">return_alternatives</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Extends a sequence of transformations to the TransformedStructure.</span>
 
@@ -217,7 +228,7 @@
         <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">transformations</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">append_transformation</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">return_alternatives</span><span class="o">=</span><span class="n">return_alternatives</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="TransformedStructure.get_vasp_input"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.get_vasp_input">[docs]</a>    <span class="k">def</span> <span class="nf">get_vasp_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vasp_input_set</span><span class="o">=</span><span class="n">MPRelaxSet</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="TransformedStructure.get_vasp_input"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.get_vasp_input">[docs]</a>    <span class="k">def</span> <span class="nf">get_vasp_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vasp_input_set</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">VaspInputSet</span><span class="p">]</span> <span class="o">=</span> <span class="n">MPRelaxSet</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns VASP input as a dict of vasp objects.</span>
 
@@ -229,8 +240,14 @@
         <span class="n">d</span><span class="p">[</span><span class="s2">&quot;transformations.json&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">d</span></div>
 
-<div class="viewcode-block" id="TransformedStructure.write_vasp_input"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.write_vasp_input">[docs]</a>    <span class="k">def</span> <span class="nf">write_vasp_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vasp_input_set</span><span class="o">=</span><span class="n">MPRelaxSet</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">create_directory</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="TransformedStructure.write_vasp_input"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.write_vasp_input">[docs]</a>    <span class="k">def</span> <span class="nf">write_vasp_input</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vasp_input_set</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">VaspInputSet</span><span class="p">]</span> <span class="o">=</span> <span class="n">MPRelaxSet</span><span class="p">,</span>
+        <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span>
+        <span class="n">create_directory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Writes VASP input to an output_dir.</span>
 
 <span class="sd">        Args:</span>
@@ -246,7 +263,7 @@
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">&quot;transformations.json&quot;</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
             <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span> <span class="n">fp</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">output</span> <span class="o">=</span> <span class="p">[</span>
             <span class="s2">&quot;Current structure&quot;</span><span class="p">,</span>
             <span class="s2">&quot;------------&quot;</span><span class="p">,</span>
@@ -262,7 +279,7 @@
         <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">other_parameters</span><span class="p">))</span>
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
 
-<div class="viewcode-block" id="TransformedStructure.set_parameter"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.set_parameter">[docs]</a>    <span class="k">def</span> <span class="nf">set_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<div class="viewcode-block" id="TransformedStructure.set_parameter"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.set_parameter">[docs]</a>    <span class="k">def</span> <span class="nf">set_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set a parameter</span>
 
@@ -272,7 +289,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">other_parameters</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span></div>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">was_modified</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">was_modified</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Boolean describing whether the last transformation on the structure</span>
 <span class="sd">        made any alterations to it one example of when this would return false</span>
@@ -282,7 +299,7 @@
         <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">final_structure</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">structures</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">structures</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">structures</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Structure</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Copy of all structures in the TransformedStructure. A</span>
 <span class="sd">        structure is stored after every single transformation.</span>
@@ -291,7 +308,12 @@
         <span class="k">return</span> <span class="n">hstructs</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">final_structure</span><span class="p">]</span>
 
 <div class="viewcode-block" id="TransformedStructure.from_cif_string"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.from_cif_string">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">from_cif_string</span><span class="p">(</span><span class="n">cif_string</span><span class="p">,</span> <span class="n">transformations</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">primitive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">occupancy_tolerance</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">from_cif_string</span><span class="p">(</span>
+        <span class="n">cif_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">transformations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AbstractTransformation</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">primitive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">occupancy_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransformedStructure</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Generates TransformedStructure from a cif string.</span>
 
@@ -299,7 +321,7 @@
 <span class="sd">            cif_string (str): Input cif string. Should contain only one</span>
 <span class="sd">                structure. For cifs containing multiple structures, please use</span>
 <span class="sd">                CifTransmuter.</span>
-<span class="sd">            transformations ([Transformations]): Sequence of transformations</span>
+<span class="sd">            transformations (list[Transformation]): Sequence of transformations</span>
 <span class="sd">                to be applied to the input structure.</span>
 <span class="sd">            primitive (bool): Option to set if the primitive cell should be</span>
 <span class="sd">                extracted. Defaults to True. However, there are certain</span>
@@ -332,13 +354,15 @@
         <span class="k">return</span> <span class="n">TransformedStructure</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">transformations</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="p">[</span><span class="n">source_info</span><span class="p">])</span></div>
 
 <div class="viewcode-block" id="TransformedStructure.from_poscar_string"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.from_poscar_string">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">from_poscar_string</span><span class="p">(</span><span class="n">poscar_string</span><span class="p">,</span> <span class="n">transformations</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">from_poscar_string</span><span class="p">(</span>
+        <span class="n">poscar_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">transformations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AbstractTransformation</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransformedStructure</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Generates TransformedStructure from a poscar string.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            poscar_string (str): Input POSCAR string.</span>
-<span class="sd">            transformations ([Transformations]): Sequence of transformations</span>
+<span class="sd">            transformations (list[Transformation]): Sequence of transformations</span>
 <span class="sd">                to be applied to the input structure.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">p</span> <span class="o">=</span> <span class="n">Poscar</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">poscar_string</span><span class="p">)</span>
@@ -355,27 +379,27 @@
         <span class="p">}</span>
         <span class="k">return</span> <span class="n">TransformedStructure</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">transformations</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="p">[</span><span class="n">source_info</span><span class="p">])</span></div>
 
-<div class="viewcode-block" id="TransformedStructure.as_dict"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="TransformedStructure.as_dict"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Dict representation of the TransformedStructure.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">final_structure</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
-        <span class="n">d</span><span class="p">[</span><span class="s2">&quot;@module&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span>
-        <span class="n">d</span><span class="p">[</span><span class="s2">&quot;@class&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">d</span><span class="p">[</span><span class="s2">&quot;@module&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span>
+        <span class="n">d</span><span class="p">[</span><span class="s2">&quot;@class&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
         <span class="n">d</span><span class="p">[</span><span class="s2">&quot;history&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">jsanitize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">)</span>
         <span class="n">d</span><span class="p">[</span><span class="s2">&quot;last_modified&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">())</span>
         <span class="n">d</span><span class="p">[</span><span class="s2">&quot;other_parameters&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">jsanitize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">other_parameters</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">d</span></div>
 
 <div class="viewcode-block" id="TransformedStructure.from_dict"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransformedStructure</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Creates a TransformedStructure from a dict.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">s</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;history&quot;</span><span class="p">],</span> <span class="n">other_parameters</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;other_parameters&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="TransformedStructure.to_snl"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.to_snl">[docs]</a>    <span class="k">def</span> <span class="nf">to_snl</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">authors</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="TransformedStructure.to_snl"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.to_snl">[docs]</a>    <span class="k">def</span> <span class="nf">to_snl</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">authors</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StructureNL</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Generate SNL from TransformedStructure.</span>
 
@@ -395,12 +419,11 @@
                     <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">h</span><span class="p">,</span>
                 <span class="p">}</span>
             <span class="p">)</span>
-        <span class="kn">from</span> <span class="nn">pymatgen.util.provenance</span> <span class="kn">import</span> <span class="n">StructureNL</span>
 
         <span class="k">return</span> <span class="n">StructureNL</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">final_structure</span><span class="p">,</span> <span class="n">authors</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="n">hist</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="TransformedStructure.from_snl"><a class="viewcode-back" href="../../../pymatgen.alchemy.materials.html#pymatgen.alchemy.materials.TransformedStructure.from_snl">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_snl</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">snl</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">from_snl</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">snl</span><span class="p">:</span> <span class="n">StructureNL</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransformedStructure</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create TransformedStructure from SNL.</span>
 
@@ -432,7 +455,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.alchemy.materials</a></li> 
       </ul>
@@ -440,7 +463,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.analysis.graphs &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.analysis.graphs &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.graphs</a></li> 
       </ul>
@@ -46,7 +46,7 @@
 <span class="c1"># Distributed under the terms of the MIT License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Module for graph representations of crystals.</span>
+<span class="sd">Module for graph representations of crystals and molecules.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span> <span class="nn">copy</span>
@@ -57,12 +57,13 @@
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span><span class="p">,</span> <span class="n">namedtuple</span>
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">combinations</span>
 <span class="kn">from</span> <span class="nn">operator</span> <span class="kn">import</span> <span class="n">itemgetter</span>
+<span class="kn">from</span> <span class="nn">shutil</span> <span class="kn">import</span> <span class="n">which</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span>
 
 <span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
 <span class="kn">import</span> <span class="nn">networkx.algorithms.isomorphism</span> <span class="k">as</span> <span class="nn">iso</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
-<span class="kn">from</span> <span class="nn">monty.os.path</span> <span class="kn">import</span> <span class="n">which</span>
 <span class="kn">from</span> <span class="nn">networkx.drawing.nx_agraph</span> <span class="kn">import</span> <span class="n">write_dot</span>
 <span class="kn">from</span> <span class="nn">networkx.readwrite</span> <span class="kn">import</span> <span class="n">json_graph</span>
 <span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="kn">import</span> <span class="n">KDTree</span>
@@ -75,10 +76,8 @@
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">import</span> <span class="nn">igraph</span>
-
-    <span class="n">IGRAPH_AVAILABLE</span> <span class="o">=</span> <span class="kc">True</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="n">IGRAPH_AVAILABLE</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">igraph</span> <span class="o">=</span> <span class="kc">None</span>
 
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -139,7 +138,7 @@
             <span class="n">f2_comp_dict</span><span class="p">[</span><span class="n">node</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">&quot;specie&quot;</span><span class="p">]]</span> <span class="o">+=</span> <span class="mi">1</span>
     <span class="k">if</span> <span class="n">f1_comp_dict</span> <span class="o">!=</span> <span class="n">f2_comp_dict</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">False</span>
-    <span class="k">if</span> <span class="n">IGRAPH_AVAILABLE</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">igraph</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">ifrag1</span> <span class="o">=</span> <span class="n">_igraph_from_nxgraph</span><span class="p">(</span><span class="n">frag1</span><span class="p">)</span>
         <span class="n">ifrag2</span> <span class="o">=</span> <span class="n">_igraph_from_nxgraph</span><span class="p">(</span><span class="n">frag2</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">ifrag1</span><span class="o">.</span><span class="n">isomorphic_vf2</span><span class="p">(</span><span class="n">ifrag2</span><span class="p">,</span> <span class="n">node_compat_fn</span><span class="o">=</span><span class="n">_compare</span><span class="p">)</span>
@@ -471,7 +470,7 @@
                     <span class="k">if</span> <span class="n">warn_duplicates</span><span class="p">:</span>
                         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
                             <span class="s2">&quot;Trying to add an edge that already exists from &quot;</span>
-                            <span class="s2">&quot;site </span><span class="si">{}</span><span class="s2"> to site </span><span class="si">{}</span><span class="s2"> in </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">from_index</span><span class="p">,</span> <span class="n">to_index</span><span class="p">,</span> <span class="n">to_jimage</span><span class="p">)</span>
+                            <span class="sa">f</span><span class="s2">&quot;site </span><span class="si">{</span><span class="n">from_index</span><span class="si">}</span><span class="s2"> to site </span><span class="si">{</span><span class="n">to_index</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">to_jimage</span><span class="si">}</span><span class="s2">.&quot;</span>
                         <span class="p">)</span>
                     <span class="k">return</span>
 
@@ -601,10 +600,7 @@
         <span class="c1"># ensure that edge exists before attempting to change it</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">existing_edges</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Edge between </span><span class="si">{}</span><span class="s2"> and </span><span class="si">{}</span><span class="s2"> cannot be altered;</span><span class="se">\</span>
-<span class="s2">                                no edge exists between those sites.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="n">from_index</span><span class="p">,</span> <span class="n">to_index</span>
-                <span class="p">)</span>
+                <span class="sa">f</span><span class="s2">&quot;Edge between </span><span class="si">{</span><span class="n">from_index</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">to_index</span><span class="si">}</span><span class="s2"> cannot be altered; no edge exists between those sites.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">to_jimage</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -929,7 +925,7 @@
         <span class="c1"># add display options for nodes</span>
         <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">():</span>
             <span class="c1"># get label by species name</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">[</span><span class="n">n</span><span class="p">]</span><span class="o">.</span><span class="n">specie</span><span class="p">)</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">)&quot;</span> <span class="k">if</span> <span class="n">node_labels</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">[</span><span class="n">n</span><span class="p">]</span><span class="o">.</span><span class="n">specie</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">)&quot;</span> <span class="k">if</span> <span class="n">node_labels</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
 
             <span class="c1"># use standard color scheme for nodes</span>
             <span class="n">c</span> <span class="o">=</span> <span class="n">EL_COLORS</span><span class="p">[</span><span class="n">color_scheme</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">[</span><span class="n">n</span><span class="p">]</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">symbol</span><span class="p">),</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
@@ -984,7 +980,7 @@
             <span class="k">if</span> <span class="n">weight_labels</span><span class="p">:</span>
                 <span class="n">units</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;edge_weight_units&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;weight&quot;</span><span class="p">):</span>
-                    <span class="n">d</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{:.2f}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;weight&quot;</span><span class="p">],</span> <span class="n">units</span><span class="p">)</span>
+                    <span class="n">d</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;weight&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">units</span><span class="si">}</span><span class="s2">&quot;</span>
 
             <span class="c1"># update edge with our new style attributes</span>
             <span class="n">g</span><span class="o">.</span><span class="n">edges</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
@@ -1115,7 +1111,7 @@
                 <span class="n">labels</span> <span class="o">=</span> <span class="p">[(</span><span class="n">label</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mapping</span><span class="p">[</span><span class="n">label</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">]</span>
 
             <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">label</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">]</span>
-            <span class="n">motif</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">-</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">centre_sp</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">labels</span><span class="p">))</span>
+            <span class="n">motif</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">centre_sp</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="n">motifs</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">motif</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">motifs</span><span class="p">))</span></div>
@@ -1128,8 +1124,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">d</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span>
             <span class="s2">&quot;graphs&quot;</span><span class="p">:</span> <span class="n">json_graph</span><span class="o">.</span><span class="n">adjacency_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">),</span>
         <span class="p">}</span>
@@ -1179,9 +1175,9 @@
         <span class="c1"># easier to extend to a general 3x3 scaling matrix.</span>
 
         <span class="c1"># code adapted from Structure.__mul__</span>
-        <span class="n">scale_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">scaling_matrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">)</span>
+        <span class="n">scale_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">scaling_matrix</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">scale_matrix</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>
-            <span class="n">scale_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">scale_matrix</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">)</span>
+            <span class="n">scale_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">scale_matrix</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="nb">int</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># TODO: test __mul__ with full 3x3 scaling matrices</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Not tested with 3x3 scaling matrices yet.&quot;</span><span class="p">)</span>
@@ -1248,7 +1244,7 @@
                 <span class="n">n_u</span> <span class="o">=</span> <span class="n">u</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
                 <span class="n">n_v</span> <span class="o">=</span> <span class="n">v</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
 
-                <span class="c1"># get fractional co-ordinates of where atoms defined</span>
+                <span class="c1"># get fractional coordinates of where atoms defined</span>
                 <span class="c1"># by edge are expected to be, relative to original</span>
                 <span class="c1"># lattice (keeping original lattice has</span>
                 <span class="c1"># significant benefits)</span>
@@ -1256,7 +1252,7 @@
                 <span class="n">u_frac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">[</span><span class="n">n_u</span><span class="p">]</span><span class="o">.</span><span class="n">frac_coords</span>
 
                 <span class="c1"># using the position of node u as a reference,</span>
-                <span class="c1"># get relative Cartesian co-ordinates of where</span>
+                <span class="c1"># get relative Cartesian coordinates of where</span>
                 <span class="c1"># atoms defined by edge are expected to be</span>
                 <span class="n">v_image_cart</span> <span class="o">=</span> <span class="n">orig_lattice</span><span class="o">.</span><span class="n">get_cartesian_coords</span><span class="p">(</span><span class="n">v_image_frac</span><span class="p">)</span>
                 <span class="n">u_cart</span> <span class="o">=</span> <span class="n">orig_lattice</span><span class="o">.</span><span class="n">get_cartesian_coords</span><span class="p">(</span><span class="n">u_frac</span><span class="p">)</span>
@@ -1264,7 +1260,7 @@
 
                 <span class="c1"># now retrieve position of node v in</span>
                 <span class="c1"># new supercell, and get asgolute Cartesian</span>
-                <span class="c1"># co-ordinates of where atoms defined by edge</span>
+                <span class="c1"># coordinates of where atoms defined by edge</span>
                 <span class="c1"># are expected to be</span>
                 <span class="n">v_expec</span> <span class="o">=</span> <span class="n">new_structure</span><span class="p">[</span><span class="n">u</span><span class="p">]</span><span class="o">.</span><span class="n">coords</span> <span class="o">+</span> <span class="n">v_rel</span>
 
@@ -1347,8 +1343,8 @@
 
         <span class="c1"># return new instance of StructureGraph with supercell</span>
         <span class="n">d</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="n">new_structure</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span>
             <span class="s2">&quot;graphs&quot;</span><span class="p">:</span> <span class="n">json_graph</span><span class="o">.</span><span class="n">adjacency_data</span><span class="p">(</span><span class="n">new_g</span><span class="p">),</span>
         <span class="p">}</span>
@@ -1373,7 +1369,7 @@
             <span class="k">if</span> <span class="n">edge_weight_units</span><span class="p">:</span>
                 <span class="n">edge_label</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="n">edge_weight_units</span><span class="si">}</span><span class="s2">)&quot;</span>
             <span class="n">header</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">edge_label</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="n">header_line</span> <span class="o">+=</span> <span class="s2">&quot;  </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="nb">max</span><span class="p">([</span><span class="mi">18</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">edge_label</span><span class="p">)]))</span>
+            <span class="n">header_line</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="s1">&#39;-&#39;</span> <span class="o">*</span> <span class="nb">max</span><span class="p">([</span><span class="mi">18</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">edge_label</span><span class="p">)])</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">print_weights</span> <span class="o">=</span> <span class="kc">False</span>
 
@@ -1391,7 +1387,7 @@
                 <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">edges</span><span class="p">:</span>
-                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{:4}</span><span class="s2">  </span><span class="si">{:4}</span><span class="s2">  </span><span class="si">{:12}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;to_jimage&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))))</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">u</span><span class="si">:</span><span class="s2">4</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">v</span><span class="si">:</span><span class="s2">4</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;to_jimage&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span><span class="si">:</span><span class="s2">12</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
 
         <span class="k">return</span> <span class="n">s</span>
 
@@ -1435,16 +1431,16 @@
         <span class="c1"># normalize directions of edges</span>
         <span class="n">edges_to_remove</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">edges_to_add</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">v</span> <span class="o">&lt;</span> <span class="n">u</span><span class="p">:</span>
-                <span class="n">new_v</span><span class="p">,</span> <span class="n">new_u</span><span class="p">,</span> <span class="n">new_d</span> <span class="o">=</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-                <span class="n">new_d</span><span class="p">[</span><span class="s2">&quot;to_jimage&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;to_jimage&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
-                <span class="n">edges_to_remove</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">))</span>
+                <span class="n">new_v</span><span class="p">,</span> <span class="n">new_u</span><span class="p">,</span> <span class="n">new_d</span> <span class="o">=</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="n">new_d</span><span class="p">[</span><span class="s2">&quot;to_jimage&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;to_jimage&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+                <span class="n">edges_to_remove</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">keys</span><span class="p">))</span>
                 <span class="n">edges_to_add</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">new_u</span><span class="p">,</span> <span class="n">new_v</span><span class="p">,</span> <span class="n">new_d</span><span class="p">))</span>
 
         <span class="c1"># add/delete marked edges</span>
-        <span class="k">for</span> <span class="n">edges_to_remove</span> <span class="ow">in</span> <span class="n">edges_to_remove</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">remove_edge</span><span class="p">(</span><span class="o">*</span><span class="n">edges_to_remove</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">edge</span> <span class="ow">in</span> <span class="n">edges_to_remove</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">remove_edge</span><span class="p">(</span><span class="o">*</span><span class="n">edge</span><span class="p">)</span>
         <span class="k">for</span> <span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="ow">in</span> <span class="n">edges_to_add</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">**</span><span class="n">d</span><span class="p">)</span></div>
 
@@ -1626,9 +1622,7 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Raised when a molecule graph is failed to split into two disconnected</span>
 <span class="sd">    subgraphs</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="k">pass</span></div>
+<span class="sd">    &quot;&quot;&quot;</span></div>
 
 
 <div class="viewcode-block" id="MoleculeGraph"><a class="viewcode-back" href="../../../pymatgen.analysis.graphs.html#pymatgen.analysis.graphs.MoleculeGraph">[docs]</a><span class="k">class</span> <span class="nc">MoleculeGraph</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
@@ -2673,7 +2667,7 @@
         <span class="c1"># add display options for nodes</span>
         <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">():</span>
             <span class="c1"># get label by species name</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="p">[</span><span class="n">n</span><span class="p">]</span><span class="o">.</span><span class="n">specie</span><span class="p">)</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">)&quot;</span> <span class="k">if</span> <span class="n">node_labels</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="p">[</span><span class="n">n</span><span class="p">]</span><span class="o">.</span><span class="n">specie</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">)&quot;</span> <span class="k">if</span> <span class="n">node_labels</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
 
             <span class="c1"># use standard color scheme for nodes</span>
             <span class="n">c</span> <span class="o">=</span> <span class="n">EL_COLORS</span><span class="p">[</span><span class="n">color_scheme</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="p">[</span><span class="n">n</span><span class="p">]</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">symbol</span><span class="p">),</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
@@ -2731,7 +2725,7 @@
             <span class="k">if</span> <span class="n">weight_labels</span><span class="p">:</span>
                 <span class="n">units</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;edge_weight_units&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;weight&quot;</span><span class="p">):</span>
-                    <span class="n">d</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{:.2f}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;weight&quot;</span><span class="p">],</span> <span class="n">units</span><span class="p">)</span>
+                    <span class="n">d</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;weight&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">units</span><span class="si">}</span><span class="s2">&quot;</span>
 
             <span class="c1"># update edge with our new style attributes</span>
             <span class="n">g</span><span class="o">.</span><span class="n">edges</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
@@ -2788,8 +2782,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">d</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;molecule&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span>
             <span class="s2">&quot;graphs&quot;</span><span class="p">:</span> <span class="n">json_graph</span><span class="o">.</span><span class="n">adjacency_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">),</span>
         <span class="p">}</span>
@@ -2819,11 +2813,11 @@
             <span class="k">if</span> <span class="n">edge_weight_units</span><span class="p">:</span>
                 <span class="n">edge_label</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="n">edge_weight_units</span><span class="si">}</span><span class="s2">)&quot;</span>
             <span class="n">header</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">edge_label</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="n">header_line</span> <span class="o">+=</span> <span class="s2">&quot;  </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="nb">max</span><span class="p">([</span><span class="mi">18</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">edge_label</span><span class="p">)]))</span>
+            <span class="n">header_line</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="s1">&#39;-&#39;</span> <span class="o">*</span> <span class="nb">max</span><span class="p">([</span><span class="mi">18</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">edge_label</span><span class="p">)])</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">print_weights</span> <span class="o">=</span> <span class="kc">False</span>
 
-        <span class="n">s</span> <span class="o">=</span> <span class="n">header</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">header_line</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">header</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="n">header_line</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
 
         <span class="n">edges</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 
@@ -2832,43 +2826,40 @@
 
         <span class="k">if</span> <span class="n">print_weights</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">edges</span><span class="p">:</span>
-                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{:4}</span><span class="s2">  </span><span class="si">{:4}</span><span class="s2">  </span><span class="si">{:12}</span><span class="s2">  </span><span class="si">{:.3e}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;to_jimage&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))),</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;weight&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-                <span class="p">)</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">u</span><span class="si">:</span><span class="s2">4</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">v</span><span class="si">:</span><span class="s2">4</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;to_jimage&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span><span class="si">:</span><span class="s2">12</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;weight&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">edges</span><span class="p">:</span>
-                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{:4}</span><span class="s2">  </span><span class="si">{:4}</span><span class="s2">  </span><span class="si">{:12}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;to_jimage&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))))</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">u</span><span class="si">:</span><span class="s2">4</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">v</span><span class="si">:</span><span class="s2">4</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;to_jimage&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span><span class="si">:</span><span class="s2">12</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
 
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Molecule Graph&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Molecule: </span><span class="se">\n</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Graph: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_edges_to_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Molecule Graph&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Molecule: </span><span class="se">\n</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="o">.</span><span class="fm">__repr__</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Graph: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_edges_to_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :return: length of Molecule / number of nodes in graph</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="p">)</span>
 
-<div class="viewcode-block" id="MoleculeGraph.sort"><a class="viewcode-back" href="../../../pymatgen.analysis.graphs.html#pymatgen.analysis.graphs.MoleculeGraph.sort">[docs]</a>    <span class="k">def</span> <span class="nf">sort</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Same as Molecule.sort(), also remaps nodes in graph.</span>
-<span class="sd">        :param key:</span>
-<span class="sd">        :param reverse:</span>
-<span class="sd">        :return:</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="MoleculeGraph.sort"><a class="viewcode-back" href="../../../pymatgen.analysis.graphs.html#pymatgen.analysis.graphs.MoleculeGraph.sort">[docs]</a>    <span class="k">def</span> <span class="nf">sort</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Molecule</span><span class="p">],</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">reverse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Same as Molecule.sort(), also remaps nodes in graph.</span>
 
+<span class="sd">        Args:</span>
+<span class="sd">            key (callable, optional): Sort key. Defaults to None.</span>
+<span class="sd">            reverse (bool, optional): Reverse sort order. Defaults to False.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">old_molecule</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">molecule</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
         <span class="c1"># sort Molecule</span>
@@ -2881,18 +2872,18 @@
         <span class="c1"># normalize directions of edges</span>
         <span class="n">edges_to_remove</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">edges_to_add</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">v</span> <span class="o">&lt;</span> <span class="n">u</span><span class="p">:</span>
-                <span class="n">new_v</span><span class="p">,</span> <span class="n">new_u</span><span class="p">,</span> <span class="n">new_d</span> <span class="o">=</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="n">new_v</span><span class="p">,</span> <span class="n">new_u</span><span class="p">,</span> <span class="n">new_d</span> <span class="o">=</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
                 <span class="n">new_d</span><span class="p">[</span><span class="s2">&quot;to_jimage&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-                <span class="n">edges_to_remove</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">))</span>
+                <span class="n">edges_to_remove</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">keys</span><span class="p">))</span>
                 <span class="n">edges_to_add</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">new_u</span><span class="p">,</span> <span class="n">new_v</span><span class="p">,</span> <span class="n">new_d</span><span class="p">))</span>
 
         <span class="c1"># add/delete marked edges</span>
-        <span class="k">for</span> <span class="n">edges_to_remove</span> <span class="ow">in</span> <span class="n">edges_to_remove</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">remove_edge</span><span class="p">(</span><span class="o">*</span><span class="n">edges_to_remove</span><span class="p">)</span>
-        <span class="k">for</span> <span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="ow">in</span> <span class="n">edges_to_add</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">**</span><span class="n">d</span><span class="p">)</span></div>
+        <span class="k">for</span> <span class="n">edge</span> <span class="ow">in</span> <span class="n">edges_to_remove</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">remove_edge</span><span class="p">(</span><span class="o">*</span><span class="n">edge</span><span class="p">)</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span> <span class="ow">in</span> <span class="n">edges_to_add</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">**</span><span class="n">data</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">__copy__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">MoleculeGraph</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span>
@@ -3024,7 +3015,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.graphs</a></li> 
       </ul>
@@ -3032,7 +3023,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

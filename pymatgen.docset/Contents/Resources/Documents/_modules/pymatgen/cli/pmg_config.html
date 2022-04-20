@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.cli.pmg_config &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.cli.pmg_config &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.cli.pmg_config</a></li> 
       </ul>
@@ -50,12 +50,15 @@
 <span class="sd">Implementation for `pmg config` CLI.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span> <span class="nn">glob</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">subprocess</span>
 <span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">argparse</span> <span class="kn">import</span> <span class="n">Namespace</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
 <span class="kn">from</span> <span class="nn">urllib.request</span> <span class="kn">import</span> <span class="n">urlretrieve</span>
 
 <span class="kn">from</span> <span class="nn">monty.serialization</span> <span class="kn">import</span> <span class="n">dumpfn</span><span class="p">,</span> <span class="n">loadfn</span>
@@ -63,13 +66,9 @@
 <span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">SETTINGS_FILE</span>
 
 
-<div class="viewcode-block" id="setup_potcars"><a class="viewcode-back" href="../../../pymatgen.cli.pmg_config.html#pymatgen.cli.pmg_config.setup_potcars">[docs]</a><span class="k">def</span> <span class="nf">setup_potcars</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Setup POTCAR directirt,</span>
-
-<span class="sd">    :param args: args from command.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">pspdir</span><span class="p">,</span> <span class="n">targetdir</span> <span class="o">=</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">potcar_dirs</span><span class="p">)</span>
+<div class="viewcode-block" id="setup_potcars"><a class="viewcode-back" href="../../../pymatgen.cli.pmg_config.html#pymatgen.cli.pmg_config.setup_potcars">[docs]</a><span class="k">def</span> <span class="nf">setup_potcars</span><span class="p">(</span><span class="n">potcar_dirs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Setup POTCAR directories.&quot;&quot;&quot;</span>
+    <span class="n">pspdir</span><span class="p">,</span> <span class="n">targetdir</span> <span class="o">=</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">potcar_dirs</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">targetdir</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
@@ -123,40 +122,39 @@
                     <span class="k">with</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">([</span><span class="s2">&quot;gzip&quot;</span><span class="p">,</span> <span class="s2">&quot;-f&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="p">])</span> <span class="k">as</span> <span class="n">p</span><span class="p">:</span>
                         <span class="n">p</span><span class="o">.</span><span class="n">communicate</span><span class="p">()</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;An error has occurred. Message is </span><span class="si">%s</span><span class="s2">. Trying to continue... &quot;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">))</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;An error has occurred. Message is </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="si">}</span><span class="s2">. Trying to continue... &quot;</span><span class="p">)</span>
 
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span>
-        <span class="s2">&quot;PSP resources directory generated. It is recommended that you &quot;</span>
-        <span class="s2">&quot;run &#39;pmg config --add PMG_VASP_PSP_DIR </span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">targetdir</span><span class="p">)</span>
+        <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">PSP resources directory generated. It is recommended that you &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;run &#39;pmg config --add PMG_VASP_PSP_DIR </span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">targetdir</span><span class="p">)</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
     <span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Start a new terminal to ensure that your environment variables are properly set.&quot;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="build_enum"><a class="viewcode-back" href="../../../pymatgen.cli.pmg_config.html#pymatgen.cli.pmg_config.build_enum">[docs]</a><span class="k">def</span> <span class="nf">build_enum</span><span class="p">(</span><span class="n">fortran_command</span><span class="o">=</span><span class="s2">&quot;gfortran&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="build_enum"><a class="viewcode-back" href="../../../pymatgen.cli.pmg_config.html#pymatgen.cli.pmg_config.build_enum">[docs]</a><span class="k">def</span> <span class="nf">build_enum</span><span class="p">(</span><span class="n">fortran_command</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gfortran&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Build enum.</span>
 
 <span class="sd">    :param fortran_command:</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">currdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+    <span class="n">cwd</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
     <span class="n">state</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">([</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;clone&quot;</span><span class="p">,</span> <span class="s2">&quot;--recursive&quot;</span><span class="p">,</span> <span class="s2">&quot;https://github.com/msg-byu/enumlib.git&quot;</span><span class="p">])</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">currdir</span><span class="p">,</span> <span class="s2">&quot;enumlib&quot;</span><span class="p">,</span> <span class="s2">&quot;symlib&quot;</span><span class="p">,</span> <span class="s2">&quot;src&quot;</span><span class="p">))</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="s2">&quot;enumlib&quot;</span><span class="p">,</span> <span class="s2">&quot;symlib&quot;</span><span class="p">,</span> <span class="s2">&quot;src&quot;</span><span class="p">))</span>
         <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;F90&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fortran_command</span>
         <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">([</span><span class="s2">&quot;make&quot;</span><span class="p">])</span>
-        <span class="n">enumpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">currdir</span><span class="p">,</span> <span class="s2">&quot;enumlib&quot;</span><span class="p">,</span> <span class="s2">&quot;src&quot;</span><span class="p">)</span>
+        <span class="n">enumpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="s2">&quot;enumlib&quot;</span><span class="p">,</span> <span class="s2">&quot;src&quot;</span><span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">enumpath</span><span class="p">)</span>
         <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">([</span><span class="s2">&quot;make&quot;</span><span class="p">])</span>
         <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;enum.x&quot;</span><span class="p">,</span> <span class="s2">&quot;makestr.x&quot;</span><span class="p">]:</span>
             <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">([</span><span class="s2">&quot;make&quot;</span><span class="p">,</span> <span class="n">f</span><span class="p">])</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;..&quot;</span><span class="p">))</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
         <span class="n">state</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="k">finally</span><span class="p">:</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">currdir</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
         <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="s2">&quot;enumlib&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">state</span></div>
 
@@ -189,12 +187,8 @@
     <span class="k">return</span> <span class="n">state</span></div>
 
 
-<div class="viewcode-block" id="install_software"><a class="viewcode-back" href="../../../pymatgen.cli.pmg_config.html#pymatgen.cli.pmg_config.install_software">[docs]</a><span class="k">def</span> <span class="nf">install_software</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Install all optional external software.</span>
-
-<span class="sd">    :param args:</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="install_software"><a class="viewcode-back" href="../../../pymatgen.cli.pmg_config.html#pymatgen.cli.pmg_config.install_software">[docs]</a><span class="k">def</span> <span class="nf">install_software</span><span class="p">(</span><span class="n">install</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;enumlib&quot;</span><span class="p">,</span> <span class="s2">&quot;bader&quot;</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Install all optional external software.&quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">([</span><span class="s2">&quot;ifort&quot;</span><span class="p">,</span> <span class="s2">&quot;--version&quot;</span><span class="p">])</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Found ifort&quot;</span><span class="p">)</span>
@@ -211,55 +205,45 @@
 
     <span class="n">enum</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">bader</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">install</span> <span class="o">==</span> <span class="s2">&quot;enumlib&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">install</span> <span class="o">==</span> <span class="s2">&quot;enumlib&quot;</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Building enumlib&quot;</span><span class="p">)</span>
         <span class="n">enum</span> <span class="o">=</span> <span class="n">build_enum</span><span class="p">(</span><span class="n">fortran_command</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">install</span> <span class="o">==</span> <span class="s2">&quot;bader&quot;</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">install</span> <span class="o">==</span> <span class="s2">&quot;bader&quot;</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Building bader&quot;</span><span class="p">)</span>
         <span class="n">bader</span> <span class="o">=</span> <span class="n">build_bader</span><span class="p">(</span><span class="n">fortran_command</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">bader</span> <span class="ow">or</span> <span class="n">enum</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span>
-            <span class="s2">&quot;Please add </span><span class="si">{}</span><span class="s2"> to your PATH or move the executables multinum.x, &quot;</span>
-            <span class="s2">&quot;makestr.x and/or bader to a location in your PATH.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">))</span>
-        <span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span></div>
+            <span class="sa">f</span><span class="s2">&quot;Please add </span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2"> to your PATH or move the executables multinum.x, &quot;</span>
+            <span class="s2">&quot;makestr.x and/or bader to a location in your PATH.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="add_config_var"><a class="viewcode-back" href="../../../pymatgen.cli.pmg_config.html#pymatgen.cli.pmg_config.add_config_var">[docs]</a><span class="k">def</span> <span class="nf">add_config_var</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Add configuration args.</span>
-
-<span class="sd">    :param args:</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="add_config_var"><a class="viewcode-back" href="../../../pymatgen.cli.pmg_config.html#pymatgen.cli.pmg_config.add_config_var">[docs]</a><span class="k">def</span> <span class="nf">add_config_var</span><span class="p">(</span><span class="n">tokens</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">backup_suffix</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Add/update keys in .pmgrc.yaml config file.&quot;&quot;&quot;</span>
     <span class="n">d</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">SETTINGS_FILE</span><span class="p">):</span>
-        <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">SETTINGS_FILE</span><span class="p">,</span> <span class="n">SETTINGS_FILE</span> <span class="o">+</span> <span class="s2">&quot;.bak&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Existing </span><span class="si">{}</span><span class="s2"> backed up to </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">SETTINGS_FILE</span><span class="p">,</span> <span class="n">SETTINGS_FILE</span> <span class="o">+</span> <span class="s2">&quot;.bak&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">backup_suffix</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">SETTINGS_FILE</span><span class="p">,</span> <span class="n">SETTINGS_FILE</span> <span class="o">+</span> <span class="n">backup_suffix</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Existing </span><span class="si">{</span><span class="n">SETTINGS_FILE</span><span class="si">}</span><span class="s2"> backed up to </span><span class="si">{</span><span class="n">SETTINGS_FILE</span><span class="si">}{</span><span class="n">backup_suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">d</span> <span class="o">=</span> <span class="n">loadfn</span><span class="p">(</span><span class="n">SETTINGS_FILE</span><span class="p">)</span>
-    <span class="n">toks</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">var_spec</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">toks</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Bad variable specification!&quot;</span><span class="p">)</span>
-        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">toks</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)):</span>
-        <span class="n">d</span><span class="p">[</span><span class="n">toks</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="n">toks</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-    <span class="n">dumpfn</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">SETTINGS_FILE</span><span class="p">,</span> <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;New </span><span class="si">%s</span><span class="s2"> written!&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">SETTINGS_FILE</span><span class="p">))</span></div>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Uneven number </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span><span class="si">}</span><span class="s2"> of tokens passed to pmg config. Needs a value for every key.&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">],</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]):</span>
+        <span class="n">d</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="n">dumpfn</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">SETTINGS_FILE</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;New </span><span class="si">{</span><span class="n">SETTINGS_FILE</span><span class="si">}</span><span class="s2"> written!&quot;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="configure_pmg"><a class="viewcode-back" href="../../../pymatgen.cli.pmg_config.html#pymatgen.cli.pmg_config.configure_pmg">[docs]</a><span class="k">def</span> <span class="nf">configure_pmg</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Handle configure command.</span>
-
-<span class="sd">    :param args:</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="configure_pmg"><a class="viewcode-back" href="../../../pymatgen.cli.pmg_config.html#pymatgen.cli.pmg_config.configure_pmg">[docs]</a><span class="k">def</span> <span class="nf">configure_pmg</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Handle configure command.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">potcar_dirs</span><span class="p">:</span>
-        <span class="n">setup_potcars</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+        <span class="n">setup_potcars</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">potcar_dirs</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">install</span><span class="p">:</span>
-        <span class="n">install_software</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+        <span class="n">install_software</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">install</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">var_spec</span><span class="p">:</span>
-        <span class="n">add_config_var</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
+        <span class="n">add_config_var</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">var_spec</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">backup</span><span class="p">)</span></div>
 </pre></div>
 
             <div class="clearer"></div>
@@ -276,7 +260,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.cli.pmg_config</a></li> 
       </ul>
@@ -284,7 +268,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.lammps.inputs &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.io.lammps.inputs &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
     <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.lammps.inputs</a></li> 
       </ul>
@@ -54,11 +54,15 @@
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">string</span> <span class="kn">import</span> <span class="n">Template</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
+<span class="kn">from</span> <span class="nn">monty.dev</span> <span class="kn">import</span> <span class="n">deprecated</span>
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.io.lammps.data</span> <span class="kn">import</span> <span class="n">LammpsData</span>
+<span class="kn">from</span> <span class="nn">pymatgen.io.lammps.data</span> <span class="kn">import</span> <span class="n">CombinedData</span><span class="p">,</span> <span class="n">LammpsData</span>
+<span class="kn">from</span> <span class="nn">pymatgen.io.template</span> <span class="kn">import</span> <span class="n">TemplateInputGen</span>
 
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Kiran Mathew, Brandon Wood, Zhi Deng&quot;</span>
 <span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2018, The Materials Virtual Lab&quot;</span>
@@ -71,7 +75,7 @@
 <div class="viewcode-block" id="LammpsRun"><a class="viewcode-back" href="../../../../pymatgen.io.lammps.inputs.html#pymatgen.io.lammps.inputs.LammpsRun">[docs]</a><span class="k">class</span> <span class="nc">LammpsRun</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Examples for various simple LAMMPS runs with given simulation box,</span>
-<span class="sd">    force field and a few more settings. Experience LAMMPS users should</span>
+<span class="sd">    force field and a few more settings. Experienced LAMMPS users should</span>
 <span class="sd">    consider using write_lammps_inputs method with more sophisticated</span>
 <span class="sd">    templates.</span>
 
@@ -134,7 +138,6 @@
 <span class="sd">            nsteps (int): No. of steps to run.</span>
 <span class="sd">            other_settings (dict): other settings to be filled into</span>
 <span class="sd">                placeholders.</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">template_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">template_dir</span><span class="p">,</span> <span class="s2">&quot;md.txt&quot;</span><span class="p">)</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">template_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
@@ -150,7 +153,51 @@
         <span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="write_lammps_inputs"><a class="viewcode-back" href="../../../../pymatgen.io.lammps.inputs.html#pymatgen.io.lammps.inputs.write_lammps_inputs">[docs]</a><span class="k">def</span> <span class="nf">write_lammps_inputs</span><span class="p">(</span>
+<div class="viewcode-block" id="LammpsTemplateGen"><a class="viewcode-back" href="../../../../pymatgen.io.lammps.inputs.html#pymatgen.io.lammps.inputs.LammpsTemplateGen">[docs]</a><span class="k">class</span> <span class="nc">LammpsTemplateGen</span><span class="p">(</span><span class="n">TemplateInputGen</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates an InputSet object for a LAMMPS run based on a template file.</span>
+<span class="sd">    The input script is constructed by substituting variables into placeholders</span>
+<span class="sd">    in the template file using python&#39;s Template.safe_substitute() function.</span>
+<span class="sd">    The data file containing coordinates and topology information can be provided</span>
+<span class="sd">    as a LammpsData instance. Alternatively, you can include a read_data command</span>
+<span class="sd">    in the template file that points to an existing data file.</span>
+<span class="sd">    Other supporting files are not handled at the moment.</span>
+
+<span class="sd">    To write the input files to a directory, call LammpsTemplateSet.write_input()</span>
+<span class="sd">    See pymatgen.io.template.py for additional documentation of this method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="LammpsTemplateGen.get_input_set"><a class="viewcode-back" href="../../../../pymatgen.io.lammps.inputs.html#pymatgen.io.lammps.inputs.LammpsTemplateGen.get_input_set">[docs]</a>    <span class="k">def</span> <span class="nf">get_input_set</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">script_template</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+        <span class="n">settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">script_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;in.lammps&quot;</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">LammpsData</span><span class="p">,</span> <span class="n">CombinedData</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">data_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;system.data&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            script_template: String template for input script with</span>
+<span class="sd">                placeholders. The format for placeholders has to be</span>
+<span class="sd">                &#39;$variable_name&#39;, e.g., &#39;$temperature&#39;</span>
+<span class="sd">            settings: Contains values to be written to the</span>
+<span class="sd">                placeholders, e.g., {&#39;temperature&#39;: 1}. Default to None.</span>
+<span class="sd">            data: Data file as a LammpsData instance. Default to None, i.e., no</span>
+<span class="sd">                data file supplied. Note that a matching &#39;read_data&#39; command</span>
+<span class="sd">                must be provided in the script template in order for the data</span>
+<span class="sd">                file to actually be read.</span>
+<span class="sd">            script_filename: Filename for the input file.</span>
+<span class="sd">            data_filename: Filename for the data file, if provided.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">input_set</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_input_set</span><span class="p">(</span><span class="n">template</span><span class="o">=</span><span class="n">script_template</span><span class="p">,</span> <span class="n">variables</span><span class="o">=</span><span class="n">settings</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">script_filename</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
+            <span class="n">input_set</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">data_filename</span><span class="p">:</span> <span class="n">data</span><span class="p">})</span>
+        <span class="k">return</span> <span class="n">input_set</span></div></div>
+
+
+<span class="nd">@deprecated</span><span class="p">(</span><span class="n">LammpsTemplateGen</span><span class="p">,</span> <span class="s2">&quot;This method will be retired in the future. Consider using LammpsTemplateSet instead.&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">write_lammps_inputs</span><span class="p">(</span>
     <span class="n">output_dir</span><span class="p">,</span>
     <span class="n">script_template</span><span class="p">,</span>
     <span class="n">settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -250,7 +297,7 @@
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">data_filename</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;No data file supplied. Skip writing </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">data_filename</span><span class="p">)</span></div>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No data file supplied. Skip writing </span><span class="si">{</span><span class="n">data_filename</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
 </pre></div>
 
             <div class="clearer"></div>
@@ -267,7 +314,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.lammps.inputs</a></li> 
       </ul>
@@ -275,7 +322,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.cp2k.utils &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.io.cp2k.utils &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
     <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.cp2k.utils</a></li> 
       </ul>
@@ -48,12 +48,12 @@
 
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">monty.io</span> <span class="kn">import</span> <span class="n">zopen</span>
-<span class="kn">from</span> <span class="nn">monty.serialization</span> <span class="kn">import</span> <span class="n">loadfn</span>
-<span class="kn">from</span> <span class="nn">ruamel</span> <span class="kn">import</span> <span class="n">yaml</span>
+<span class="kn">from</span> <span class="nn">ruamel.yaml</span> <span class="kn">import</span> <span class="n">YAML</span>
 
 <span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">SETTINGS</span>
 
@@ -119,19 +119,19 @@
         <span class="n">inc</span> <span class="o">=</span> <span class="n">inc</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;&#39;&quot;</span><span class="p">)</span>
         <span class="n">inc</span> <span class="o">=</span> <span class="n">inc</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span>
         <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">inc</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">s</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">fr</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">incl</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">s</span><span class="p">)</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">rf</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">incl</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">s</span><span class="p">)</span>
     <span class="n">variable_sets</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(@SET.+)&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">match</span> <span class="ow">in</span> <span class="n">variable_sets</span><span class="p">:</span>
         <span class="n">v</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
         <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>  <span class="c1"># @SET VAR value</span>
         <span class="n">var</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">fr</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">match</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">rf</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">match</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
         <span class="n">s</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\${?&quot;</span> <span class="o">+</span> <span class="n">var</span> <span class="o">+</span> <span class="s2">&quot;}?&quot;</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
 
     <span class="n">c1</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;@IF&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">)</span>
     <span class="n">c2</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;@ELIF&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">c2</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;This cp2k input processer does not currently support conditional blocks.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;This cp2k input processor does not currently support conditional blocks.&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">s</span>
 
 
@@ -148,18 +148,15 @@
     <span class="k">return</span> <span class="p">[</span><span class="n">atoi</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;_(\d+)&quot;</span><span class="p">,</span> <span class="n">text</span><span class="p">)]</span></div>
 
 
-<div class="viewcode-block" id="get_basis_and_potential"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.utils.html#pymatgen.io.cp2k.utils.get_basis_and_potential">[docs]</a><span class="k">def</span> <span class="nf">get_basis_and_potential</span><span class="p">(</span><span class="n">species</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">cardinality</span><span class="o">=</span><span class="s2">&quot;DZVP&quot;</span><span class="p">,</span> <span class="n">functional</span><span class="o">=</span><span class="s2">&quot;PBE&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="get_basis_and_potential"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.utils.html#pymatgen.io.cp2k.utils.get_basis_and_potential">[docs]</a><span class="k">def</span> <span class="nf">get_basis_and_potential</span><span class="p">(</span><span class="n">species</span><span class="p">,</span> <span class="n">basis_and_potential_map</span><span class="p">,</span> <span class="n">functional</span><span class="o">=</span><span class="s2">&quot;PBE&quot;</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Given a specie and a potential/basis type, this function accesses the available basis sets and potentials.</span>
-<span class="sd">    Generally, the GTH potentials are used with the GTH basis sets.</span>
+<span class="sd">    Retrieve basis/potential dictionary</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        species: (list) list of species for which to get the potential/basis strings</span>
-<span class="sd">        d: (dict) a dictionary specifying how bases and/or potentials should be assigned to species</span>
-<span class="sd">            E.g. {&#39;Si&#39;: {&#39;cardinality&#39;: &#39;DZVP&#39;, &#39;sr&#39;: True}, &#39;O&#39;: {&#39;cardinality&#39;: &#39;TZVP&#39;}}</span>
+<span class="sd">        basis_and_potential_map: (dict or str) a keyword string or a dictionary</span>
+<span class="sd">            specifying how bases and/or potentials should be assigned</span>
 <span class="sd">        functional: (str) functional type. Default: &#39;PBE&#39;</span>
-<span class="sd">        basis_type: (str) the basis set type. Default: &#39;MOLOPT&#39;</span>
-<span class="sd">        cardinality: (str) basis set cardinality. Default: &#39;DZVP&#39;</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        (dict) of the form {&#39;specie&#39;: {&#39;potential&#39;: potential, &#39;basis&#39;: basis}...}</span>
@@ -169,57 +166,43 @@
     <span class="n">basis_filenames</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;BASIS_MOLOPT&quot;</span><span class="p">,</span> <span class="s2">&quot;BASIS_MOLOPT_UCL&quot;</span><span class="p">]</span>
 
     <span class="n">functional</span> <span class="o">=</span> <span class="n">functional</span> <span class="ow">or</span> <span class="n">SETTINGS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;PMG_DEFAULT_FUNCTIONAL&quot;</span><span class="p">,</span> <span class="s2">&quot;PBE&quot;</span><span class="p">)</span>
-    <span class="n">cardinality</span> <span class="o">=</span> <span class="n">cardinality</span> <span class="ow">or</span> <span class="n">SETTINGS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;PMG_DEFAULT_BASIS_CARDINALITY&quot;</span><span class="p">,</span> <span class="s2">&quot;DZVP&quot;</span><span class="p">)</span>
+
     <span class="n">basis_and_potential</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;basis_filenames&quot;</span><span class="p">:</span> <span class="n">basis_filenames</span><span class="p">,</span>
         <span class="s2">&quot;potential_filename&quot;</span><span class="p">:</span> <span class="n">potential_filename</span><span class="p">,</span>
     <span class="p">}</span>
-    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">species</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">s</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">d</span><span class="p">:</span>
-            <span class="n">d</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">if</span> <span class="s2">&quot;sr&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">d</span><span class="p">[</span><span class="n">s</span><span class="p">]:</span>
-            <span class="n">d</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;sr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="k">if</span> <span class="s2">&quot;cardinality&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">d</span><span class="p">[</span><span class="n">s</span><span class="p">]:</span>
-            <span class="n">d</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;cardinality&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cardinality</span>
 
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_DIR</span><span class="p">,</span> <span class="s2">&quot;basis_molopt.yaml&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="n">data_b</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Loader</span><span class="o">=</span><span class="n">yaml</span><span class="o">.</span><span class="n">Loader</span><span class="p">)</span>
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_DIR</span><span class="p">,</span> <span class="s2">&quot;gth_potentials.yaml&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="n">data_p</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Loader</span><span class="o">=</span><span class="n">yaml</span><span class="o">.</span><span class="n">Loader</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_DIR</span><span class="p">,</span> <span class="s2">&quot;settings.yaml&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">yaml</span> <span class="o">=</span> <span class="n">YAML</span><span class="p">(</span><span class="n">typ</span><span class="o">=</span><span class="s2">&quot;unsafe&quot;</span><span class="p">,</span> <span class="n">pure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 
-    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">species</span><span class="p">:</span>
-        <span class="n">basis_and_potential</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">b</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">data_b</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">if</span> <span class="n">d</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;cardinality&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">_</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)]</span>
-        <span class="k">if</span> <span class="n">d</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;sr&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="s2">&quot;SR&quot;</span> <span class="ow">in</span> <span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">b</span><span class="p">):</span>
-            <span class="n">b</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">b</span> <span class="k">if</span> <span class="s2">&quot;SR&quot;</span> <span class="ow">in</span> <span class="n">_</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">b</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">b</span> <span class="k">if</span> <span class="s2">&quot;SR&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_</span><span class="p">]</span>
-        <span class="k">if</span> <span class="s2">&quot;q&quot;</span> <span class="ow">in</span> <span class="n">d</span><span class="p">[</span><span class="n">s</span><span class="p">]:</span>
-            <span class="n">b</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">b</span> <span class="k">if</span> <span class="n">d</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;q&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">_</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-
-            <span class="k">def</span> <span class="nf">srt</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-                <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;q&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-
-            <span class="n">b</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">srt</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">:]</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">LookupError</span><span class="p">(</span><span class="s2">&quot;NO BASIS OF THAT TYPE AVAILABLE&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">LookupError</span><span class="p">(</span><span class="s2">&quot;AMBIGUITY IN BASIS. PLEASE SPECIFY FURTHER&quot;</span><span class="p">)</span>
-
-        <span class="n">basis_and_potential</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;basis&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">p</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">data_p</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">if</span> <span class="n">functional</span> <span class="ow">in</span> <span class="n">_</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)]</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">LookupError</span><span class="p">(</span><span class="s2">&quot;NO PSEUDOPOTENTIAL OF THAT TYPE AVAILABLE&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">LookupError</span><span class="p">(</span><span class="s2">&quot;AMBIGUITY IN POTENTIAL. PLEASE SPECIFY FURTHER&quot;</span><span class="p">)</span>
-
-        <span class="n">basis_and_potential</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;potential&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">basis_and_potential_map</span> <span class="o">==</span> <span class="s2">&quot;best&quot;</span><span class="p">:</span>
+        <span class="n">basis_and_potential</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="n">s</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;basis&quot;</span><span class="p">:</span> <span class="n">settings</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;basis_sets&quot;</span><span class="p">][</span><span class="s2">&quot;best_basis&quot;</span><span class="p">],</span>
+                    <span class="s2">&quot;potential&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">settings</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;potentials&quot;</span><span class="p">][</span><span class="s2">&quot;gth_potentials&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">functional</span> <span class="ow">in</span> <span class="n">p</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                <span class="p">}</span>
+                <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">species</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">basis_and_potential_map</span> <span class="o">==</span> <span class="s2">&quot;preferred&quot;</span><span class="p">:</span>
+        <span class="n">basis_and_potential</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="n">s</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;basis&quot;</span><span class="p">:</span> <span class="n">settings</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;basis_sets&quot;</span><span class="p">][</span><span class="s2">&quot;preferred_basis&quot;</span><span class="p">],</span>
+                    <span class="s2">&quot;potential&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">settings</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;potentials&quot;</span><span class="p">][</span><span class="s2">&quot;gth_potentials&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">functional</span> <span class="ow">in</span> <span class="n">p</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                <span class="p">}</span>
+                <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">species</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">basis_and_potential</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">basis_and_potential_map</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">basis_and_potential</span></div>
 
 
-<div class="viewcode-block" id="get_aux_basis"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.utils.html#pymatgen.io.cp2k.utils.get_aux_basis">[docs]</a><span class="k">def</span> <span class="nf">get_aux_basis</span><span class="p">(</span><span class="n">basis_type</span><span class="p">,</span> <span class="n">default_basis_type</span><span class="o">=</span><span class="s2">&quot;cFIT&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="get_aux_basis"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.utils.html#pymatgen.io.cp2k.utils.get_aux_basis">[docs]</a><span class="k">def</span> <span class="nf">get_aux_basis</span><span class="p">(</span><span class="n">basis_type</span><span class="p">,</span> <span class="n">default_basis_type</span><span class="o">=</span><span class="s2">&quot;cpFIT&quot;</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get auxiliary basis info for a list of species.</span>
 
@@ -239,11 +222,23 @@
 <span class="sd">        default_basis_type (str) default basis type if n</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_DIR</span><span class="p">,</span> <span class="s2">&quot;settings.yaml&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">yaml</span> <span class="o">=</span> <span class="n">YAML</span><span class="p">(</span><span class="n">typ</span><span class="o">=</span><span class="s2">&quot;unsafe&quot;</span><span class="p">,</span> <span class="n">pure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">aux_bases</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">s</span><span class="p">:</span> <span class="p">[</span><span class="n">settings</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;basis_sets&quot;</span><span class="p">][</span><span class="s2">&quot;preferred_aux_basis&quot;</span><span class="p">]]</span>
+            <span class="k">if</span> <span class="s2">&quot;preferred_aux_basis&quot;</span> <span class="ow">in</span> <span class="n">settings</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;basis_sets&quot;</span><span class="p">]</span>
+            <span class="k">else</span> <span class="n">settings</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;basis_sets&quot;</span><span class="p">][</span><span class="s2">&quot;aux_basis&quot;</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">settings</span>
+        <span class="p">}</span>
+
     <span class="n">default_basis_type</span> <span class="o">=</span> <span class="n">default_basis_type</span> <span class="ow">or</span> <span class="n">SETTINGS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;PMG_CP2K_DEFAULT_AUX_BASIS_TYPE&quot;</span><span class="p">)</span>
     <span class="n">basis_type</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">basis_type</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">if</span> <span class="n">basis_type</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">else</span> <span class="n">default_basis_type</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">basis_type</span><span class="p">}</span>
     <span class="n">basis</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">{}</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">basis_type</span><span class="p">}</span>
-    <span class="n">aux_bases</span> <span class="o">=</span> <span class="n">loadfn</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_DIR</span><span class="p">,</span> <span class="s2">&quot;aux_basis.yaml&quot;</span><span class="p">))</span>
     <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">basis_type</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">aux_bases</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">basis</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">continue</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">aux_bases</span><span class="p">[</span><span class="n">k</span><span class="p">]:</span>
             <span class="k">if</span> <span class="n">i</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">basis_type</span><span class="p">[</span><span class="n">k</span><span class="p">]):</span>
                 <span class="n">basis</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
@@ -253,7 +248,7 @@
             <span class="k">if</span> <span class="n">aux_bases</span><span class="p">[</span><span class="n">k</span><span class="p">]:</span>
                 <span class="n">basis</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">aux_bases</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">LookupError</span><span class="p">(</span><span class="s2">&quot;NO BASIS OF THAT TYPE&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">LookupError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No basis of that type found for: </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">basis</span></div>
 
 
@@ -263,33 +258,122 @@
 <span class="sd">    unique values is used for indexing.</span>
 
 <span class="sd">    For example, if you have magnetic CoO with half Co atoms having a positive moment, and the other</span>
-<span class="sd">    half having a negative moment. Then this function will create a dict of sites for Co_1, Co_2, O.</span>
+<span class="sd">    half having a negative moment. Then this function will create a dict of sites for Co_1, Co_2, O. This</span>
+<span class="sd">    function also deals with &quot;Species&quot; properties like oxi_state and spin by pushing them to site</span>
+<span class="sd">    properties.</span>
 
 <span class="sd">    This creates unique sites, based on site properties, but does not have anything to do with turning</span>
-<span class="sd">    those site properties into CP2K input parameters.</span>
+<span class="sd">    those site properties into CP2K input parameters. This will only be done for properties which can be</span>
+<span class="sd">    turned into CP2K input parameters, which are stored in parsable_site_properties.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">spins</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">oxi_states</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">parsable_site_properties</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;magmom&quot;</span><span class="p">,</span> <span class="s2">&quot;oxi_state&quot;</span><span class="p">,</span> <span class="s2">&quot;spin&quot;</span><span class="p">,</span> <span class="s2">&quot;u_minus_j&quot;</span><span class="p">,</span> <span class="s2">&quot;basis&quot;</span><span class="p">,</span> <span class="s2">&quot;potential&quot;</span><span class="p">,</span> <span class="s2">&quot;ghost&quot;</span><span class="p">,</span> <span class="s2">&quot;aux_basis&quot;</span><span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="n">structure</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">sp</span><span class="p">,</span> <span class="n">occu</span> <span class="ow">in</span> <span class="n">site</span><span class="o">.</span><span class="n">species</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">oxi_states</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">sp</span><span class="p">,</span> <span class="s2">&quot;oxi_state&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="n">spins</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">sp</span><span class="p">,</span> <span class="s2">&quot;_properties&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;spin&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+    <span class="n">structure</span><span class="o">.</span><span class="n">add_site_property</span><span class="p">(</span><span class="s2">&quot;oxi_state&quot;</span><span class="p">,</span> <span class="n">oxi_states</span><span class="p">)</span>
+    <span class="n">structure</span><span class="o">.</span><span class="n">add_site_property</span><span class="p">(</span><span class="s2">&quot;spin&quot;</span><span class="p">,</span> <span class="n">spins</span><span class="p">)</span>
+    <span class="n">structure</span><span class="o">.</span><span class="n">remove_oxidation_states</span><span class="p">()</span>
+    <span class="n">items</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span>
+            <span class="n">site</span><span class="o">.</span><span class="n">species_string</span><span class="p">,</span>
+            <span class="o">*</span><span class="p">[</span>
+                <span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span>
+                <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">parsable_site_properties</span>
+            <span class="p">],</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">unique_itms</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">items</span><span class="p">))</span>
+    <span class="n">_sites</span> <span class="o">=</span> <span class="p">{</span><span class="n">u</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">unique_itms</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">itm</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">items</span><span class="p">):</span>
+        <span class="n">_sites</span><span class="p">[</span><span class="n">itm</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
     <span class="n">sites</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="n">_property</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">symbol_set</span><span class="p">:</span>
-        <span class="n">s_ids</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">indices_from_symbol</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
-        <span class="n">unique</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">for</span> <span class="n">site_prop</span><span class="p">,</span> <span class="n">vals</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">_unique</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">([</span><span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">s_ids</span><span class="p">])</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">_unique</span><span class="p">):</span>
-                <span class="n">unique</span> <span class="o">=</span> <span class="n">_unique</span>
-                <span class="n">_property</span> <span class="o">=</span> <span class="n">site_prop</span>
-        <span class="k">if</span> <span class="n">_property</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">sites</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">s_ids</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">unique</span><span class="p">):</span>
-                <span class="n">sites</span><span class="p">[</span><span class="n">s</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-                    <span class="n">s_ids</span><span class="p">,</span>
-                    <span class="p">[</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">[</span><span class="n">_property</span><span class="p">][</span><span class="n">ids</span><span class="p">]</span> <span class="k">for</span> <span class="n">ids</span> <span class="ow">in</span> <span class="n">s_ids</span><span class="p">],</span>
-                <span class="p">):</span>
-                    <span class="k">if</span> <span class="n">site</span> <span class="o">==</span> <span class="n">u</span><span class="p">:</span>
-                        <span class="n">sites</span><span class="p">[</span><span class="n">s</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+    <span class="n">nums</span> <span class="o">=</span> <span class="p">{</span><span class="n">s</span><span class="p">:</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">symbol_set</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_sites</span><span class="p">:</span>
+        <span class="n">sites</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">nums</span><span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_sites</span><span class="p">[</span><span class="n">s</span><span class="p">]</span>
+        <span class="n">nums</span><span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+=</span> <span class="mi">1</span>
+
     <span class="k">return</span> <span class="n">sites</span></div>
+
+
+<div class="viewcode-block" id="get_cutoff_from_basis"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.utils.html#pymatgen.io.cp2k.utils.get_cutoff_from_basis">[docs]</a><span class="k">def</span> <span class="nf">get_cutoff_from_basis</span><span class="p">(</span><span class="n">els</span><span class="p">,</span> <span class="n">bases</span><span class="p">,</span> <span class="n">rel_cutoff</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gets the appropriate cutoff for the calculation given the elements/basis sets being used</span>
+<span class="sd">    and the desired relative cutoff.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        els: list of element symbols</span>
+<span class="sd">        bases: corresponding basis set names for the elements</span>
+<span class="sd">        rel_cutoff: The desired relative cutoff</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        Ideal cutoff for calculation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_DIR</span><span class="p">,</span> <span class="s2">&quot;settings.yaml&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">yaml</span> <span class="o">=</span> <span class="n">YAML</span><span class="p">(</span><span class="n">typ</span><span class="o">=</span><span class="s2">&quot;unsafe&quot;</span><span class="p">,</span> <span class="n">pure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">_exponents</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">_exponents</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="p">[</span><span class="s2">&quot;basis_sets&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;basis_set_largest_exponents&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">_exponents</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">v</span><span class="p">[</span><span class="s2">&quot;basis_sets&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;basis_set_largest_exponents&quot;</span><span class="p">)</span>
+        <span class="p">}</span>
+        <span class="n">exponents</span> <span class="o">=</span> <span class="p">{</span><span class="n">el</span><span class="o">.</span><span class="n">upper</span><span class="p">():</span> <span class="p">{</span><span class="n">b</span><span class="o">.</span><span class="n">upper</span><span class="p">():</span> <span class="n">v</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">basis</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span> <span class="k">for</span> <span class="n">el</span><span class="p">,</span> <span class="n">basis</span> <span class="ow">in</span> <span class="n">_exponents</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">exponents</span><span class="p">[</span><span class="n">el</span><span class="o">.</span><span class="n">upper</span><span class="p">()][</span><span class="n">basis</span><span class="o">.</span><span class="n">upper</span><span class="p">()])</span> <span class="o">*</span> <span class="n">rel_cutoff</span> <span class="k">for</span> <span class="n">el</span><span class="p">,</span> <span class="n">basis</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">els</span><span class="p">,</span> <span class="n">bases</span><span class="p">))</span></div>
+
+
+<span class="c1"># TODO this is not comprehensive. There are so many libxc functionals (e.g. see r2scan)</span>
+<span class="c1"># and their availability changes with libxc version. I see no easy way to deal with this</span>
+<span class="c1"># So these are just a few of the most common ones.</span>
+<span class="c1"># TODO whenever ADMM gets interfaced with LibXC, this should include hybrid functionals</span>
+<span class="c1"># and the sets will get more streamlined.</span>
+<div class="viewcode-block" id="get_xc_functionals"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.utils.html#pymatgen.io.cp2k.utils.get_xc_functionals">[docs]</a><span class="k">def</span> <span class="nf">get_xc_functionals</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the XC functionals for a given functional name. This utility does</span>
+<span class="sd">    not deal with defining hybrid functionals since those may or may not</span>
+<span class="sd">    require ADMM, which is not supported by LibXC and so needs to be manually</span>
+<span class="sd">    defined.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name: Name of the functional.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;PBE&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;PBE&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;LDA&quot;</span><span class="p">,</span> <span class="s2">&quot;PADE&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;PADE&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;B3LYP&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;B3LYP&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;BLYP&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;BLYP&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;SCAN&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;MGGA_X_SCAN&quot;</span><span class="p">,</span> <span class="s2">&quot;MGGA_C_SCAN&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;SCANL&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;MGGA_X_SCANL&quot;</span><span class="p">,</span> <span class="s2">&quot;MGGA_C_SCANL&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;R2SCAN&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;MGGA_X_R2SCAN&quot;</span><span class="p">,</span> <span class="s2">&quot;MGGA_C_R2SCAN&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;R2SCANL&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;MGGA_X_R2SCANL&quot;</span><span class="p">,</span> <span class="s2">&quot;MGGA_C_R2SCANL&quot;</span><span class="p">]</span>
+    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown XC functionals: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">name</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="get_truncated_coulomb_cutoff"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.utils.html#pymatgen.io.cp2k.utils.get_truncated_coulomb_cutoff">[docs]</a><span class="k">def</span> <span class="nf">get_truncated_coulomb_cutoff</span><span class="p">(</span><span class="n">inp_struct</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the truncated Coulomb cutoff for a given structure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">m</span> <span class="o">=</span> <span class="n">inp_struct</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-5</span><span class="p">)</span> <span class="o">*</span> <span class="n">m</span>
+    <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">)))</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">c</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">c</span><span class="p">)))</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="nb">min</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">100</span></div>
 </pre></div>
 
             <div class="clearer"></div>
@@ -306,7 +390,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.cp2k.utils</a></li> 
       </ul>
@@ -314,7 +398,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

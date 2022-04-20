@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.analysis.local_env &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.analysis.local_env &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.local_env</a></li> 
       </ul>
@@ -51,6 +51,8 @@
 <span class="sd">of single sites in molecules and structures.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">os</span>
@@ -60,20 +62,19 @@
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">lru_cache</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">acos</span><span class="p">,</span> <span class="n">asin</span><span class="p">,</span> <span class="n">atan2</span><span class="p">,</span> <span class="n">cos</span><span class="p">,</span> <span class="n">exp</span><span class="p">,</span> <span class="n">fabs</span><span class="p">,</span> <span class="n">pi</span><span class="p">,</span> <span class="nb">pow</span><span class="p">,</span> <span class="n">sin</span><span class="p">,</span> <span class="n">sqrt</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">monty.dev</span> <span class="kn">import</span> <span class="n">requires</span>
 <span class="kn">from</span> <span class="nn">monty.serialization</span> <span class="kn">import</span> <span class="n">loadfn</span>
+<span class="kn">from</span> <span class="nn">ruamel.yaml</span> <span class="kn">import</span> <span class="n">YAML</span>
 <span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="kn">import</span> <span class="n">Voronoi</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">yaml</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">Element</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">IStructure</span><span class="p">,</span> <span class="n">Structure</span>
 <span class="kn">from</span> <span class="nn">pymatgen.analysis.bond_valence</span> <span class="kn">import</span> <span class="n">BV_PARAMS</span><span class="p">,</span> <span class="n">BVAnalyzer</span>
 <span class="kn">from</span> <span class="nn">pymatgen.analysis.molecule_structure_comparator</span> <span class="kn">import</span> <span class="n">CovalentRadius</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">Element</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.sites</span> <span class="kn">import</span> <span class="n">PeriodicSite</span><span class="p">,</span> <span class="n">Site</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">PeriodicNeighbor</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">IStructure</span><span class="p">,</span> <span class="n">PeriodicNeighbor</span><span class="p">,</span> <span class="n">Structure</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">openbabel</span> <span class="kn">import</span> <span class="n">openbabel</span> <span class="k">as</span> <span class="n">ob</span>
@@ -90,12 +91,13 @@
 <span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;August 17, 2017&quot;</span>
 
 <span class="n">_directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+<span class="n">yaml</span> <span class="o">=</span> <span class="n">YAML</span><span class="p">()</span>
 
 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_directory</span><span class="p">,</span> <span class="s2">&quot;op_params.yaml&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-    <span class="n">default_op_params</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="n">default_op_params</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 
 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_directory</span><span class="p">,</span> <span class="s2">&quot;cn_opt_params.yaml&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-    <span class="n">cn_opt_params</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="n">cn_opt_params</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 
 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_directory</span><span class="p">,</span> <span class="s2">&quot;ionic_radii.json&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
     <span class="n">_ion_radii</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
@@ -622,7 +624,7 @@
 <span class="sd">        the given site whose ideal CN corresponds to the</span>
 <span class="sd">        underlying motif (e.g., CN=4, then calculate the</span>
 <span class="sd">        square planar, tetrahedral, see-saw-like,</span>
-<span class="sd">        rectangular see-saw-like order paramters).</span>
+<span class="sd">        rectangular see-saw-like order parameters).</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            structure: Structure object</span>
@@ -821,7 +823,7 @@
             <span class="n">indices</span><span class="o">.</span><span class="n">extend</span><span class="p">([(</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">],)</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">neighs</span><span class="p">])</span>
 
         <span class="c1"># Get the non-duplicates (using the site indices for numerical stability)</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int_</span><span class="p">)</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
         <span class="n">indices</span><span class="p">,</span> <span class="n">uniq_inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">return_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
         <span class="n">sites</span> <span class="o">=</span> <span class="p">[</span><span class="n">sites</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">uniq_inds</span><span class="p">]</span>
 
@@ -928,9 +930,9 @@
                 <span class="k">if</span> <span class="n">compute_adj_neighbors</span><span class="p">:</span>
                     <span class="n">results</span><span class="p">[</span><span class="n">other_site</span><span class="p">][</span><span class="s2">&quot;verts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">vind</span>
 
-        <span class="c1"># all sites should have atleast two connected ridges in periodic system</span>
+        <span class="c1"># all sites should have at least two connected ridges in periodic system</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No Voronoi neighbours found for site - try increasing cutoff&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No Voronoi neighbors found for site - try increasing cutoff&quot;</span><span class="p">)</span>
 
         <span class="c1"># Get only target elements</span>
         <span class="n">resultweighted</span> <span class="o">=</span> <span class="p">{}</span>
@@ -1055,7 +1057,7 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
-        <span class="n">targets</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Element</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Element</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">targets</span><span class="p">:</span> <span class="n">Element</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Element</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cutoff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">13.0</span><span class="p">,</span>
         <span class="n">allow_pathological</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">extra_nn_info</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -1080,7 +1082,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">extra_nn_info</span> <span class="o">=</span> <span class="n">extra_nn_info</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">compute_adj_neighbors</span> <span class="o">=</span> <span class="n">compute_adj_neighbors</span>
 
-<div class="viewcode-block" id="IsayevNN.get_nn_info"><a class="viewcode-back" href="../../../pymatgen.analysis.local_env.html#pymatgen.analysis.local_env.IsayevNN.get_nn_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_nn_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<div class="viewcode-block" id="IsayevNN.get_nn_info"><a class="viewcode-back" href="../../../pymatgen.analysis.local_env.html#pymatgen.analysis.local_env.IsayevNN.get_nn_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_nn_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get all near-neighbor site information.</span>
 
@@ -1104,7 +1106,7 @@
         <span class="n">nns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_voronoi_polyhedra</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filter_nns</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">nns</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="IsayevNN.get_all_nn_info"><a class="viewcode-back" href="../../../pymatgen.analysis.local_env.html#pymatgen.analysis.local_env.IsayevNN.get_all_nn_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_all_nn_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]:</span>
+<div class="viewcode-block" id="IsayevNN.get_all_nn_info"><a class="viewcode-back" href="../../../pymatgen.analysis.local_env.html#pymatgen.analysis.local_env.IsayevNN.get_all_nn_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_all_nn_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            structure (Structure): input structure.</span>
@@ -1116,7 +1118,7 @@
         <span class="n">all_nns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_all_voronoi_polyhedra</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_filter_nns</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">nns</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">nns</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">all_nns</span><span class="p">)]</span></div>
 
-    <span class="k">def</span> <span class="nf">_filter_nns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">nns</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+    <span class="k">def</span> <span class="nf">_filter_nns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">nns</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
         <span class="sd">&quot;&quot;&quot;Extract and filter the NN info into the format needed by NearestNeighbors.</span>
 
 <span class="sd">        Args:</span>
@@ -1218,7 +1220,8 @@
         <span class="c1"># Load elemental radii table</span>
         <span class="n">bonds_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)),</span> <span class="s2">&quot;bonds_jmol_ob.yaml&quot;</span><span class="p">)</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">bonds_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">el_radius</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="n">yaml</span> <span class="o">=</span> <span class="n">YAML</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">el_radius</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 
         <span class="c1"># Update any user preference elemental radii</span>
         <span class="k">if</span> <span class="n">el_radius_updates</span><span class="p">:</span>
@@ -1903,7 +1906,7 @@
         <span class="k">return</span> <span class="n">siw</span></div></div>
 
 
-<span class="k">def</span> <span class="nf">_get_vire</span><span class="p">(</span><span class="n">structure</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Structure</span><span class="p">,</span> <span class="n">IStructure</span><span class="p">]):</span>
+<span class="k">def</span> <span class="nf">_get_vire</span><span class="p">(</span><span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">IStructure</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Get the ValenceIonicRadiusEvaluator object for an structure taking</span>
 <span class="sd">    advantage of caching.</span>
 
@@ -2010,7 +2013,7 @@
     <span class="k">if</span> <span class="n">el</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">BV_PARAMS</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
             <span class="s2">&quot;Could not find O&#39;Keeffe parameters for element&quot;</span>
-            <span class="s1">&#39; &quot;</span><span class="si">{}</span><span class="s1">&quot; in &quot;BV_PARAMS&quot;dictonary&#39;</span>
+            <span class="s1">&#39; &quot;</span><span class="si">{}</span><span class="s1">&quot; in &quot;BV_PARAMS&quot;dictionary&#39;</span>
             <span class="s2">&quot; provided by pymatgen&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">el_symbol</span><span class="p">)</span>
         <span class="p">)</span>
 
@@ -2080,8 +2083,8 @@
 <span class="sd">    Returns the motif type of the site with index n in structure struct;</span>
 <span class="sd">    currently featuring &quot;tetrahedral&quot;, &quot;octahedral&quot;, &quot;bcc&quot;, and &quot;cp&quot;</span>
 <span class="sd">    (close-packed: fcc and hcp) as well as &quot;square pyramidal&quot; and</span>
-<span class="sd">    &quot;trigonal bipyramidal&quot;.  If the site is not recognized,</span>
-<span class="sd">    &quot;unrecognized&quot; is returned.  If a site should be assigned to two</span>
+<span class="sd">    &quot;trigonal bipyramidal&quot;. If the site is not recognized,</span>
+<span class="sd">    &quot;unrecognized&quot; is returned. If a site should be assigned to two</span>
 <span class="sd">    different motifs, &quot;multiple assignments&quot; is returned.</span>
 
 <span class="sd">    Args:</span>
@@ -2436,7 +2439,7 @@
 <span class="sd">            thetas ([float]): polar angles of all neighbors in radians.</span>
 <span class="sd">            phis ([float]): azimuth angles of all neighbors in radians.</span>
 <span class="sd">                The list of</span>
-<span class="sd">                azimuth angles of all neighbors in radians.  The list of</span>
+<span class="sd">                azimuth angles of all neighbors in radians. The list of</span>
 <span class="sd">                azimuth angles is expected to have the same size as the</span>
 <span class="sd">                list of polar angles; otherwise, a ValueError is raised.</span>
 <span class="sd">                Also, the two lists of angles have to be coherent in</span>
@@ -2469,9 +2472,9 @@
 <div class="viewcode-block" id="LocalStructOrderParams.get_q2"><a class="viewcode-back" href="../../../pymatgen.analysis.local_env.html#pymatgen.analysis.local_env.LocalStructOrderParams.get_q2">[docs]</a>    <span class="k">def</span> <span class="nf">get_q2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">thetas</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">phis</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Calculates the value of the bond orientational order parameter of</span>
-<span class="sd">        weight l=2.  If the function is called with non-empty lists of</span>
+<span class="sd">        weight l=2. If the function is called with non-empty lists of</span>
 <span class="sd">        polar and azimuthal angles the corresponding trigonometric terms</span>
-<span class="sd">        are computed afresh.  Otherwise, it is expected that the</span>
+<span class="sd">        are computed afresh. Otherwise, it is expected that the</span>
 <span class="sd">        compute_trigonometric_terms function has been just called.</span>
 
 <span class="sd">        Args:</span>
@@ -2536,9 +2539,9 @@
 <div class="viewcode-block" id="LocalStructOrderParams.get_q4"><a class="viewcode-back" href="../../../pymatgen.analysis.local_env.html#pymatgen.analysis.local_env.LocalStructOrderParams.get_q4">[docs]</a>    <span class="k">def</span> <span class="nf">get_q4</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">thetas</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">phis</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Calculates the value of the bond orientational order parameter of</span>
-<span class="sd">        weight l=4.  If the function is called with non-empty lists of</span>
+<span class="sd">        weight l=4. If the function is called with non-empty lists of</span>
 <span class="sd">        polar and azimuthal angles the corresponding trigonometric terms</span>
-<span class="sd">        are computed afresh.  Otherwise, it is expected that the</span>
+<span class="sd">        are computed afresh. Otherwise, it is expected that the</span>
 <span class="sd">        compute_trigonometric_terms function has been just called.</span>
 
 <span class="sd">        Args:</span>
@@ -2644,9 +2647,9 @@
 <div class="viewcode-block" id="LocalStructOrderParams.get_q6"><a class="viewcode-back" href="../../../pymatgen.analysis.local_env.html#pymatgen.analysis.local_env.LocalStructOrderParams.get_q6">[docs]</a>    <span class="k">def</span> <span class="nf">get_q6</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">thetas</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">phis</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Calculates the value of the bond orientational order parameter of</span>
-<span class="sd">        weight l=6.  If the function is called with non-empty lists of</span>
+<span class="sd">        weight l=6. If the function is called with non-empty lists of</span>
 <span class="sd">        polar and azimuthal angles the corresponding trigonometric terms</span>
-<span class="sd">        are computed afresh.  Otherwise, it is expected that the</span>
+<span class="sd">        are computed afresh. Otherwise, it is expected that the</span>
 <span class="sd">        compute_trigonometric_terms function has been just called.</span>
 
 <span class="sd">        Args:</span>
@@ -2853,7 +2856,7 @@
 <span class="sd">            structure (Structure): input structure.</span>
 <span class="sd">            n (int): index of site in input structure,</span>
 <span class="sd">                for which OPs are to be</span>
-<span class="sd">                calculated.  Note that we do not use the sites iterator</span>
+<span class="sd">                calculated. Note that we do not use the sites iterator</span>
 <span class="sd">                here, but directly access sites via struct[index].</span>
 <span class="sd">            indices_neighs ([int]): list of indices of those neighbors</span>
 <span class="sd">                in Structure object</span>
@@ -2864,9 +2867,9 @@
 <span class="sd">                vs constant cutoff radius if cutoff was positive).</span>
 <span class="sd">                We do not use information about the underlying</span>
 <span class="sd">                structure lattice if the neighbor indices are explicitly</span>
-<span class="sd">                provided.  This has two important consequences.  First,</span>
+<span class="sd">                provided. This has two important consequences. First,</span>
 <span class="sd">                the input Structure object can, in fact, be a</span>
-<span class="sd">                simple list of Site objects.  Second, no nearest images</span>
+<span class="sd">                simple list of Site objects. Second, no nearest images</span>
 <span class="sd">                of neighbors are determined when providing an index list.</span>
 <span class="sd">                Note furthermore that this neighbor</span>
 <span class="sd">                determination type ignores the optional target_spec</span>
@@ -2882,9 +2885,9 @@
 <span class="sd">                structure.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            [floats]: representing order parameters.  Should it not be</span>
+<span class="sd">            [floats]: representing order parameters. Should it not be</span>
 <span class="sd">            possible to compute a given OP for a conceptual reason, the</span>
-<span class="sd">            corresponding entry is None instead of a float.  For Steinhardt</span>
+<span class="sd">            corresponding entry is None instead of a float. For Steinhardt</span>
 <span class="sd">            et al.&#39;s bond orientational OPs and the other geometric OPs</span>
 <span class="sd">            (&quot;tet&quot;, &quot;oct&quot;, &quot;bcc&quot;, etc.),</span>
 <span class="sd">            this can happen if there is a single</span>
@@ -3757,8 +3760,8 @@
 
 
 <span class="k">def</span> <span class="nf">_get_mean_fictive_ionic_radius</span><span class="p">(</span>
-    <span class="n">fictive_ionic_radii</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
-    <span class="n">minimum_fir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">fictive_ionic_radii</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">minimum_fir</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Returns the mean fictive ionic radius.</span>
@@ -4091,13 +4094,13 @@
         <span class="n">x2</span> <span class="o">=</span> <span class="n">dist_bins</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
 
         <span class="k">if</span> <span class="n">dist_bins</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">area1</span> <span class="o">=</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">r</span> <span class="o">**</span> <span class="mi">2</span>
+            <span class="n">area1</span> <span class="o">=</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">r</span><span class="o">**</span><span class="mi">2</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">area1</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">((</span><span class="n">x1</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">r</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">x1</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="p">(</span><span class="n">r</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">atan</span><span class="p">(</span><span class="n">x1</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">r</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">x1</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))))</span>
+            <span class="n">area1</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">((</span><span class="n">x1</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">r</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">x1</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="p">(</span><span class="n">r</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">atan</span><span class="p">(</span><span class="n">x1</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">r</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">x1</span><span class="o">**</span><span class="mi">2</span><span class="p">))))</span>
 
-        <span class="n">area2</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">((</span><span class="n">x2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">r</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">x2</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="p">(</span><span class="n">r</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">atan</span><span class="p">(</span><span class="n">x2</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">r</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">x2</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))))</span>
+        <span class="n">area2</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">((</span><span class="n">x2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">r</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">x2</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="p">(</span><span class="n">r</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">atan</span><span class="p">(</span><span class="n">x2</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">r</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">x2</span><span class="o">**</span><span class="mi">2</span><span class="p">))))</span>
 
-        <span class="k">return</span> <span class="p">(</span><span class="n">area1</span> <span class="o">-</span> <span class="n">area2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">0.25</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">r</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">area1</span> <span class="o">-</span> <span class="n">area2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">0.25</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">r</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
 
 <div class="viewcode-block" id="CrystalNN.transform_to_length"><a class="viewcode-back" href="../../../pymatgen.analysis.local_env.html#pymatgen.analysis.local_env.CrystalNN.transform_to_length">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">transform_to_length</span><span class="p">(</span><span class="n">nndata</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
@@ -4459,7 +4462,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.local_env</a></li> 
       </ul>
@@ -4467,7 +4470,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

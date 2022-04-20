@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.ext.optimade &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.ext.optimade &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.ext.optimade</a></li> 
       </ul>
@@ -46,21 +46,22 @@
 <span class="sd">Optimade support.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
 <span class="kn">from</span> <span class="nn">os.path</span> <span class="kn">import</span> <span class="n">join</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Set</span>
 <span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span>
 
 <span class="kn">import</span> <span class="nn">requests</span>
-
-<span class="c1"># from retrying import retry</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">DummySpecies</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
 <span class="kn">from</span> <span class="nn">pymatgen.util.provenance</span> <span class="kn">import</span> <span class="n">StructureNL</span>
-<span class="kn">from</span> <span class="nn">pymatgen.util.sequence</span> <span class="kn">import</span> <span class="n">PBar</span>
+
+<span class="c1"># from retrying import retry</span>
 
 
 <span class="c1"># TODO: importing optimade-python-tool&#39;s data structures will make more sense</span>
@@ -86,7 +87,7 @@
 
     <span class="c1"># regenerate on-demand from official providers.json using OptimadeRester.refresh_aliases()</span>
     <span class="c1"># these aliases are provided as a convenient shortcut for users of the OptimadeRester class</span>
-    <span class="n">aliases</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">aliases</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;aflow&quot;</span><span class="p">:</span> <span class="s2">&quot;http://aflow.org/API/optimade/&quot;</span><span class="p">,</span>
         <span class="s2">&quot;cod&quot;</span><span class="p">:</span> <span class="s2">&quot;https://www.crystallography.net/cod/optimade&quot;</span><span class="p">,</span>
         <span class="s2">&quot;mcloud.2dstructures&quot;</span><span class="p">:</span> <span class="s2">&quot;https://aiida.materialscloud.org/2dstructures/optimade&quot;</span><span class="p">,</span>
@@ -110,9 +111,9 @@
     <span class="p">}</span>
 
     <span class="c1"># The set of OPTIMADE fields that are required to define a `pymatgen.core.Structure`</span>
-    <span class="n">mandatory_response_fields</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;lattice_vectors&quot;</span><span class="p">,</span> <span class="s2">&quot;cartesian_site_positions&quot;</span><span class="p">,</span> <span class="s2">&quot;species&quot;</span><span class="p">,</span> <span class="s2">&quot;species_at_sites&quot;</span><span class="p">}</span>
+    <span class="n">mandatory_response_fields</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;lattice_vectors&quot;</span><span class="p">,</span> <span class="s2">&quot;cartesian_site_positions&quot;</span><span class="p">,</span> <span class="s2">&quot;species&quot;</span><span class="p">,</span> <span class="s2">&quot;species_at_sites&quot;</span><span class="p">}</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">aliases_or_resource_urls</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">aliases_or_resource_urls</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        OPTIMADE is an effort to provide a standardized interface to retrieve information</span>
 <span class="sd">        from many different materials science databases.</span>
@@ -204,7 +205,7 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_build_filter</span><span class="p">(</span>
-        <span class="n">elements</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">nelements</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">nsites</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">chemical_formula_anonymous</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -244,12 +245,12 @@
 
 <div class="viewcode-block" id="OptimadeRester.get_structures"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.get_structures">[docs]</a>    <span class="k">def</span> <span class="nf">get_structures</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">elements</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">nelements</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">nsites</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">chemical_formula_anonymous</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">chemical_formula_hill</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Structure</span><span class="p">]]:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Structure</span><span class="p">]]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Retrieve Structures from OPTIMADE providers.</span>
 
@@ -278,13 +279,13 @@
 
 <div class="viewcode-block" id="OptimadeRester.get_snls"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.get_snls">[docs]</a>    <span class="k">def</span> <span class="nf">get_snls</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">elements</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">nelements</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">nsites</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">chemical_formula_anonymous</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">chemical_formula_hill</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">additional_response_fields</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StructureNL</span><span class="p">]]:</span>
+        <span class="n">additional_response_fields</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StructureNL</span><span class="p">]]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Retrieve StructureNL from OPTIMADE providers.</span>
 
@@ -317,7 +318,7 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_snls_with_filter</span><span class="p">(</span><span class="n">optimade_filter</span><span class="p">,</span> <span class="n">additional_response_fields</span><span class="o">=</span><span class="n">additional_response_fields</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="OptimadeRester.get_structures_with_filter"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.get_structures_with_filter">[docs]</a>    <span class="k">def</span> <span class="nf">get_structures_with_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimade_filter</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Structure</span><span class="p">]]:</span>
+<div class="viewcode-block" id="OptimadeRester.get_structures_with_filter"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.get_structures_with_filter">[docs]</a>    <span class="k">def</span> <span class="nf">get_structures_with_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimade_filter</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Structure</span><span class="p">]]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get structures satisfying a given OPTIMADE filter.</span>
 
@@ -338,8 +339,8 @@
 <div class="viewcode-block" id="OptimadeRester.get_snls_with_filter"><a class="viewcode-back" href="../../../pymatgen.ext.optimade.html#pymatgen.ext.optimade.OptimadeRester.get_snls_with_filter">[docs]</a>    <span class="k">def</span> <span class="nf">get_snls_with_filter</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">optimade_filter</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">additional_response_fields</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StructureNL</span><span class="p">]]:</span>
+        <span class="n">additional_response_fields</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StructureNL</span><span class="p">]]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get structures satisfying a given OPTIMADE filter.</span>
 
@@ -363,7 +364,7 @@
 
                 <span class="n">structures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_snls_from_resource</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span>
 
-                <span class="n">pbar</span> <span class="o">=</span> <span class="n">PBar</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">json</span><span class="p">[</span><span class="s2">&quot;meta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data_returned&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">structures</span><span class="p">))</span>
+                <span class="n">pbar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">json</span><span class="p">[</span><span class="s2">&quot;meta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data_returned&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">structures</span><span class="p">))</span>
 
                 <span class="c1"># TODO: check spec for `more_data_available` boolean, may simplify this conditional</span>
                 <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;links&quot;</span> <span class="ow">in</span> <span class="n">json</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;next&quot;</span> <span class="ow">in</span> <span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">])</span> <span class="ow">and</span> <span class="p">(</span><span class="n">json</span><span class="p">[</span><span class="s2">&quot;links&quot;</span><span class="p">][</span><span class="s2">&quot;next&quot;</span><span class="p">]):</span>
@@ -391,7 +392,7 @@
         <span class="k">return</span> <span class="n">all_snls</span></div>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_get_snls_from_resource</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StructureNL</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_get_snls_from_resource</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">identifier</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StructureNL</span><span class="p">]:</span>
 
         <span class="n">snls</span> <span class="o">=</span> <span class="p">{}</span>
 
@@ -477,7 +478,7 @@
 
         <span class="k">return</span> <span class="n">snls</span>
 
-    <span class="k">def</span> <span class="nf">_validate_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_url</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Provider</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_validate_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider_url</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Provider</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Checks that a given URL is indeed an OPTIMADE provider,</span>
 <span class="sd">        returning None if it is not a provider, or the provider</span>
@@ -520,7 +521,7 @@
             <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to extract required information from </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">_parse_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">provider_url</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Provider</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_parse_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">provider</span><span class="p">,</span> <span class="n">provider_url</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Provider</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Used internally to update the list of providers or to</span>
 <span class="sd">        check a given URL is valid.</span>
@@ -570,7 +571,7 @@
 
         <span class="k">return</span> <span class="n">_parse_provider_link</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">provider_link_json</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_handle_response_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">additional_response_fields</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_handle_response_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">additional_response_fields</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Used internally to handle the mandatory and additional response fields.</span>
 
@@ -630,7 +631,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.ext.optimade</a></li> 
       </ul>
@@ -638,7 +639,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.transformations.site_transformations &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.transformations.site_transformations &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.transformations.site_transformations</a></li> 
       </ul>
@@ -52,19 +52,18 @@
 <span class="sd">All transformations should inherit the AbstractTransformation ABC.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">time</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
 
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.ewald</span> <span class="kn">import</span> <span class="n">EwaldMinimizer</span><span class="p">,</span> <span class="n">EwaldSummation</span>
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.local_env</span> <span class="kn">import</span> <span class="n">MinimumDistanceNN</span>
 <span class="kn">from</span> <span class="nn">pymatgen.symmetry.analyzer</span> <span class="kn">import</span> <span class="n">SpacegroupAnalyzer</span>
 <span class="kn">from</span> <span class="nn">pymatgen.transformations.transformation_abc</span> <span class="kn">import</span> <span class="n">AbstractTransformation</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.ewald</span> <span class="kn">import</span> <span class="n">EwaldSummation</span><span class="p">,</span> <span class="n">EwaldMinimizer</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.local_env</span> <span class="kn">import</span> <span class="n">MinimumDistanceNN</span>
 
 
 <div class="viewcode-block" id="InsertSitesTransformation"><a class="viewcode-back" href="../../../pymatgen.transformations.site_transformations.html#pymatgen.transformations.site_transformations.InsertSitesTransformation">[docs]</a><span class="k">class</span> <span class="nc">InsertSitesTransformation</span><span class="p">(</span><span class="n">AbstractTransformation</span><span class="p">):</span>
@@ -79,7 +78,7 @@
 <span class="sd">            coords: A list of coords corresponding to those species. e.g.,</span>
 <span class="sd">                [[0,0,0],[0.5,0.5,0.5]].</span>
 <span class="sd">            coords_are_cartesian (bool): Set to True if coords are given in</span>
-<span class="sd">                cartesian coords. Defaults to False.</span>
+<span class="sd">                Cartesian coords. Defaults to False.</span>
 <span class="sd">            validate_proximity (bool): Set to False if you do not wish to ensure</span>
 <span class="sd">                that added sites are not too close to other sites. Defaults to True.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -267,8 +266,10 @@
         <span class="k">return</span> <span class="n">s</span></div>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="s2">&quot;TranslateSitesTransformation for indices &quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">, vect </span><span class="si">{}</span><span class="s2"> and vect_in_frac_coords = </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">indices_to_move</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">translation_vector</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vector_in_frac_coords</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;TranslateSitesTransformation for indices </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">indices_to_move</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;vect </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">translation_vector</span><span class="si">}</span><span class="s2"> and &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;vect_in_frac_coords = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">vector_in_frac_coords</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -278,7 +279,7 @@
     <span class="k">def</span> <span class="nf">inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
-<span class="sd">            TranslateSitesTranformation with the reverse translation.</span>
+<span class="sd">            TranslateSitesTransformation with the reverse translation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">TranslateSitesTransformation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">indices_to_move</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">translation_vector</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vector_in_frac_coords</span><span class="p">)</span>
 
@@ -289,7 +290,7 @@
 
 <div class="viewcode-block" id="TranslateSitesTransformation.as_dict"><a class="viewcode-back" href="../../../pymatgen.transformations.site_transformations.html#pymatgen.transformations.site_transformations.TranslateSitesTransformation.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Json-serializable dict representation.</span>
+<span class="sd">        JSON-serializable dict representation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">d</span> <span class="o">=</span> <span class="n">MSONable</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">d</span><span class="p">[</span><span class="s2">&quot;translation_vector&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">translation_vector</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
@@ -321,7 +322,7 @@
 
 <span class="sd">    ALGO_BEST_FIRST:</span>
 <span class="sd">        This algorithm is for ordering the really large cells that defeats even</span>
-<span class="sd">        ALGO_FAST.  For example, if you have 48 sites of which you want to</span>
+<span class="sd">        ALGO_FAST. For example, if you have 48 sites of which you want to</span>
 <span class="sd">        remove 16 of them, the number of possible orderings is around</span>
 <span class="sd">        2 x 10^12. ALGO_BEST_FIRST shortcircuits the entire search tree by</span>
 <span class="sd">        removing the highest energy site first, then followed by the next</span>
@@ -357,7 +358,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fractions</span> <span class="o">=</span> <span class="n">fractions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">algo</span> <span class="o">=</span> <span class="n">algo</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_best_first_ordering</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">,</span> <span class="n">num_remove_dict</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Performing best first ordering&quot;</span><span class="p">)</span>
@@ -451,7 +452,7 @@
 <span class="sd">        sums of the potential structures. This is on the order of 4 orders of</span>
 <span class="sd">        magnitude faster when there are large numbers of permutations to</span>
 <span class="sd">        consider. There are further optimizations possible (doing a smarter</span>
-<span class="sd">        search of permutations for example), but this wont make a difference</span>
+<span class="sd">        search of permutations for example), but this won&#39;t make a difference</span>
 <span class="sd">        until the number of permutations is on the order of 30,000.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Performing fast ordering&quot;</span><span class="p">)</span>
@@ -503,7 +504,9 @@
                 <span class="n">new_sp</span> <span class="o">=</span> <span class="p">{</span><span class="n">sp</span><span class="p">:</span> <span class="n">occu</span> <span class="o">*</span> <span class="n">fraction</span> <span class="k">for</span> <span class="n">sp</span><span class="p">,</span> <span class="n">occu</span> <span class="ow">in</span> <span class="n">structure</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span><span class="o">.</span><span class="n">species</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
                 <span class="n">s</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_sp</span>
         <span class="c1"># Perform enumeration</span>
-        <span class="kn">from</span> <span class="nn">pymatgen.transformations.advanced_transformations</span> <span class="kn">import</span> <span class="n">EnumerateStructureTransformation</span>
+        <span class="kn">from</span> <span class="nn">pymatgen.transformations.advanced_transformations</span> <span class="kn">import</span> <span class="p">(</span>
+            <span class="n">EnumerateStructureTransformation</span><span class="p">,</span>
+        <span class="p">)</span>
 
         <span class="n">trans</span> <span class="o">=</span> <span class="n">EnumerateStructureTransformation</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">trans</span><span class="o">.</span><span class="n">apply_transformation</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">10000</span><span class="p">)</span>
@@ -567,9 +570,7 @@
         <span class="k">return</span> <span class="n">opt_s</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">return_ranked_list</span> <span class="k">else</span> <span class="n">all_structures</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">num_to_return</span><span class="p">]</span></div>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="s2">&quot;PartialRemoveSitesTransformation : Indices and fraction&quot;</span> <span class="o">+</span> <span class="s2">&quot; to remove = </span><span class="si">{}</span><span class="s2">, ALGO = </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">algo</span>
-        <span class="p">)</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;PartialRemoveSitesTransformation : Indices and fraction to remove = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">indices</span><span class="si">}</span><span class="s2">, ALGO = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">algo</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span>
@@ -728,7 +729,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.transformations.site_transformations</a></li> 
       </ul>
@@ -736,7 +737,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

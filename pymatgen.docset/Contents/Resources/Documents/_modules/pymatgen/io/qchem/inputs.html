@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.qchem.inputs &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.io.qchem.inputs &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
     <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.qchem.inputs</a></li> 
       </ul>
@@ -48,21 +48,19 @@
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Classes for reading/manipulating/writing QChem input files.</span>
 <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
 
 <span class="kn">from</span> <span class="nn">monty.io</span> <span class="kn">import</span> <span class="n">zopen</span>
-<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
 
 <span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">Molecule</span>
+<span class="kn">from</span> <span class="nn">pymatgen.io.core</span> <span class="kn">import</span> <span class="n">InputFile</span>
 
 <span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">lower_and_check_unique</span><span class="p">,</span> <span class="n">read_pattern</span><span class="p">,</span> <span class="n">read_table_pattern</span>
-
-<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">):</span>
-    <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
-<span class="k">else</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
 
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Brandon Wood, Samuel Blau, Shyam Dwaraknath, Julian Self, Evan Spotte-Smith&quot;</span>
 <span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2018, The Materials Project&quot;</span>
@@ -73,7 +71,7 @@
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="QCInput"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput">[docs]</a><span class="k">class</span> <span class="nc">QCInput</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<div class="viewcode-block" id="QCInput"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput">[docs]</a><span class="k">class</span> <span class="nc">QCInput</span><span class="p">(</span><span class="n">InputFile</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An object representing a QChem input file. QCInput attributes represent different sections of a QChem input file.</span>
 <span class="sd">    To add a new section one needs to modify __init__, __str__, from_sting and add staticmethods</span>
@@ -84,17 +82,17 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">molecule</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Molecule</span><span class="p">,</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">]],</span>
-        <span class="n">rem</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
-        <span class="n">opt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">pcm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">solvent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">smx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">scan</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">van_der_waals</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">molecule</span><span class="p">:</span> <span class="n">Molecule</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">],</span>
+        <span class="n">rem</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">opt</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pcm</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">solvent</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">smx</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">scan</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">van_der_waals</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">vdw_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;atomic&quot;</span><span class="p">,</span>
-        <span class="n">plots</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">nbo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">plots</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">nbo</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
@@ -107,7 +105,7 @@
 <span class="sd">                Ex. rem = {&#39;method&#39;: &#39;rimp2&#39;, &#39;basis&#39;: &#39;6-31*G++&#39; ... }</span>
 <span class="sd">            opt (dict of lists):</span>
 <span class="sd">                A dictionary of opt sections, where each opt section is a key and the corresponding</span>
-<span class="sd">                values are a list of strings. Stings must be formatted as instructed by the QChem manual.</span>
+<span class="sd">                values are a list of strings. Strings must be formatted as instructed by the QChem manual.</span>
 <span class="sd">                The different opt sections are: CONSTRAINT, FIXED, DUMMY, and CONNECT</span>
 <span class="sd">                Ex. opt = {&quot;CONSTRAINT&quot;: [&quot;tors 2 3 4 5 25.0&quot;, &quot;tors 2 5 7 9 80.0&quot;], &quot;FIXED&quot;: [&quot;2 XY&quot;]}</span>
 <span class="sd">            pcm (dict):</span>
@@ -128,7 +126,7 @@
 <span class="sd">                more than two.</span>
 <span class="sd">                Ex. scan = {&quot;stre&quot;: [&quot;3 6 1.5 1.9 0.1&quot;], &quot;tors&quot;: [&quot;1 2 3 4 -180 180 15&quot;]}</span>
 <span class="sd">            van_der_waals (dict):</span>
-<span class="sd">                A dictionary of custom van der Waals radii to be used when construcing cavities for the PCM</span>
+<span class="sd">                A dictionary of custom van der Waals radii to be used when constructing cavities for the PCM</span>
 <span class="sd">                model or when computing, e.g. Mulliken charges. They keys are strs whose meaning depends on</span>
 <span class="sd">                the value of vdw_mode, and the values are the custom radii in angstroms.</span>
 <span class="sd">            vdw_mode (str): Method of specifying custom van der Waals radii - &#39;atomic&#39; or &#39;sequential&#39;.</span>
@@ -187,6 +185,12 @@
         <span class="c1">#   - Validity checks specific to job type?</span>
         <span class="c1">#   - Check OPT and PCM sections?</span>
 
+<div class="viewcode-block" id="QCInput.get_string"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.get_string">[docs]</a>    <span class="k">def</span> <span class="nf">get_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a string representation of an entire input file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span></div>
+
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">combined_list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="c1"># molecule section</span>
@@ -229,7 +233,7 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">combined_list</span><span class="p">)</span>
 
 <div class="viewcode-block" id="QCInput.multi_job_string"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.multi_job_string">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">multi_job_string</span><span class="p">(</span><span class="n">job_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;QCInput&quot;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">multi_job_string</span><span class="p">(</span><span class="n">job_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">QCInput</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            job_list (): List of jobs</span>
@@ -246,7 +250,7 @@
         <span class="k">return</span> <span class="n">multi_job_string</span></div>
 
 <div class="viewcode-block" id="QCInput.from_string"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.from_string">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_string</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;QCInput&quot;</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">from_string</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">QCInput</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read QcInput from string.</span>
 
@@ -299,18 +303,8 @@
             <span class="n">nbo</span><span class="o">=</span><span class="n">nbo</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="QCInput.write_file"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.write_file">[docs]</a>    <span class="k">def</span> <span class="nf">write_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Write QcInput to file.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            filename (str): Filename</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;wt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="fm">__str__</span><span class="p">())</span></div>
-
 <div class="viewcode-block" id="QCInput.write_multi_job_file"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.write_multi_job_file">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">write_multi_job_file</span><span class="p">(</span><span class="n">job_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;QCInput&quot;</span><span class="p">],</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">write_multi_job_file</span><span class="p">(</span><span class="n">job_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">QCInput</span><span class="p">],</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Write a multijob file.</span>
 
@@ -322,7 +316,7 @@
             <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">QCInput</span><span class="o">.</span><span class="n">multi_job_string</span><span class="p">(</span><span class="n">job_list</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="QCInput.from_file"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.from_file">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;QCInput&quot;</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">QCInput</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create QcInput from file.</span>
 <span class="sd">        Args:</span>
@@ -335,7 +329,7 @@
             <span class="k">return</span> <span class="n">QCInput</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="QCInput.from_multi_jobs_file"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.from_multi_jobs_file">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_multi_jobs_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;QCInput&quot;</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">from_multi_jobs_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">QCInput</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create list of QcInput from a file.</span>
 <span class="sd">        Args:</span>
@@ -352,7 +346,7 @@
             <span class="k">return</span> <span class="n">input_list</span></div>
 
 <div class="viewcode-block" id="QCInput.molecule_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.molecule_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">molecule_template</span><span class="p">(</span><span class="n">molecule</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Molecule</span><span class="p">,</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">molecule_template</span><span class="p">(</span><span class="n">molecule</span><span class="p">:</span> <span class="n">Molecule</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            molecule (Molecule): molecule</span>
@@ -380,7 +374,7 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">mol_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.rem_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.rem_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">rem_template</span><span class="p">(</span><span class="n">rem</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">rem_template</span><span class="p">(</span><span class="n">rem</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            rem ():</span>
@@ -396,7 +390,7 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">rem_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.opt_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.opt_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">opt_template</span><span class="p">(</span><span class="n">opt</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">opt_template</span><span class="p">(</span><span class="n">opt</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Optimization template.</span>
 
@@ -422,7 +416,7 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">opt_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.pcm_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.pcm_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">pcm_template</span><span class="p">(</span><span class="n">pcm</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">pcm_template</span><span class="p">(</span><span class="n">pcm</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Pcm run template.</span>
 
@@ -440,7 +434,7 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pcm_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.solvent_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.solvent_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">solvent_template</span><span class="p">(</span><span class="n">solvent</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">solvent_template</span><span class="p">(</span><span class="n">solvent</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Solvent template.</span>
 
@@ -458,7 +452,7 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">solvent_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.smx_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.smx_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">smx_template</span><span class="p">(</span><span class="n">smx</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">smx_template</span><span class="p">(</span><span class="n">smx</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            smx ():</span>
@@ -470,14 +464,14 @@
         <span class="n">smx_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$smx&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">smx</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;tetrahydrofuran&quot;</span><span class="p">:</span>
-                <span class="n">smx_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;   </span><span class="si">{key}</span><span class="s2"> </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;thf&quot;</span><span class="p">))</span>
+                <span class="n">smx_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> thf&quot;</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">smx_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">smx_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;$end&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">smx_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.scan_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.scan_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">scan_template</span><span class="p">(</span><span class="n">scan</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">scan_template</span><span class="p">(</span><span class="n">scan</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            scan (dict): Dictionary with scan section information.</span>
@@ -499,7 +493,7 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">scan_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.van_der_waals_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.van_der_waals_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">van_der_waals_template</span><span class="p">(</span><span class="n">radii</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;atomic&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">van_der_waals_template</span><span class="p">(</span><span class="n">radii</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;atomic&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            radii (dict): Dictionary with custom van der Waals radii, in</span>
@@ -530,7 +524,7 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">vdw_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.plots_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.plots_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">plots_template</span><span class="p">(</span><span class="n">plots</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">plots_template</span><span class="p">(</span><span class="n">plots</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            plots ():</span>
@@ -546,7 +540,7 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">plots_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.nbo_template"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.nbo_template">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">nbo_template</span><span class="p">(</span><span class="n">nbo</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">nbo_template</span><span class="p">(</span><span class="n">nbo</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            nbo ():</span>
@@ -562,7 +556,7 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">nbo_list</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="QCInput.find_sections"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.find_sections">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">find_sections</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">find_sections</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Find sections in the string.</span>
 
@@ -588,7 +582,7 @@
         <span class="k">return</span> <span class="n">sections</span></div>
 
 <div class="viewcode-block" id="QCInput.read_molecule"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_molecule">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_molecule</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Molecule</span><span class="p">,</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">]]:</span>
+    <span class="k">def</span> <span class="nf">read_molecule</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Molecule</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read molecule from string.</span>
 
@@ -625,7 +619,7 @@
         <span class="k">return</span> <span class="n">mol</span></div>
 
 <div class="viewcode-block" id="QCInput.read_rem"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_rem">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_rem</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">read_rem</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parse rem from string.</span>
 
@@ -636,13 +630,13 @@
 <span class="sd">            (dict) rem</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">header</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$rem&quot;</span>
-        <span class="n">row</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;\s*([a-zA-Z\_]+)\s*=?\s*(\S+)&quot;</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;\s*([a-zA-Z\_\d]+)\s*=?\s*(\S+)&quot;</span>
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
         <span class="n">rem_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">rem_table</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
 
 <div class="viewcode-block" id="QCInput.read_opt"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_opt">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_opt</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">read_opt</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read opt section from string.</span>
 
@@ -703,7 +697,7 @@
         <span class="k">return</span> <span class="n">opt</span></div>
 
 <div class="viewcode-block" id="QCInput.read_pcm"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_pcm">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_pcm</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">read_pcm</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read pcm parameters from string.</span>
 
@@ -718,13 +712,13 @@
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
         <span class="n">pcm_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pcm_table</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid PCM inputs found. Note that there should be no &#39;=&#39; chracters in PCM input lines.&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid PCM inputs found. Note that there should be no &#39;=&#39; characters in PCM input lines.&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">{}</span>
 
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">pcm_table</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
 
 <div class="viewcode-block" id="QCInput.read_vdw"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_vdw">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_vdw</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">read_vdw</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read van der Waals parameters from string.</span>
 
@@ -739,7 +733,7 @@
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
         <span class="n">vdw_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">vdw_table</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid vdW inputs found. Note that there should be no &#39;=&#39; chracters in vdW input lines.&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid vdW inputs found. Note that there should be no &#39;=&#39; characters in vdW input lines.&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="p">{}</span>
 
         <span class="k">if</span> <span class="n">vdw_table</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
@@ -750,7 +744,7 @@
         <span class="k">return</span> <span class="n">mode</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">vdw_table</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">:])</span></div>
 
 <div class="viewcode-block" id="QCInput.read_solvent"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_solvent">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_solvent</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">read_solvent</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read solvent parameters from string.</span>
 
@@ -765,13 +759,13 @@
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
         <span class="n">solvent_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">solvent_table</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid solvent inputs found. Note that there should be no &#39;=&#39; chracters in solvent input lines.&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid solvent inputs found. Note that there should be no &#39;=&#39; characters in solvent input lines.&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">{}</span>
 
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">solvent_table</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
 
 <div class="viewcode-block" id="QCInput.read_smx"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_smx">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_smx</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">read_smx</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read smx parameters from string.</span>
 
@@ -786,7 +780,7 @@
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
         <span class="n">smx_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">smx_table</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid smx inputs found. Note that there should be no &#39;=&#39; chracters in smx input lines.&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid smx inputs found. Note that there should be no &#39;=&#39; characters in smx input lines.&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">{}</span>
         <span class="n">smx</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">smx_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
@@ -796,7 +790,7 @@
         <span class="k">return</span> <span class="n">smx</span></div>
 
 <div class="viewcode-block" id="QCInput.read_scan"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_scan">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_scan</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">read_scan</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read scan section from a string.</span>
 
@@ -811,7 +805,7 @@
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
         <span class="n">scan_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">scan_table</span> <span class="o">==</span> <span class="p">[]:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid scan inputs found. Note that there should be no &#39;=&#39; chracters in scan input lines.&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid scan inputs found. Note that there should be no &#39;=&#39; characters in scan input lines.&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">{}</span>
 
         <span class="n">stre</span> <span class="o">=</span> <span class="p">[]</span>
@@ -831,7 +825,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;stre&quot;</span><span class="p">:</span> <span class="n">stre</span><span class="p">,</span> <span class="s2">&quot;bend&quot;</span><span class="p">:</span> <span class="n">bend</span><span class="p">,</span> <span class="s2">&quot;tors&quot;</span><span class="p">:</span> <span class="n">tors</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="QCInput.read_plots"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_plots">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_plots</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">read_plots</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read plots parameters from string.</span>
 
@@ -846,7 +840,7 @@
         <span class="n">footer</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^\s*\$end&quot;</span>
         <span class="n">plots_table</span> <span class="o">=</span> <span class="n">read_table_pattern</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">header_pattern</span><span class="o">=</span><span class="n">header</span><span class="p">,</span> <span class="n">row_pattern</span><span class="o">=</span><span class="n">row</span><span class="p">,</span> <span class="n">footer_pattern</span><span class="o">=</span><span class="n">footer</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">plots_table</span> <span class="o">==</span> <span class="p">[]:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid plots inputs found. Note that there should be no &#39;=&#39; chracters in plots input lines.&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No valid plots inputs found. Note that there should be no &#39;=&#39; characters in plots input lines.&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">{}</span>
         <span class="n">plots</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">plots_table</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
@@ -854,7 +848,7 @@
         <span class="k">return</span> <span class="n">plots</span></div>
 
 <div class="viewcode-block" id="QCInput.read_nbo"><a class="viewcode-back" href="../../../../pymatgen.io.qchem.inputs.html#pymatgen.io.qchem.inputs.QCInput.read_nbo">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">read_nbo</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">read_nbo</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read nbo parameters from string.</span>
 
@@ -891,7 +885,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.qchem.inputs</a></li> 
       </ul>
@@ -899,7 +893,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

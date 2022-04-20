@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.command_line.critic2_caller &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.command_line.critic2_caller &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.command_line.critic2_caller</a></li> 
       </ul>
@@ -81,22 +81,22 @@
 <span class="sd">(https://doi.org/10.1016/j.cpc.2008.07.018)</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">import</span> <span class="nn">glob</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">subprocess</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">shutil</span> <span class="kn">import</span> <span class="n">which</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">monty.dev</span> <span class="kn">import</span> <span class="n">requires</span>
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
-<span class="kn">from</span> <span class="nn">monty.os.path</span> <span class="kn">import</span> <span class="n">which</span>
 <span class="kn">from</span> <span class="nn">monty.serialization</span> <span class="kn">import</span> <span class="n">loadfn</span>
 <span class="kn">from</span> <span class="nn">monty.tempfile</span> <span class="kn">import</span> <span class="n">ScratchDir</span>
 <span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="kn">import</span> <span class="n">KDTree</span>
 
 <span class="kn">from</span> <span class="nn">pymatgen.analysis.graphs</span> <span class="kn">import</span> <span class="n">StructureGraph</span>
-<span class="kn">from</span> <span class="nn">pymatgen.command_line.bader_caller</span> <span class="kn">import</span> <span class="n">get_filepath</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">DummySpecies</span>
 <span class="kn">from</span> <span class="nn">pymatgen.io.vasp.inputs</span> <span class="kn">import</span> <span class="n">Potcar</span>
 <span class="kn">from</span> <span class="nn">pymatgen.io.vasp.outputs</span> <span class="kn">import</span> <span class="n">Chgcar</span><span class="p">,</span> <span class="n">VolumetricData</span>
@@ -190,7 +190,7 @@
 <span class="sd">        * CPEPS, float (Bohr units in crystals), minimum distance between</span>
 <span class="sd">          critical points for them to be equivalent</span>
 <span class="sd">        * NUCEPS, same as CPEPS but specifically for nucleus critical</span>
-<span class="sd">          points (critic2 default is depedent on grid dimensions)</span>
+<span class="sd">          points (critic2 default is dependent on grid dimensions)</span>
 <span class="sd">        * NUCEPSH, same as NUCEPS but specifically for hydrogen nuclei</span>
 <span class="sd">          since associated charge density can be significantly displaced</span>
 <span class="sd">          from hydrogen nucleus</span>
@@ -366,6 +366,29 @@
     <span class="n">nnattr</span> <span class="o">=</span> <span class="s2">&quot;nnattr&quot;</span>  <span class="c1"># (3, -3), non-nuclear attractor</span></div>
 
 
+<div class="viewcode-block" id="get_filepath"><a class="viewcode-back" href="../../../pymatgen.command_line.critic2_caller.html#pymatgen.command_line.critic2_caller.get_filepath">[docs]</a><span class="k">def</span> <span class="nf">get_filepath</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">warning</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">suffix</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Args:</span>
+<span class="sd">        filename: Filename</span>
+<span class="sd">        warning: Warning message</span>
+<span class="sd">        path: Path to search</span>
+<span class="sd">        suffix: Suffixes to search.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">paths</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">filename</span> <span class="o">+</span> <span class="n">suffix</span> <span class="o">+</span> <span class="s2">&quot;*&quot;</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">paths</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">warning</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># using reverse=True because, if multiple files are present,</span>
+        <span class="c1"># they likely have suffixes &#39;static&#39;, &#39;relax&#39;, &#39;relax2&#39;, etc.</span>
+        <span class="c1"># and this would give &#39;static&#39; over &#39;relax2&#39; over &#39;relax&#39;</span>
+        <span class="c1"># however, better to use &#39;suffix&#39; kwarg to avoid this!</span>
+        <span class="n">paths</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Multiple files detected, using </span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">path</span></div>
+
+
 <div class="viewcode-block" id="CriticalPoint"><a class="viewcode-back" href="../../../pymatgen.command_line.critic2_caller.html#pymatgen.command_line.critic2_caller.CriticalPoint">[docs]</a><span class="k">class</span> <span class="nc">CriticalPoint</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Access information about a critical point and the field values at that point.</span>
@@ -392,8 +415,8 @@
 
 <span class="sd">        :param index: index of point</span>
 <span class="sd">        :param type: type of point, given as a string</span>
-<span class="sd">        :param coords: Cartesian co-ordinates in Angstroms</span>
-<span class="sd">        :param frac_coords: fractional co-ordinates</span>
+<span class="sd">        :param coords: Cartesian coordinates in Angstroms</span>
+<span class="sd">        :param frac_coords: fractional coordinates</span>
 <span class="sd">        :param point_group: point group associated with critical point</span>
 <span class="sd">        :param multiplicity: number of equivalent critical points</span>
 <span class="sd">        :param field: value of field at point (f)</span>
@@ -910,7 +933,7 @@
 <span class="sd">        :param idx: index</span>
 <span class="sd">        :param unique_idx: index of unique CriticalPoint,</span>
 <span class="sd">            used to look up more information of point (field etc.)</span>
-<span class="sd">        :param frac_coord: fractional co-ordinates of point</span>
+<span class="sd">        :param frac_coord: fractional coordinates of point</span>
 <span class="sd">        :return:</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;unique_idx&quot;</span><span class="p">:</span> <span class="n">unique_idx</span><span class="p">,</span> <span class="s2">&quot;frac_coords&quot;</span><span class="p">:</span> <span class="n">frac_coords</span><span class="p">}</span>
@@ -960,7 +983,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.command_line.critic2_caller</a></li> 
       </ul>
@@ -968,7 +991,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

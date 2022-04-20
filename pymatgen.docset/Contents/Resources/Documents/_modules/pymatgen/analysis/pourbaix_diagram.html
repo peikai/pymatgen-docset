@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.analysis.pourbaix_diagram &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.analysis.pourbaix_diagram &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.pourbaix_diagram</a></li> 
       </ul>
@@ -46,7 +46,7 @@
 <span class="c1"># Distributed under the terms of the MIT License.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">This module is intended to be used to compute Pourbaix diagrams</span>
-<span class="sd">of arbitrary compositions and formation energies.  If you use</span>
+<span class="sd">of arbitrary compositions and formation energies. If you use</span>
 <span class="sd">this module in your work, please consider citing the following:</span>
 
 <span class="sd">General formalism for solid-aqueous equilibria from DFT:</span>
@@ -57,6 +57,8 @@
 <span class="sd">    Patel et al., https://arxiv.org/abs/1909.00035 (submitted)</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">re</span>
@@ -64,7 +66,6 @@
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">cmp_to_key</span><span class="p">,</span> <span class="n">lru_cache</span><span class="p">,</span> <span class="n">partial</span>
 <span class="kn">from</span> <span class="nn">multiprocessing</span> <span class="kn">import</span> <span class="n">Pool</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MontyDecoder</span><span class="p">,</span> <span class="n">MSONable</span>
@@ -85,8 +86,6 @@
 <span class="kn">from</span> <span class="nn">pymatgen.util.coord</span> <span class="kn">import</span> <span class="n">Simplex</span>
 <span class="kn">from</span> <span class="nn">pymatgen.util.plotting</span> <span class="kn">import</span> <span class="n">pretty_plot</span>
 <span class="kn">from</span> <span class="nn">pymatgen.util.string</span> <span class="kn">import</span> <span class="n">Stringify</span>
-<span class="kn">from</span> <span class="nn">pymatgen.util.sequence</span> <span class="kn">import</span> <span class="n">PBar</span>
-
 
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Sai Jayaraman&quot;</span>
 <span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2012, The Materials Project&quot;</span>
@@ -109,13 +108,13 @@
 <div class="viewcode-block" id="PourbaixEntry"><a class="viewcode-back" href="../../../pymatgen.analysis.pourbaix_diagram.html#pymatgen.analysis.pourbaix_diagram.PourbaixEntry">[docs]</a><span class="k">class</span> <span class="nc">PourbaixEntry</span><span class="p">(</span><span class="n">MSONable</span><span class="p">,</span> <span class="n">Stringify</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An object encompassing all data relevant to a solid or ion</span>
-<span class="sd">    in a pourbaix diagram.  Each bulk solid/ion has an energy</span>
+<span class="sd">    in a Pourbaix diagram. Each bulk solid/ion has an energy</span>
 <span class="sd">    g of the form: e = e0 + 0.0591 log10(conc) - nO mu_H2O</span>
 <span class="sd">    + (nH - 2nO) pH + phi (-nH + 2nO + q)</span>
 
 <span class="sd">    Note that the energies corresponding to the input entries</span>
 <span class="sd">    should be formation energies with respect to hydrogen and</span>
-<span class="sd">    oxygen gas in order for the pourbaix diagram formalism to</span>
+<span class="sd">    oxygen gas in order for the Pourbaix diagram formalism to</span>
 <span class="sd">    work. This may be changed to be more flexible in the future.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -180,7 +179,7 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        returns energy</span>
 
-<span class="sd">        Returns (float): total energy of the pourbaix</span>
+<span class="sd">        Returns (float): total energy of the Pourbaix</span>
 <span class="sd">            entry (at pH, V = 0 vs. SHE)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Note: this implicitly depends on formation energies as input</span>
@@ -189,7 +188,7 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">energy_per_atom</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        energy per atom of the pourbaix entry</span>
+<span class="sd">        energy per atom of the Pourbaix entry</span>
 
 <span class="sd">        Returns (float): energy per atom</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -260,7 +259,7 @@
 <span class="sd">        Note that the pH, voltage, H2O factors are always calculated when</span>
 <span class="sd">        constructing a PourbaixEntry object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">d</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span> <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">}</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span> <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">}</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entry</span><span class="p">,</span> <span class="n">IonEntry</span><span class="p">):</span>
             <span class="n">d</span><span class="p">[</span><span class="s2">&quot;entry_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Ion&quot;</span>
         <span class="k">else</span><span class="p">:</span>
@@ -348,7 +347,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">entry_list</span> <span class="o">=</span> <span class="n">entry_list</span>
 
-    <span class="nd">@lru_cache</span><span class="p">()</span>
+    <span class="nd">@lru_cache</span>
     <span class="k">def</span> <span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Because most of the attributes here are just weighted</span>
@@ -405,8 +404,8 @@
 <span class="sd">        Returns: MSONable dict</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;entry_list&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_list</span><span class="p">],</span>
             <span class="s2">&quot;weights&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span>
         <span class="p">}</span></div>
@@ -512,19 +511,19 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">entries</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">PourbaixEntry</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">MultiEntry</span><span class="p">]],</span>
-        <span class="n">comp_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">conc_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">entries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PourbaixEntry</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">MultiEntry</span><span class="p">],</span>
+        <span class="n">comp_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">conc_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">filter_solids</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">nproc</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">nproc</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            entries ([PourbaixEntry] or [MultiEntry]): Entries list</span>
 <span class="sd">                containing Solids and Ions or a list of MultiEntries</span>
-<span class="sd">            comp_dict ({str: float}): Dictionary of compositions,</span>
+<span class="sd">            comp_dict (dict[str, float]): Dictionary of compositions,</span>
 <span class="sd">                defaults to equal parts of each elements</span>
-<span class="sd">            conc_dict ({str: float}): Dictionary of ion concentrations,</span>
+<span class="sd">            conc_dict (dict[str, float]): Dictionary of ion concentrations,</span>
 <span class="sd">                defaults to 1e-6 for each element</span>
 <span class="sd">            filter_solids (bool): applying this filter to a Pourbaix</span>
 <span class="sd">                diagram ensures all included solid phases are filtered by</span>
@@ -536,7 +535,7 @@
 <span class="sd">                Hence, including only the stable solid phases generally leads to the</span>
 <span class="sd">                most accurate Pourbaix diagrams.</span>
 <span class="sd">            nproc (int): number of processes to generate multientries with</span>
-<span class="sd">                in parallel.  Defaults to None (serial processing)</span>
+<span class="sd">                in parallel. Defaults to None (serial processing)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">entries</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">filter_solids</span> <span class="o">=</span> <span class="n">filter_solids</span>
@@ -607,7 +606,7 @@
     <span class="k">def</span> <span class="nf">_convert_entries_to_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pourbaix_entries</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
-<span class="sd">            pourbaix_entries ([PourbaixEntry]): list of pourbaix entries</span>
+<span class="sd">            pourbaix_entries ([PourbaixEntry]): list of Pourbaix entries</span>
 <span class="sd">                to process into vectors in nph-nphi-composition space</span>
 
 <span class="sd">        Returns:</span>
@@ -626,8 +625,8 @@
 
     <span class="k">def</span> <span class="nf">_get_hull_in_nph_nphi_space</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entries</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Generates convex hull of pourbaix diagram entries in composition,</span>
-<span class="sd">        npH, and nphi space.  This enables filtering of multi-entries</span>
+<span class="sd">        Generates convex hull of Pourbaix diagram entries in composition,</span>
+<span class="sd">        npH, and nphi space. This enables filtering of multi-entries</span>
 <span class="sd">        such that only compositionally stable combinations of entries</span>
 <span class="sd">        are included.</span>
 
@@ -669,7 +668,7 @@
         <span class="n">facets</span> <span class="o">=</span> <span class="p">[</span><span class="n">facet</span> <span class="k">for</span> <span class="n">facet</span> <span class="ow">in</span> <span class="n">hull</span><span class="o">.</span><span class="n">simplices</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="ow">in</span> <span class="n">facet</span><span class="p">]</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Filtering facets by pourbaix composition&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Filtering facets by Pourbaix composition&quot;</span><span class="p">)</span>
             <span class="n">valid_facets</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">facet</span> <span class="ow">in</span> <span class="n">facets</span><span class="p">:</span>
                 <span class="n">comps</span> <span class="o">=</span> <span class="n">vecs</span><span class="p">[</span><span class="n">facet</span><span class="p">][:,</span> <span class="mi">3</span><span class="p">:]</span>
@@ -684,7 +683,7 @@
 
     <span class="k">def</span> <span class="nf">_preprocess_pourbaix_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entries</span><span class="p">,</span> <span class="n">nproc</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Generates multi-entries for pourbaix diagram</span>
+<span class="sd">        Generates multi-entries for Pourbaix diagram</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            entries ([PourbaixEntry]): list of PourbaixEntries to preprocess</span>
@@ -723,11 +722,11 @@
         <span class="k">if</span> <span class="n">nproc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">f</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">process_multientry</span><span class="p">,</span> <span class="n">prod_comp</span><span class="o">=</span><span class="n">tot_comp</span><span class="p">)</span>
             <span class="k">with</span> <span class="n">Pool</span><span class="p">(</span><span class="n">nproc</span><span class="p">)</span> <span class="k">as</span> <span class="n">p</span><span class="p">:</span>
-                <span class="n">multi_entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">PBar</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">imap</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">all_combos</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">all_combos</span><span class="p">)))</span>
+                <span class="n">multi_entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">imap</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">all_combos</span><span class="p">))</span>
             <span class="n">multi_entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">multi_entries</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Serial processing of multi-entry generation</span>
-            <span class="k">for</span> <span class="n">combo</span> <span class="ow">in</span> <span class="n">PBar</span><span class="p">(</span><span class="n">all_combos</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">combo</span> <span class="ow">in</span> <span class="n">all_combos</span><span class="p">:</span>
                 <span class="n">multi_entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_multientry</span><span class="p">(</span><span class="n">combo</span><span class="p">,</span> <span class="n">prod_comp</span><span class="o">=</span><span class="n">tot_comp</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">multi_entry</span><span class="p">:</span>
                     <span class="n">multi_entries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">multi_entry</span><span class="p">)</span>
@@ -743,7 +742,7 @@
 <span class="sd">        from the initialized comp_dict.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            entries ([PourbaixEntries]): list of pourbaix entries</span>
+<span class="sd">            entries ([PourbaixEntries]): list of Pourbaix entries</span>
 <span class="sd">                to process into MultiEntries</span>
 <span class="sd">            nproc (int): number of processes to be used in parallel</span>
 <span class="sd">                treatment of entry combos</span>
@@ -762,13 +761,13 @@
         <span class="n">processed_entries</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">comb</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">entries</span><span class="p">),</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="mf">1e6</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Your pourbaix diagram includes </span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2"> entries and may take a long time to generate.&quot;</span><span class="p">)</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Your Pourbaix diagram includes </span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2"> entries and may take a long time to generate.&quot;</span><span class="p">)</span>
 
         <span class="c1"># Parallel processing of multi-entry generation</span>
         <span class="k">if</span> <span class="n">nproc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">f</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">process_multientry</span><span class="p">,</span> <span class="n">prod_comp</span><span class="o">=</span><span class="n">total_comp</span><span class="p">)</span>
             <span class="k">with</span> <span class="n">Pool</span><span class="p">(</span><span class="n">nproc</span><span class="p">)</span> <span class="k">as</span> <span class="n">p</span><span class="p">:</span>
-                <span class="n">processed_entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">PBar</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">imap</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">entry_combos</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="n">total</span><span class="p">))</span>
+                <span class="n">processed_entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">imap</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">entry_combos</span><span class="p">))</span>
             <span class="n">processed_entries</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">processed_entries</span><span class="p">))</span>
         <span class="c1"># Serial processing of multi-entry generation</span>
         <span class="k">else</span><span class="p">:</span>
@@ -809,7 +808,7 @@
             <span class="n">react_coeffs</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="n">rxn</span><span class="o">.</span><span class="n">get_coeff</span><span class="p">(</span><span class="n">comp</span><span class="p">)</span> <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="n">entry_comps</span><span class="p">]</span>
             <span class="n">all_coeffs</span> <span class="o">=</span> <span class="n">react_coeffs</span> <span class="o">+</span> <span class="p">[</span><span class="n">rxn</span><span class="o">.</span><span class="n">get_coeff</span><span class="p">(</span><span class="n">prod_comp</span><span class="p">)]</span>
 
-            <span class="c1"># Check if reaction coeff threshold met for pourbaix compounds</span>
+            <span class="c1"># Check if reaction coeff threshold met for Pourbaix compounds</span>
             <span class="c1"># All reactant/product coefficients must be positive nonzero</span>
             <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">coeff</span> <span class="o">&gt;</span> <span class="n">coeff_threshold</span> <span class="k">for</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">all_coeffs</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">MultiEntry</span><span class="p">(</span><span class="n">entry_list</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">react_coeffs</span><span class="p">)</span>
@@ -821,7 +820,7 @@
 <div class="viewcode-block" id="PourbaixDiagram.get_pourbaix_domains"><a class="viewcode-back" href="../../../pymatgen.analysis.pourbaix_diagram.html#pymatgen.analysis.pourbaix_diagram.PourbaixDiagram.get_pourbaix_domains">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">get_pourbaix_domains</span><span class="p">(</span><span class="n">pourbaix_entries</span><span class="p">,</span> <span class="n">limits</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns a set of pourbaix stable domains (i. e. polygons) in</span>
+<span class="sd">        Returns a set of Pourbaix stable domains (i. e. polygons) in</span>
 <span class="sd">        pH-V space from a list of pourbaix_entries</span>
 
 <span class="sd">        This function works by using scipy&#39;s HalfspaceIntersection</span>
@@ -830,12 +829,12 @@
 <span class="sd">        gibbs free energies as a function of pH and V. Hyperplanes</span>
 <span class="sd">        of the form a*pH + b*V + 1 - g(0, 0) are constructed and</span>
 <span class="sd">        supplied to HalfspaceIntersection, which then finds the</span>
-<span class="sd">        boundaries of each pourbaix region using the intersection</span>
+<span class="sd">        boundaries of each Pourbaix region using the intersection</span>
 <span class="sd">        points.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            pourbaix_entries ([PourbaixEntry]): Pourbaix entries</span>
-<span class="sd">                with which to construct stable pourbaix domains</span>
+<span class="sd">                with which to construct stable Pourbaix domains</span>
 <span class="sd">            limits ([[float]]): limits in which to do the pourbaix</span>
 <span class="sd">                analysis</span>
 
@@ -878,7 +877,7 @@
                     <span class="n">this_entry</span> <span class="o">=</span> <span class="n">pourbaix_entries</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
                     <span class="n">pourbaix_domains</span><span class="p">[</span><span class="n">this_entry</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">intersection</span><span class="p">)</span>
 
-        <span class="c1"># Remove entries with no pourbaix region</span>
+        <span class="c1"># Remove entries with no Pourbaix region</span>
         <span class="n">pourbaix_domains</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">pourbaix_domains</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span><span class="p">}</span>
         <span class="n">pourbaix_domain_vertices</span> <span class="o">=</span> <span class="p">{}</span>
 
@@ -894,7 +893,7 @@
             <span class="n">points_centered</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">points_centered</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">cmp_to_key</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
             <span class="n">points</span> <span class="o">=</span> <span class="n">points_centered</span> <span class="o">+</span> <span class="n">center</span>
 
-            <span class="c1"># Create simplices corresponding to pourbaix boundary</span>
+            <span class="c1"># Create simplices corresponding to Pourbaix boundary</span>
             <span class="n">simplices</span> <span class="o">=</span> <span class="p">[</span><span class="n">Simplex</span><span class="p">(</span><span class="n">points</span><span class="p">[</span><span class="n">indices</span><span class="p">])</span> <span class="k">for</span> <span class="n">indices</span> <span class="ow">in</span> <span class="n">ConvexHull</span><span class="p">(</span><span class="n">points</span><span class="p">)</span><span class="o">.</span><span class="n">simplices</span><span class="p">]</span>
             <span class="n">pourbaix_domains</span><span class="p">[</span><span class="n">entry</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplices</span>
             <span class="n">pourbaix_domain_vertices</span><span class="p">[</span><span class="n">entry</span><span class="p">]</span> <span class="o">=</span> <span class="n">points</span>
@@ -927,7 +926,7 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Decomposition energy for the entry, i. e. the energy above</span>
-<span class="sd">                the &quot;pourbaix hull&quot; in eV/atom at the given conditions</span>
+<span class="sd">                the &quot;Pourbaix hull&quot; in eV/atom at the given conditions</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># Check composition consistency between entry and Pourbaix diagram:</span>
@@ -948,15 +947,15 @@
 
 <div class="viewcode-block" id="PourbaixDiagram.get_hull_energy"><a class="viewcode-back" href="../../../pymatgen.analysis.pourbaix_diagram.html#pymatgen.analysis.pourbaix_diagram.PourbaixDiagram.get_hull_energy">[docs]</a>    <span class="k">def</span> <span class="nf">get_hull_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pH</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Gets the minimum energy of the pourbaix &quot;basin&quot; that is formed</span>
-<span class="sd">        from the stable pourbaix planes.  Vectorized.</span>
+<span class="sd">        Gets the minimum energy of the Pourbaix &quot;basin&quot; that is formed</span>
+<span class="sd">        from the stable Pourbaix planes. Vectorized.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            pH (float or [float]): pH at which to find the hull energy</span>
 <span class="sd">            V (float or [float]): V at which to find the hull energy</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            (float or [float]) minimum pourbaix energy at conditions</span>
+<span class="sd">            (float or [float]) minimum Pourbaix energy at conditions</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">all_gs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">e</span><span class="o">.</span><span class="n">normalized_energy_at_conditions</span><span class="p">(</span><span class="n">pH</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stable_entries</span><span class="p">])</span>
@@ -972,7 +971,7 @@
 <span class="sd">            V (float): V at a given condition</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            (PourbaixEntry or MultiEntry): pourbaix or multi-entry</span>
+<span class="sd">            (PourbaixEntry or MultiEntry): Pourbaix or multi-entry</span>
 <span class="sd">                corresponding ot the minimum energy entry at a given</span>
 <span class="sd">                pH, V condition</span>
 
@@ -997,7 +996,7 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">all_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return all entries used to generate the pourbaix diagram</span>
+<span class="sd">        Return all entries used to generate the Pourbaix diagram</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_processed_entries</span>
 
@@ -1027,8 +1026,8 @@
                 <span class="p">)</span>
             <span class="p">)</span>
         <span class="n">d</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;entries&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unprocessed_entries</span><span class="p">],</span>
             <span class="s2">&quot;comp_dict&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_elt_comp</span><span class="p">,</span>
             <span class="s2">&quot;conc_dict&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_conc_dict</span><span class="p">,</span>
@@ -1063,7 +1062,7 @@
 
 <div class="viewcode-block" id="PourbaixPlotter.show"><a class="viewcode-back" href="../../../pymatgen.analysis.pourbaix_diagram.html#pymatgen.analysis.pourbaix_diagram.PourbaixPlotter.show">[docs]</a>    <span class="k">def</span> <span class="nf">show</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Shows the pourbaix plot</span>
+<span class="sd">        Shows the Pourbaix plot</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            *args: args to get_pourbaix_plot</span>
@@ -1075,7 +1074,16 @@
         <span class="n">plt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_pourbaix_plot</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="PourbaixPlotter.get_pourbaix_plot"><a class="viewcode-back" href="../../../pymatgen.analysis.pourbaix_diagram.html#pymatgen.analysis.pourbaix_diagram.PourbaixPlotter.get_pourbaix_plot">[docs]</a>    <span class="k">def</span> <span class="nf">get_pourbaix_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limits</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">label_domains</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">plt</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="PourbaixPlotter.get_pourbaix_plot"><a class="viewcode-back" href="../../../pymatgen.analysis.pourbaix_diagram.html#pymatgen.analysis.pourbaix_diagram.PourbaixPlotter.get_pourbaix_plot">[docs]</a>    <span class="k">def</span> <span class="nf">get_pourbaix_plot</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">limits</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="n">label_domains</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">label_fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="n">show_water_lines</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">show_neutral_axes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">plt</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Plot Pourbaix diagram.</span>
 
@@ -1083,11 +1091,16 @@
 <span class="sd">            limits: 2D list containing limits of the Pourbaix diagram</span>
 <span class="sd">                of the form [[xlo, xhi], [ylo, yhi]]</span>
 <span class="sd">            title (str): Title to display on plot</span>
-<span class="sd">            label_domains (bool): whether to label pourbaix domains</span>
+<span class="sd">            label_domains (bool): whether to label Pourbaix domains</span>
+<span class="sd">            label_fontsize: font size for domain labels</span>
+<span class="sd">            show_water_lines: whether to show dashed lines indicating the region</span>
+<span class="sd">                of water stability.</span>
+<span class="sd">            show_neutral_axes; whether to show dashed horizontal and vertical lines</span>
+<span class="sd">                at 0 V and pH 7, respectively.</span>
 <span class="sd">            plt (pyplot): Pyplot instance for plotting</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            plt (pyplot) - matplotlib plot object with pourbaix diagram</span>
+<span class="sd">            plt (pyplot) - matplotlib plot object with Pourbaix diagram</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">limits</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">limits</span> <span class="o">=</span> <span class="p">[[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]]</span>
@@ -1097,19 +1110,22 @@
         <span class="n">xlim</span> <span class="o">=</span> <span class="n">limits</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">ylim</span> <span class="o">=</span> <span class="n">limits</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
-        <span class="n">h_line</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">([[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">PREFAC</span><span class="p">],</span> <span class="p">[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">PREFAC</span><span class="p">]])</span>
-        <span class="n">o_line</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">([[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">PREFAC</span> <span class="o">+</span> <span class="mf">1.23</span><span class="p">],</span> <span class="p">[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">PREFAC</span> <span class="o">+</span> <span class="mf">1.23</span><span class="p">]])</span>
-        <span class="n">neutral_line</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">([[</span><span class="mi">7</span><span class="p">,</span> <span class="n">ylim</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="n">ylim</span><span class="p">[</span><span class="mi">1</span><span class="p">]]])</span>
-        <span class="n">V0_line</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">([[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">]])</span>
-
         <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">xlim</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">ylim</span><span class="p">)</span>
         <span class="n">lw</span> <span class="o">=</span> <span class="mi">3</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">h_line</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">h_line</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;r--&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="n">lw</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">o_line</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">o_line</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;r--&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="n">lw</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">neutral_line</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">neutral_line</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;k-.&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="n">lw</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">V0_line</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">V0_line</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;k-.&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="n">lw</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">show_water_lines</span><span class="p">:</span>
+            <span class="n">h_line</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">([[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">PREFAC</span><span class="p">],</span> <span class="p">[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">PREFAC</span><span class="p">]])</span>
+            <span class="n">o_line</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">([[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">PREFAC</span> <span class="o">+</span> <span class="mf">1.23</span><span class="p">],</span> <span class="p">[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">PREFAC</span> <span class="o">+</span> <span class="mf">1.23</span><span class="p">]])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">h_line</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">h_line</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;r--&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="n">lw</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">o_line</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">o_line</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;r--&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="n">lw</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">show_neutral_axes</span><span class="p">:</span>
+            <span class="n">neutral_line</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">([[</span><span class="mi">7</span><span class="p">,</span> <span class="n">ylim</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="n">ylim</span><span class="p">[</span><span class="mi">1</span><span class="p">]]])</span>
+            <span class="n">V0_line</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">([[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">]])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">neutral_line</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">neutral_line</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;k-.&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="n">lw</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">V0_line</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">V0_line</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;k-.&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="n">lw</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">entry</span><span class="p">,</span> <span class="n">vertices</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbx</span><span class="o">.</span><span class="n">_stable_domain_vertices</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">vertices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
@@ -1122,7 +1138,7 @@
                     <span class="n">center</span><span class="p">,</span>
                     <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
                     <span class="n">va</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
-                    <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+                    <span class="n">fontsize</span><span class="o">=</span><span class="n">label_fontsize</span><span class="p">,</span>
                     <span class="n">color</span><span class="o">=</span><span class="s2">&quot;b&quot;</span><span class="p">,</span>
                 <span class="p">)</span><span class="o">.</span><span class="n">draggable</span><span class="p">()</span>
 
@@ -1197,7 +1213,7 @@
 
 <div class="viewcode-block" id="generate_entry_label"><a class="viewcode-back" href="../../../pymatgen.analysis.pourbaix_diagram.html#pymatgen.analysis.pourbaix_diagram.generate_entry_label">[docs]</a><span class="k">def</span> <span class="nf">generate_entry_label</span><span class="p">(</span><span class="n">entry</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Generates a label for the pourbaix plotter</span>
+<span class="sd">    Generates a label for the Pourbaix plotter</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        entry (PourbaixEntry or MultiEntry): entry to get a label for</span>
@@ -1228,7 +1244,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.pourbaix_diagram</a></li> 
       </ul>
@@ -1236,7 +1252,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

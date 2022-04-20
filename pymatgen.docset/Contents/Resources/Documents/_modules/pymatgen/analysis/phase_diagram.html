@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.analysis.phase_diagram &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.analysis.phase_diagram &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.phase_diagram</a></li> 
       </ul>
@@ -56,8 +56,8 @@
 <span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">lru_cache</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">plotly.graph_objs</span> <span class="k">as</span> <span class="nn">go</span>
@@ -72,11 +72,6 @@
 <span class="kn">from</span> <span class="nn">pymatgen.util.coord</span> <span class="kn">import</span> <span class="n">Simplex</span><span class="p">,</span> <span class="n">in_coord_list</span>
 <span class="kn">from</span> <span class="nn">pymatgen.util.plotting</span> <span class="kn">import</span> <span class="n">pretty_plot</span>
 <span class="kn">from</span> <span class="nn">pymatgen.util.string</span> <span class="kn">import</span> <span class="n">htmlify</span><span class="p">,</span> <span class="n">latexify</span>
-
-<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">):</span>
-    <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
-<span class="k">else</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -117,6 +112,12 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">composition</span><span class="p">,</span> <span class="n">energy</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span> <span class="k">if</span> <span class="n">name</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">attribute</span> <span class="o">=</span> <span class="n">attribute</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="si">}{</span><span class="n">name</span><span class="si">}</span><span class="s2"> with energy = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">energy</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">energy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -208,7 +209,7 @@
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">chempot_str</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;mu_</span><span class="si">{</span><span class="n">el</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">mu</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">el</span><span class="p">,</span> <span class="n">mu</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chempots</span><span class="o">.</span><span class="n">items</span><span class="p">()])</span>
-        <span class="k">return</span> <span class="s2">&quot;GrandPotPDEntry with original composition &quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">, energy = </span><span class="si">{:.4f}</span><span class="s2">, </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="k">return</span> <span class="s2">&quot;GrandPotPDEntry with original composition </span><span class="si">{}</span><span class="s2">, energy = </span><span class="si">{:.4f}</span><span class="s2">, </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">original_entry</span><span class="o">.</span><span class="n">composition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">original_entry</span><span class="o">.</span><span class="n">energy</span><span class="p">,</span> <span class="n">chempot_str</span>
         <span class="p">)</span>
 
@@ -218,8 +219,8 @@
 <span class="sd">            MSONable dictionary representation of GrandPotPDEntry</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;entry&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">original_entry</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span>
             <span class="s2">&quot;chempots&quot;</span><span class="p">:</span> <span class="p">{</span><span class="n">el</span><span class="o">.</span><span class="n">symbol</span><span class="p">:</span> <span class="n">u</span> <span class="k">for</span> <span class="n">el</span><span class="p">,</span> <span class="n">u</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chempots</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
             <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
@@ -241,7 +242,7 @@
 
 <div class="viewcode-block" id="TransformedPDEntry"><a class="viewcode-back" href="../../../pymatgen.analysis.phase_diagram.html#pymatgen.analysis.phase_diagram.TransformedPDEntry">[docs]</a><span class="k">class</span> <span class="nc">TransformedPDEntry</span><span class="p">(</span><span class="n">PDEntry</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    This class repesents a TransformedPDEntry, which allows for a PDEntry to be</span>
+<span class="sd">    This class represents a TransformedPDEntry, which allows for a PDEntry to be</span>
 <span class="sd">    transformed to a different composition coordinate space. It is used in the</span>
 <span class="sd">    construction of phase diagrams that do not have elements as the terminal</span>
 <span class="sd">    compositions.</span>
@@ -281,7 +282,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            Composition</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># NOTE this is not infallable as the original entry is mutable and an</span>
+        <span class="c1"># NOTE this is not infallible as the original entry is mutable and an</span>
         <span class="c1"># end user could choose to normalize or change the original entry.</span>
         <span class="c1"># However, the risk of this seems low.</span>
         <span class="n">factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_composition</span><span class="o">.</span><span class="n">num_atoms</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">original_entry</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">num_atoms</span>
@@ -306,8 +307,8 @@
 <span class="sd">            MSONable dictionary representation of TransformedPDEntry</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">d</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;sp_mapping&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sp_mapping</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="n">d</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">original_entry</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span>
@@ -331,9 +332,7 @@
 <div class="viewcode-block" id="TransformedPDEntryError"><a class="viewcode-back" href="../../../pymatgen.analysis.phase_diagram.html#pymatgen.analysis.phase_diagram.TransformedPDEntryError">[docs]</a><span class="k">class</span> <span class="nc">TransformedPDEntryError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An exception class for TransformedPDEntry.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="k">pass</span></div>
+<span class="sd">    &quot;&quot;&quot;</span></div>
 
 
 <div class="viewcode-block" id="PhaseDiagram"><a class="viewcode-back" href="../../../pymatgen.analysis.phase_diagram.html#pymatgen.analysis.phase_diagram.PhaseDiagram">[docs]</a><span class="k">class</span> <span class="nc">PhaseDiagram</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
@@ -418,8 +417,8 @@
 <span class="sd">        :return: MSONAble dict</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;all_entries&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_entries</span><span class="p">],</span>
             <span class="s2">&quot;elements&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="p">],</span>
             <span class="s2">&quot;computed_data&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">computed_data</span><span class="p">,</span>
@@ -588,7 +587,7 @@
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">symbols</span> <span class="o">=</span> <span class="p">[</span><span class="n">el</span><span class="o">.</span><span class="n">symbol</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="p">]</span>
         <span class="n">output</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> phase diagram&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">symbols</span><span class="p">)),</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;-&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">symbols</span><span class="p">)</span><span class="si">}</span><span class="s2"> phase diagram&quot;</span><span class="p">,</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stable_entries</span><span class="p">)</span><span class="si">}</span><span class="s2"> stable phases: &quot;</span><span class="p">,</span>
             <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">entry</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stable_entries</span><span class="p">]),</span>
         <span class="p">]</span>
@@ -649,12 +648,12 @@
 
     <span class="k">def</span> <span class="nf">_get_simplex_intersections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns co-ordinates of the itersection of the tie line between two compositions</span>
+<span class="sd">        Returns coordinates of the itersection of the tie line between two compositions</span>
 <span class="sd">        and the simplexes of the PhaseDiagram.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            c1: Reduced dimension co-ordinates of first composition</span>
-<span class="sd">            c2: Reduced dimension co-ordinates of second composition</span>
+<span class="sd">            c1: Reduced dimension coordinates of first composition</span>
+<span class="sd">            c2: Reduced dimension coordinates of second composition</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Array of the intersections between the tie line and the simplexes of</span>
@@ -820,7 +819,7 @@
 
 <span class="sd">        For stable entries setting `stable_only` to `True` returns the same energy</span>
 <span class="sd">        as `get_equilibrium_reaction_energy`. This function is based on a constrained</span>
-<span class="sd">        optimisation rather than recalculation of the convex hull making it</span>
+<span class="sd">        optimization rather than recalculation of the convex hull making it</span>
 <span class="sd">        algorithmically cheaper. However, if `tol` is too loose there is potential</span>
 <span class="sd">        for this algorithm to converge to a different solution.</span>
 
@@ -830,13 +829,13 @@
 <span class="sd">                before calculating a second convex hull to reducing the complexity</span>
 <span class="sd">                of the optimization.</span>
 <span class="sd">            stable_only (bool): Only use stable materials as competing entries.</span>
-<span class="sd">            tol (list): Tolerences for convergence of the SLSQP optimization</span>
-<span class="sd">                when finding the equilibrium reaction. Tighter tolerences tested first.</span>
+<span class="sd">            tol (list): Tolerances for convergence of the SLSQP optimization</span>
+<span class="sd">                when finding the equilibrium reaction. Tighter tolerances tested first.</span>
 <span class="sd">            maxiter (int): The maximum number of iterations of the SLSQP optimizer</span>
 <span class="sd">                when finding the equilibrium reaction.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            (decomp, energy). The decompostion  is given as a dict of {PDEntry, amount}</span>
+<span class="sd">            (decomp, energy). The decomposition  is given as a dict of {PDEntry, amount}</span>
 <span class="sd">            for all entries in the decomp reaction where amount is the amount of the</span>
 <span class="sd">            fractional composition. The phase separation energy is given per atom.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -900,7 +899,7 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Provides the energy to the convex hull for the given entry. For stable entries</span>
 <span class="sd">        already in the phase diagram the algorithm provides the phase separation energy</span>
-<span class="sd">        which is refered to as the decomposition enthalpy in:</span>
+<span class="sd">        which is referred to as the decomposition enthalpy in:</span>
 
 <span class="sd">        1. Bartel, C., Trewartha, A., Wang, Q., Dunn, A., Jain, A., Ceder, G.,</span>
 <span class="sd">            A critical examination of compound stability predictions from</span>
@@ -911,7 +910,7 @@
 <span class="sd">            **kwargs: Keyword args passed to `get_decomp_and_decomp_energy`</span>
 <span class="sd">                space_limit (int): The maximum number of competing entries to consider.</span>
 <span class="sd">                stable_only (bool): Only use stable materials as competing entries</span>
-<span class="sd">                tol (float): The tolerence for convergence of the SLSQP optimization</span>
+<span class="sd">                tol (float): The tolerance for convergence of the SLSQP optimization</span>
 <span class="sd">                    when finding the equilibrium reaction.</span>
 <span class="sd">                maxiter (int): The maximum number of iterations of the SLSQP optimizer</span>
 <span class="sd">                    when finding the equilibrium reaction.</span>
@@ -920,7 +919,7 @@
 <span class="sd">            phase separation energy per atom of entry. Stable entries should have</span>
 <span class="sd">            energies &lt;= 0, Stable elemental entries should have energies = 0 and</span>
 <span class="sd">            unstable entries should have energies &gt; 0. Entries that have the same</span>
-<span class="sd">            composition as a stable energy may have postive or negative phase</span>
+<span class="sd">            composition as a stable energy may have positive or negative phase</span>
 <span class="sd">            separation energies depending on their own energy.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_decomp_and_phase_separation_energy</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span></div>
@@ -1021,7 +1020,7 @@
 
         <span class="c1"># find position along line</span>
         <span class="n">l</span> <span class="o">=</span> <span class="n">c2</span> <span class="o">-</span> <span class="n">c1</span>
-        <span class="n">l</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">l</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
+        <span class="n">l</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">l</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
         <span class="n">proj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">intersections</span> <span class="o">-</span> <span class="n">c1</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span>
 
         <span class="c1"># only take compositions between endpoints</span>
@@ -1323,8 +1322,8 @@
 <span class="sd">        :return: MSONable dict</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;all_entries&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_entries</span><span class="p">],</span>
             <span class="s2">&quot;chempots&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">chempots</span><span class="p">,</span>
             <span class="s2">&quot;elements&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="p">],</span>
@@ -1394,7 +1393,7 @@
             <span class="n">terminal_compositions</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">fractional_composition</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">terminal_compositions</span><span class="p">]</span>
 
         <span class="c1"># Map terminal compositions to unique dummy species.</span>
-        <span class="n">sp_mapping</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="n">sp_mapping</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">comp</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">terminal_compositions</span><span class="p">):</span>
             <span class="n">sp_mapping</span><span class="p">[</span><span class="n">comp</span><span class="p">]</span> <span class="o">=</span> <span class="n">DummySpecies</span><span class="p">(</span><span class="s2">&quot;X&quot;</span> <span class="o">+</span> <span class="nb">chr</span><span class="p">(</span><span class="mi">102</span> <span class="o">+</span> <span class="n">i</span><span class="p">))</span>
 
@@ -1422,8 +1421,8 @@
 <span class="sd">            MSONable dictionary representation of CompoundPhaseDiagram</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;original_entries&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">original_entries</span><span class="p">],</span>
             <span class="s2">&quot;terminal_compositions&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terminal_compositions</span><span class="p">],</span>
             <span class="s2">&quot;normalize_terminal_compositions&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_terminals</span><span class="p">,</span>
@@ -1481,7 +1480,7 @@
         <span class="n">r1</span> <span class="o">=</span> <span class="n">entry1</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_composition</span>
         <span class="n">r2</span> <span class="o">=</span> <span class="n">entry2</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_composition</span>
 
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> total entries.&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_entries</span><span class="p">))</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_entries</span><span class="p">)</span><span class="si">}</span><span class="s2"> total entries.&quot;</span><span class="p">)</span>
 
         <span class="n">pd</span> <span class="o">=</span> <span class="n">PhaseDiagram</span><span class="p">(</span><span class="n">all_entries</span> <span class="o">+</span> <span class="p">[</span><span class="n">entry1</span><span class="p">,</span> <span class="n">entry2</span><span class="p">])</span>
         <span class="n">terminal_formulas</span> <span class="o">=</span> <span class="p">[</span>
@@ -1489,9 +1488,9 @@
             <span class="n">entry2</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span><span class="p">,</span>
         <span class="p">]</span>
 
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> stable entries&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">stable_entries</span><span class="p">))</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> facets&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">facets</span><span class="p">))</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> qhull_entries&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">qhull_entries</span><span class="p">))</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">stable_entries</span><span class="p">)</span><span class="si">}</span><span class="s2"> stable entries&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">facets</span><span class="p">)</span><span class="si">}</span><span class="s2"> facets&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">qhull_entries</span><span class="p">)</span><span class="si">}</span><span class="s2"> qhull_entries&quot;</span><span class="p">)</span>
 
         <span class="n">rxn_entries</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">done</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1532,12 +1531,7 @@
 
                         <span class="n">done</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">c1</span><span class="p">,</span> <span class="n">c2</span><span class="p">))</span>
 
-                        <span class="n">rxn_str</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2"> + </span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2"> -&gt; &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                            <span class="n">fmt</span><span class="p">(</span><span class="n">c1</span><span class="p">),</span>
-                            <span class="n">r1</span><span class="o">.</span><span class="n">reduced_formula</span><span class="p">,</span>
-                            <span class="n">fmt</span><span class="p">(</span><span class="n">c2</span><span class="p">),</span>
-                            <span class="n">r2</span><span class="o">.</span><span class="n">reduced_formula</span><span class="p">,</span>
-                        <span class="p">)</span>
+                        <span class="n">rxn_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">fmt</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">r1</span><span class="o">.</span><span class="n">reduced_formula</span><span class="si">}</span><span class="s2"> + </span><span class="si">{</span><span class="n">fmt</span><span class="p">(</span><span class="n">c2</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">r2</span><span class="o">.</span><span class="n">reduced_formula</span><span class="si">}</span><span class="s2"> -&gt; &quot;</span>
                         <span class="n">products</span> <span class="o">=</span> <span class="p">[]</span>
                         <span class="n">product_entries</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -1571,14 +1565,14 @@
                             <span class="p">)</span>
                         <span class="p">)</span>
                     <span class="p">)</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Products = </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">e</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">face_entries</span><span class="p">])))</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Products = </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">e</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">face_entries</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="n">rxn_entries</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">rxn_entries</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">entry1</span> <span class="o">=</span> <span class="n">entry1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">entry2</span> <span class="o">=</span> <span class="n">entry2</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">rxn_entries</span> <span class="o">=</span> <span class="n">rxn_entries</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">labels</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">labels</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rxn_entries</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">attribute</span>
             <span class="n">e</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
@@ -1613,9 +1607,7 @@
 <div class="viewcode-block" id="PhaseDiagramError"><a class="viewcode-back" href="../../../pymatgen.analysis.phase_diagram.html#pymatgen.analysis.phase_diagram.PhaseDiagramError">[docs]</a><span class="k">class</span> <span class="nc">PhaseDiagramError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An exception class for Phase Diagram generation.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="k">pass</span></div>
+<span class="sd">    &quot;&quot;&quot;</span></div>
 
 
 <div class="viewcode-block" id="get_facets"><a class="viewcode-back" href="../../../pymatgen.analysis.phase_diagram.html#pymatgen.analysis.phase_diagram.get_facets">[docs]</a><span class="k">def</span> <span class="nf">get_facets</span><span class="p">(</span><span class="n">qhull_data</span><span class="p">,</span> <span class="n">joggle</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
@@ -1656,7 +1648,7 @@
 <span class="sd">    Args:</span>
 <span class="sd">        comp (Composition): A Composition to analyze</span>
 <span class="sd">        competing_entries ([PDEntry]): List of entries to consider for decomposition</span>
-<span class="sd">        tols (list): tolerences to try for SLSQP convergence. Issues observed for</span>
+<span class="sd">        tols (list): tolerances to try for SLSQP convergence. Issues observed for</span>
 <span class="sd">            tol &gt; 1e-7 in the fractional composition (default 1e-8)</span>
 <span class="sd">        maxiter (int): maximum number of SLSQP iterations</span>
 
@@ -1693,7 +1685,7 @@
     <span class="n">bounds</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_bound</span><span class="p">)]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">competing_entries</span><span class="p">)</span>
     <span class="n">x0</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">competing_entries</span><span class="p">)]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">competing_entries</span><span class="p">)</span>
 
-    <span class="c1"># NOTE the tolerence needs to be tight to stop the optimization</span>
+    <span class="c1"># NOTE the tolerance needs to be tight to stop the optimization</span>
     <span class="c1"># from exiting before convergence is reached. Issues observed for</span>
     <span class="c1"># tol &gt; 1e-7 in the fractional composition (default 1e-8).</span>
     <span class="k">for</span> <span class="n">tol</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">tols</span><span class="p">):</span>
@@ -1959,7 +1951,7 @@
         <span class="k">return</span> <span class="n">plt</span></div>
 
 <div class="viewcode-block" id="PDPlotter.show"><a class="viewcode-back" href="../../../pymatgen.analysis.phase_diagram.html#pymatgen.analysis.phase_diagram.PDPlotter.show">[docs]</a>    <span class="k">def</span> <span class="nf">show</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Draw the phase diagram using Plotly (or Matplotlib) and show it.</span>
 
 <span class="sd">        Args:</span>
@@ -2173,7 +2165,7 @@
 
     <span class="k">def</span> <span class="nf">_get_3d_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label_stable</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Shows the plot using pylab.  Usually I won&quot;t do imports in methods,</span>
+<span class="sd">        Shows the plot using pylab. Usually I won&quot;t do imports in methods,</span>
 <span class="sd">        but since plotting is a fairly expensive library to load and not all</span>
 <span class="sd">        machines have matplotlib installed, I have done it this way.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -2215,7 +2207,7 @@
         <span class="k">return</span> <span class="n">plt</span>
 
 <div class="viewcode-block" id="PDPlotter.write_image"><a class="viewcode-back" href="../../../pymatgen.analysis.phase_diagram.html#pymatgen.analysis.phase_diagram.PDPlotter.write_image">[docs]</a>    <span class="k">def</span> <span class="nf">write_image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">image_format</span><span class="o">=</span><span class="s2">&quot;svg&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Writes the phase diagram to an image in a stream.</span>
 
 <span class="sd">        Args:</span>
@@ -2224,7 +2216,7 @@
 <span class="sd">            image_format</span>
 <span class="sd">                format for image. Can be any of matplotlib supported formats.</span>
 <span class="sd">                Defaults to svg for best results for vector graphics.</span>
-<span class="sd">            **kwargs: Pass through to get_plot functino.</span>
+<span class="sd">            **kwargs: Pass through to get_plot function.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">plt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_plot</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
@@ -2346,8 +2338,8 @@
                 <span class="n">fontsize</span><span class="o">=</span><span class="mi">22</span><span class="p">,</span>
             <span class="p">)</span>
 
-        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">mu_{{</span><span class="si">{0}</span><span class="s2">}} - </span><span class="se">\\</span><span class="s2">mu_{{</span><span class="si">{0}</span><span class="s2">}}^0$ (eV)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">el0</span><span class="o">.</span><span class="n">symbol</span><span class="p">))</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">mu_{{</span><span class="si">{0}</span><span class="s2">}} - </span><span class="se">\\</span><span class="s2">mu_{{</span><span class="si">{0}</span><span class="s2">}}^0$ (eV)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">el1</span><span class="o">.</span><span class="n">symbol</span><span class="p">))</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">mu_</span><span class="se">{{</span><span class="si">{</span><span class="n">el0</span><span class="o">.</span><span class="n">symbol</span><span class="si">}</span><span class="se">}}</span><span class="s2"> - </span><span class="se">\\</span><span class="s2">mu_</span><span class="se">{{</span><span class="si">{</span><span class="n">el0</span><span class="o">.</span><span class="n">symbol</span><span class="si">}</span><span class="se">}}</span><span class="s2">^0$ (eV)&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">mu_</span><span class="se">{{</span><span class="si">{</span><span class="n">el1</span><span class="o">.</span><span class="n">symbol</span><span class="si">}</span><span class="se">}}</span><span class="s2"> - </span><span class="se">\\</span><span class="s2">mu_</span><span class="se">{{</span><span class="si">{</span><span class="n">el1</span><span class="o">.</span><span class="n">symbol</span><span class="si">}</span><span class="se">}}</span><span class="s2">^0$ (eV)&quot;</span><span class="p">)</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">plt</span></div>
 
@@ -2636,7 +2628,7 @@
 
                 <span class="n">formula</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">reduced_formula</span>
                 <span class="n">clean_formula</span> <span class="o">=</span> <span class="n">htmlify</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span>
-                <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">clean_formula</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">entry_id</span><span class="si">}</span><span class="s2">) &lt;br&gt; &quot;</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">energy</span><span class="si">}</span><span class="s2"> eV/atom&quot;</span>
+                <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">clean_formula</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">entry_id</span><span class="si">}</span><span class="s2">) &lt;br&gt; </span><span class="si">{</span><span class="n">energy</span><span class="si">}</span><span class="s2"> eV/atom&quot;</span>
 
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">stable</span><span class="p">:</span>
                     <span class="n">e_above_hull</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pd</span><span class="o">.</span><span class="n">get_e_above_hull</span><span class="p">(</span><span class="n">entry</span><span class="p">),</span> <span class="mi">3</span><span class="p">)</span>
@@ -2929,7 +2921,7 @@
 
 <div class="viewcode-block" id="uniquelines"><a class="viewcode-back" href="../../../pymatgen.analysis.phase_diagram.html#pymatgen.analysis.phase_diagram.uniquelines">[docs]</a><span class="k">def</span> <span class="nf">uniquelines</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Given all the facets, convert it into a set of unique lines.  Specifically</span>
+<span class="sd">    Given all the facets, convert it into a set of unique lines. Specifically</span>
 <span class="sd">    used for converting convex hull facets into line pairs of coordinates.</span>
 
 <span class="sd">    Args:</span>
@@ -2938,7 +2930,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        setoflines:</span>
-<span class="sd">            A set of tuple of lines.  E.g., ((1,2), (1,3), (2,3), ....)</span>
+<span class="sd">            A set of tuple of lines. E.g., ((1,2), (1,3), (2,3), ....)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">setoflines</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">facets</span> <span class="ow">in</span> <span class="n">q</span><span class="p">:</span>
@@ -3158,7 +3150,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.phase_diagram</a></li> 
       </ul>
@@ -3166,7 +3158,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

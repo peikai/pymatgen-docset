@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.symmetry.analyzer &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.symmetry.analyzer &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.symmetry.analyzer</a></li> 
       </ul>
@@ -60,10 +60,11 @@
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">from</span> <span class="nn">fractions</span> <span class="kn">import</span> <span class="n">Fraction</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">cos</span><span class="p">,</span> <span class="n">sin</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">spglib</span>
@@ -99,6 +100,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_symprec</span> <span class="o">=</span> <span class="n">symprec</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_angle_tol</span> <span class="o">=</span> <span class="n">angle_tolerance</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_structure</span> <span class="o">=</span> <span class="n">structure</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_siteprops</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span>
         <span class="n">latt</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span>
         <span class="n">positions</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">frac_coords</span>
         <span class="n">unique_species</span> <span class="o">=</span> <span class="p">[]</span>
@@ -119,11 +121,10 @@
             <span class="k">elif</span> <span class="n">site</span><span class="o">.</span><span class="n">is_ordered</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="p">,</span> <span class="s2">&quot;spin&quot;</span><span class="p">):</span>
                 <span class="n">magmoms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">spin</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">magmoms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">magmoms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># needed for spglib</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_unique_species</span> <span class="o">=</span> <span class="n">unique_species</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_numbers</span> <span class="o">=</span> <span class="n">zs</span>
-        <span class="c1"># For now, we are setting magmom to zero.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cell</span> <span class="o">=</span> <span class="n">latt</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">zs</span><span class="p">,</span> <span class="n">magmoms</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_space_group_data</span> <span class="o">=</span> <span class="n">spglib</span><span class="o">.</span><span class="n">get_symmetry_dataset</span><span class="p">(</span>
@@ -153,7 +154,7 @@
 <span class="sd">        Get the SpacegroupOperations for the Structure.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            SpacgroupOperations object.</span>
+<span class="sd">            SpacegroupOperations object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">SpacegroupOperations</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">get_space_group_symbol</span><span class="p">(),</span>
@@ -183,15 +184,24 @@
             <span class="k">return</span> <span class="s2">&quot;1&quot;</span>
         <span class="k">return</span> <span class="n">spglib</span><span class="o">.</span><span class="n">get_pointgroup</span><span class="p">(</span><span class="n">rotations</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="SpacegroupAnalyzer.get_crystal_system"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_crystal_system">[docs]</a>    <span class="k">def</span> <span class="nf">get_crystal_system</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="SpacegroupAnalyzer.get_crystal_system"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_crystal_system">[docs]</a>    <span class="k">def</span> <span class="nf">get_crystal_system</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;triclinic&quot;</span><span class="p">,</span> <span class="s2">&quot;monoclinic&quot;</span><span class="p">,</span> <span class="s2">&quot;orthorhombic&quot;</span><span class="p">,</span> <span class="s2">&quot;tetragonal&quot;</span><span class="p">,</span> <span class="s2">&quot;trigonal&quot;</span><span class="p">,</span> <span class="s2">&quot;hexagonal&quot;</span><span class="p">,</span> <span class="s2">&quot;cubic&quot;</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get the crystal system for the structure, e.g., (triclinic,</span>
 <span class="sd">        orthorhombic, cubic, etc.).</span>
 
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: on invalid space group numbers &lt; 1 or &gt; 230.</span>
+
 <span class="sd">        Returns:</span>
-<span class="sd">            (str): Crystal system for structure or None if system cannot be detected.</span>
+<span class="sd">            (str): Crystal system for structure</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space_group_data</span><span class="p">[</span><span class="s2">&quot;number&quot;</span><span class="p">]</span>
+
+        <span class="c1"># not using isinstance(n, int) to allow 0-decimal floats</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">n</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">231</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Received invalid space group </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
             <span class="k">return</span> <span class="s2">&quot;triclinic&quot;</span>
@@ -205,20 +215,20 @@
             <span class="k">return</span> <span class="s2">&quot;trigonal&quot;</span>
         <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">195</span><span class="p">:</span>
             <span class="k">return</span> <span class="s2">&quot;hexagonal&quot;</span>
-        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">231</span><span class="p">:</span>
-            <span class="k">return</span> <span class="s2">&quot;cubic&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;cubic&quot;</span></div>
 
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid space group&quot;</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="SpacegroupAnalyzer.get_lattice_type"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_lattice_type">[docs]</a>    <span class="k">def</span> <span class="nf">get_lattice_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="SpacegroupAnalyzer.get_lattice_type"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_lattice_type">[docs]</a>    <span class="k">def</span> <span class="nf">get_lattice_type</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;triclinic&quot;</span><span class="p">,</span> <span class="s2">&quot;monoclinic&quot;</span><span class="p">,</span> <span class="s2">&quot;orthorhombic&quot;</span><span class="p">,</span> <span class="s2">&quot;tetragonal&quot;</span><span class="p">,</span> <span class="s2">&quot;rhombohedral&quot;</span><span class="p">,</span> <span class="s2">&quot;hexagonal&quot;</span><span class="p">,</span> <span class="s2">&quot;cubic&quot;</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get the lattice for the structure, e.g., (triclinic,</span>
-<span class="sd">        orthorhombic, cubic, etc.).This is the same than the</span>
-<span class="sd">        crystal system with the exception of the hexagonal/rhombohedral</span>
-<span class="sd">        lattice</span>
+<span class="sd">        Get the lattice for the structure, e.g., (triclinic, orthorhombic, cubic, etc.).This is</span>
+<span class="sd">        the same as the crystal system with the exception of the hexagonal/rhombohedral lattice.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: on invalid space group numbers &lt; 1 or &gt; 230.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            (str): Lattice type for structure or None if type cannot be detected.</span>
+<span class="sd">            (str): Lattice type for structure</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space_group_data</span><span class="p">[</span><span class="s2">&quot;number&quot;</span><span class="p">]</span>
         <span class="n">system</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_crystal_system</span><span class="p">()</span>
@@ -234,16 +244,16 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            (dict): With the following properties:</span>
-<span class="sd">            number: International space group number</span>
-<span class="sd">            international: International symbol</span>
-<span class="sd">            hall: Hall symbol</span>
-<span class="sd">            transformation_matrix: Transformation matrix from lattice of</span>
-<span class="sd">            input cell to Bravais lattice L^bravais = L^original * Tmat</span>
-<span class="sd">            origin shift: Origin shift in the setting of &quot;Bravais lattice&quot;</span>
-<span class="sd">            rotations, translations: Rotation matrices and translation</span>
-<span class="sd">            vectors. Space group operations are obtained by</span>
-<span class="sd">            [(r,t) for r, t in zip(rotations, translations)]</span>
-<span class="sd">            wyckoffs: Wyckoff letters</span>
+<span class="sd">                number: International space group number</span>
+<span class="sd">                international: International symbol</span>
+<span class="sd">                hall: Hall symbol</span>
+<span class="sd">                transformation_matrix: Transformation matrix from lattice of</span>
+<span class="sd">                input cell to Bravais lattice L^bravais = L^original * Tmat</span>
+<span class="sd">                origin shift: Origin shift in the setting of &quot;Bravais lattice&quot;</span>
+<span class="sd">                rotations, translations: Rotation matrices and translation</span>
+<span class="sd">                vectors. Space group operations are obtained by</span>
+<span class="sd">                [(r,t) for r, t in zip(rotations, translations)]</span>
+<span class="sd">                wyckoffs: Wyckoff letters</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_space_group_data</span></div>
 
@@ -276,7 +286,7 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return symmetry operations as a list of SymmOp objects.</span>
 <span class="sd">        By default returns fractional coord symmops.</span>
-<span class="sd">        But cartesian can be returned too.</span>
+<span class="sd">        But Cartesian can be returned too.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            ([SymmOp]): List of symmetry operations.</span>
@@ -297,10 +307,10 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return symmetry operations as a list of SymmOp objects.</span>
 <span class="sd">        By default returns fractional coord symmops.</span>
-<span class="sd">        But cartesian can be returned too.</span>
+<span class="sd">        But Cartesian can be returned too.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            cartesian (bool): Whether to return SymmOps as cartesian or</span>
+<span class="sd">            cartesian (bool): Whether to return SymmOps as Cartesian or</span>
 <span class="sd">                direct coordinate operations.</span>
 
 <span class="sd">        Returns:</span>
@@ -333,25 +343,50 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">SymmetrizedStructure</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_structure</span><span class="p">,</span> <span class="n">sg</span><span class="p">,</span> <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;equivalent_atoms&quot;</span><span class="p">],</span> <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;wyckoffs&quot;</span><span class="p">])</span></div>
 
-<div class="viewcode-block" id="SpacegroupAnalyzer.get_refined_structure"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_refined_structure">[docs]</a>    <span class="k">def</span> <span class="nf">get_refined_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="SpacegroupAnalyzer.get_refined_structure"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_refined_structure">[docs]</a>    <span class="k">def</span> <span class="nf">get_refined_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keep_site_properties</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get the refined structure based on detected symmetry. The refined</span>
 <span class="sd">        structure is a *conventional* cell setting with atoms moved to the</span>
 <span class="sd">        expected symmetry positions.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            keep_site_properties (bool): Whether to keep the input site properties (including</span>
+<span class="sd">                magnetic moments) on the sitesthat are still present after the refinement. Note:</span>
+<span class="sd">                This is disabled by default because the magnetic moments are not always directly</span>
+<span class="sd">                transferable between unit cell definitions. For instance, long-range magnetic</span>
+<span class="sd">                ordering or antiferromagnetic character may no longer be present (or exist in</span>
+<span class="sd">                the same way) in the returned structure. If keep_site_properties is True,</span>
+<span class="sd">                each site retains the same site property as in the original structure without</span>
+<span class="sd">                further adjustment.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Refined structure.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Atomic positions have to be specified by scaled positions for spglib.</span>
         <span class="n">lattice</span><span class="p">,</span> <span class="n">scaled_positions</span><span class="p">,</span> <span class="n">numbers</span> <span class="o">=</span> <span class="n">spglib</span><span class="o">.</span><span class="n">refine_cell</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cell</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symprec</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_angle_tol</span><span class="p">)</span>
-
         <span class="n">species</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_unique_species</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">numbers</span><span class="p">]</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">(</span><span class="n">lattice</span><span class="p">,</span> <span class="n">species</span><span class="p">,</span> <span class="n">scaled_positions</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">keep_site_properties</span><span class="p">:</span>
+            <span class="n">site_properties</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_siteprops</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">site_properties</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">numbers</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">site_properties</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">(</span><span class="n">lattice</span><span class="p">,</span> <span class="n">species</span><span class="p">,</span> <span class="n">scaled_positions</span><span class="p">,</span> <span class="n">site_properties</span><span class="o">=</span><span class="n">site_properties</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">s</span><span class="o">.</span><span class="n">get_sorted_structure</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="SpacegroupAnalyzer.find_primitive"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.find_primitive">[docs]</a>    <span class="k">def</span> <span class="nf">find_primitive</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="SpacegroupAnalyzer.find_primitive"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.find_primitive">[docs]</a>    <span class="k">def</span> <span class="nf">find_primitive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keep_site_properties</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Find a primitive version of the unit cell.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            keep_site_properties (bool): Whether to keep the input site properties (including</span>
+<span class="sd">                magnetic moments) on the sitesthat are still present after the refinement. Note:</span>
+<span class="sd">                This is disabled by default because the magnetic moments are not always directly</span>
+<span class="sd">                transferable between unit cell definitions. For instance, long-range magnetic</span>
+<span class="sd">                ordering or antiferromagnetic character may no longer be present (or exist in</span>
+<span class="sd">                the same way) in the returned structure. If keep_site_properties is True,</span>
+<span class="sd">                each site retains the same site property as in the original structure without</span>
+<span class="sd">                further adjustment.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            A primitive cell in the input cell is searched and returned</span>
@@ -359,10 +394,17 @@
 <span class="sd">            returned.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">lattice</span><span class="p">,</span> <span class="n">scaled_positions</span><span class="p">,</span> <span class="n">numbers</span> <span class="o">=</span> <span class="n">spglib</span><span class="o">.</span><span class="n">find_primitive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cell</span><span class="p">,</span> <span class="n">symprec</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_symprec</span><span class="p">)</span>
-
         <span class="n">species</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_unique_species</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">numbers</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">keep_site_properties</span><span class="p">:</span>
+            <span class="n">site_properties</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_siteprops</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">site_properties</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">numbers</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">site_properties</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="k">return</span> <span class="n">Structure</span><span class="p">(</span><span class="n">lattice</span><span class="p">,</span> <span class="n">species</span><span class="p">,</span> <span class="n">scaled_positions</span><span class="p">,</span> <span class="n">to_unit_cell</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">get_reduced_structure</span><span class="p">()</span></div>
+        <span class="k">return</span> <span class="n">Structure</span><span class="p">(</span>
+            <span class="n">lattice</span><span class="p">,</span> <span class="n">species</span><span class="p">,</span> <span class="n">scaled_positions</span><span class="p">,</span> <span class="n">to_unit_cell</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">site_properties</span><span class="o">=</span><span class="n">site_properties</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">get_reduced_structure</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="SpacegroupAnalyzer.get_ir_reciprocal_mesh"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_ir_reciprocal_mesh">[docs]</a>    <span class="k">def</span> <span class="nf">get_ir_reciprocal_mesh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">is_shift</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -398,6 +440,10 @@
 <span class="sd">        Challenges and tools. Computational Materials Science,</span>
 <span class="sd">        49(2), 299-312. doi:10.1016/j.commatsci.2010.05.010</span>
 
+<span class="sd">        Args:</span>
+<span class="sd">            international_monoclinic (bool): Whether to convert to proper international convention</span>
+<span class="sd">                such that beta is the non-right angle.</span>
+
 <span class="sd">        Returns:</span>
 <span class="sd">            Transformation matrix to go from conventional to primitive cell</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -430,7 +476,7 @@
 
         <span class="k">return</span> <span class="n">transf</span></div>
 
-<div class="viewcode-block" id="SpacegroupAnalyzer.get_primitive_standard_structure"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_primitive_standard_structure">[docs]</a>    <span class="k">def</span> <span class="nf">get_primitive_standard_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">international_monoclinic</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="SpacegroupAnalyzer.get_primitive_standard_structure"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_primitive_standard_structure">[docs]</a>    <span class="k">def</span> <span class="nf">get_primitive_standard_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">international_monoclinic</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">keep_site_properties</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Gives a structure with a primitive cell according to certain standards</span>
 <span class="sd">        the standards are defined in Setyawan, W., &amp; Curtarolo, S. (2010).</span>
@@ -438,10 +484,24 @@
 <span class="sd">        Challenges and tools. Computational Materials Science,</span>
 <span class="sd">        49(2), 299-312. doi:10.1016/j.commatsci.2010.05.010</span>
 
+<span class="sd">        Args:</span>
+<span class="sd">            international_monoclinic (bool): Whether to convert to proper international convention</span>
+<span class="sd">                such that beta is the non-right angle.</span>
+<span class="sd">            keep_site_properties (bool): Whether to keep the input site properties (including</span>
+<span class="sd">                magnetic moments) on the sitesthat are still present after the refinement. Note:</span>
+<span class="sd">                This is disabled by default because the magnetic moments are not always directly</span>
+<span class="sd">                transferable between unit cell definitions. For instance, long-range magnetic</span>
+<span class="sd">                ordering or antiferromagnetic character may no longer be present (or exist in</span>
+<span class="sd">                the same way) in the returned structure. If keep_site_properties is True,</span>
+<span class="sd">                each site retains the same site property as in the original structure without</span>
+<span class="sd">                further adjustment.</span>
+
 <span class="sd">        Returns:</span>
 <span class="sd">            The structure in a primitive standardized cell</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">conv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_conventional_standard_structure</span><span class="p">(</span><span class="n">international_monoclinic</span><span class="o">=</span><span class="n">international_monoclinic</span><span class="p">)</span>
+        <span class="n">conv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_conventional_standard_structure</span><span class="p">(</span>
+            <span class="n">international_monoclinic</span><span class="o">=</span><span class="n">international_monoclinic</span><span class="p">,</span> <span class="n">keep_site_properties</span><span class="o">=</span><span class="n">keep_site_properties</span>
+        <span class="p">)</span>
         <span class="n">lattice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_lattice_type</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="s2">&quot;P&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_space_group_symbol</span><span class="p">()</span> <span class="ow">or</span> <span class="n">lattice</span> <span class="o">==</span> <span class="s2">&quot;hexagonal&quot;</span><span class="p">:</span>
@@ -496,7 +556,7 @@
 
         <span class="k">return</span> <span class="n">Structure</span><span class="o">.</span><span class="n">from_sites</span><span class="p">(</span><span class="n">new_sites</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SpacegroupAnalyzer.get_conventional_standard_structure"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_conventional_standard_structure">[docs]</a>    <span class="k">def</span> <span class="nf">get_conventional_standard_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">international_monoclinic</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="SpacegroupAnalyzer.get_conventional_standard_structure"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupAnalyzer.get_conventional_standard_structure">[docs]</a>    <span class="k">def</span> <span class="nf">get_conventional_standard_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">international_monoclinic</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">keep_site_properties</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Gives a structure with a conventional cell according to certain</span>
 <span class="sd">        standards. The standards are defined in Setyawan, W., &amp; Curtarolo,</span>
@@ -508,11 +568,23 @@
 <span class="sd">        standard settings within the International Tables of Crystallography,</span>
 <span class="sd">        for which get_refined_structure should be used instead.</span>
 
+<span class="sd">        Args:</span>
+<span class="sd">            international_monoclinic (bool): Whether to convert to proper international convention</span>
+<span class="sd">                such that beta is the non-right angle.</span>
+<span class="sd">            keep_site_properties (bool): Whether to keep the input site properties (including</span>
+<span class="sd">                magnetic moments) on the sitesthat are still present after the refinement. Note:</span>
+<span class="sd">                This is disabled by default because the magnetic moments are not always directly</span>
+<span class="sd">                transferable between unit cell definitions. For instance, long-range magnetic</span>
+<span class="sd">                ordering or antiferromagnetic character may no longer be present (or exist in</span>
+<span class="sd">                the same way) in the returned structure. If keep_site_properties is True,</span>
+<span class="sd">                each site retains the same site property as in the original structure without</span>
+<span class="sd">                further adjustment.</span>
+
 <span class="sd">        Returns:</span>
 <span class="sd">            The structure in a conventional standardized cell</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">tol</span> <span class="o">=</span> <span class="mf">1e-5</span>
-        <span class="n">struct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_refined_structure</span><span class="p">()</span>
+        <span class="n">struct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_refined_structure</span><span class="p">(</span><span class="n">keep_site_properties</span><span class="o">=</span><span class="n">keep_site_properties</span><span class="p">)</span>
         <span class="n">latt</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">lattice</span>
         <span class="n">latt_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_lattice_type</span><span class="p">()</span>
         <span class="n">sorted_lengths</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">latt</span><span class="o">.</span><span class="n">abc</span><span class="p">)</span>
@@ -567,7 +639,7 @@
             <span class="n">latt</span> <span class="o">=</span> <span class="n">Lattice</span><span class="o">.</span><span class="n">tetragonal</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">latt_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;hexagonal&quot;</span><span class="p">,</span> <span class="s2">&quot;rhombohedral&quot;</span><span class="p">):</span>
             <span class="c1"># for the conventional cell representation,</span>
-            <span class="c1"># we allways show the rhombohedral lattices as hexagonal</span>
+            <span class="c1"># we always show the rhombohedral lattices as hexagonal</span>
 
             <span class="c1"># check first if we have the refined structure shows a rhombohedral</span>
             <span class="c1"># cell</span>
@@ -879,10 +951,10 @@
 
 <span class="sd">        a. Linear molecules have one zero eigenvalue. Possible symmetry</span>
 <span class="sd">           operations are C*v or D*v</span>
-<span class="sd">        b. Asymetric top molecules have all different eigenvalues. The</span>
+<span class="sd">        b. Asymmetric top molecules have all different eigenvalues. The</span>
 <span class="sd">           maximum rotational symmetry in such molecules is 2</span>
 <span class="sd">        c. Symmetric top molecules have 1 unique eigenvalue, which gives a</span>
-<span class="sd">           unique rotation axis.  All axial point groups are possible</span>
+<span class="sd">           unique rotation axis. All axial point groups are possible</span>
 <span class="sd">           except the cubic groups (T &amp; O) and I.</span>
 <span class="sd">        d. Spherical top molecules have all three eigenvalues equal. They</span>
 <span class="sd">           have the rare T, O or I point groups.</span>
@@ -933,7 +1005,7 @@
                 <span class="n">total_inertia</span> <span class="o">+=</span> <span class="n">wt</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
 
             <span class="c1"># Normalize the inertia tensor so that it does not scale with size</span>
-            <span class="c1"># of the system.  This mitigates the problem of choosing a proper</span>
+            <span class="c1"># of the system. This mitigates the problem of choosing a proper</span>
             <span class="c1"># comparison tolerance for the eigenvalues.</span>
             <span class="n">inertia_tensor</span> <span class="o">/=</span> <span class="n">total_inertia</span>
             <span class="n">eigvals</span><span class="p">,</span> <span class="n">eigvecs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">inertia_tensor</span><span class="p">)</span>
@@ -968,7 +1040,7 @@
 
     <span class="k">def</span> <span class="nf">_proc_asym_top</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Handles assymetric top molecules, which cannot contain rotational</span>
+<span class="sd">        Handles asymmetric top molecules, which cannot contain rotational</span>
 <span class="sd">        symmetry larger than 2.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_R2_axes_asym</span><span class="p">()</span>
@@ -984,8 +1056,8 @@
 
     <span class="k">def</span> <span class="nf">_proc_sym_top</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Handles symetric top molecules which has one unique eigenvalue whose</span>
-<span class="sd">        corresponding principal axis is a unique rotational axis.  More complex</span>
+<span class="sd">        Handles symmetric top molecules which has one unique eigenvalue whose</span>
+<span class="sd">        corresponding principal axis is a unique rotational axis. More complex</span>
 <span class="sd">        handling required to look for R2 axes perpendicular to this unique</span>
 <span class="sd">        axis.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -995,10 +1067,10 @@
             <span class="n">ind</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">ind</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Eigenvalues = </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">eigvals</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Eigenvalues = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">eigvals</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
         <span class="n">unique_axis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">principal_axes</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_rot_sym</span><span class="p">(</span><span class="n">unique_axis</span><span class="p">)</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Rotation symmetries = </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">rot_sym</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rotation symmetries = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rot_sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rot_sym</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_check_perpendicular_r2_axis</span><span class="p">(</span><span class="n">unique_axis</span><span class="p">)</span>
 
@@ -1056,7 +1128,7 @@
     <span class="k">def</span> <span class="nf">_check_R2_axes_asym</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Test for 2-fold rotation along the principal axes. Used to handle</span>
-<span class="sd">        asymetric top molecules.</span>
+<span class="sd">        asymmetric top molecules.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">principal_axes</span><span class="p">:</span>
             <span class="n">op</span> <span class="o">=</span> <span class="n">SymmOp</span><span class="o">.</span><span class="n">from_axis_angle_and_translation</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="mi">180</span><span class="p">)</span>
@@ -1066,9 +1138,9 @@
 
     <span class="k">def</span> <span class="nf">_find_mirror</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">axis</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Looks for mirror symmetry of specified type about axis.  Possible</span>
-<span class="sd">        types are &quot;h&quot; or &quot;vd&quot;.  Horizontal (h) mirrors are perpendicular to</span>
-<span class="sd">        the axis while vertical (v) or diagonal (d) mirrors are parallel.  v</span>
+<span class="sd">        Looks for mirror symmetry of specified type about axis. Possible</span>
+<span class="sd">        types are &quot;h&quot; or &quot;vd&quot;. Horizontal (h) mirrors are perpendicular to</span>
+<span class="sd">        the axis while vertical (v) or diagonal (d) mirrors are parallel. v</span>
 <span class="sd">        mirrors has atoms lying on the mirror plane while d mirrors do</span>
 <span class="sd">        not.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -1103,7 +1175,7 @@
     <span class="k">def</span> <span class="nf">_get_smallest_set_not_on_axis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">axis</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the smallest list of atoms with the same species and</span>
-<span class="sd">        distance from origin AND does not lie on the specified axis.  This</span>
+<span class="sd">        distance from origin AND does not lie on the specified axis. This</span>
 <span class="sd">        maximal set limits the possible rotational symmetry operations,</span>
 <span class="sd">        since atoms lying on a test axis is irrelevant in testing rotational</span>
 <span class="sd">        symmetryOperations.</span>
@@ -1124,7 +1196,7 @@
 
     <span class="k">def</span> <span class="nf">_check_rot_sym</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">axis</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Determines the rotational symmetry about supplied axis.  Used only for</span>
+<span class="sd">        Determines the rotational symmetry about supplied axis. Used only for</span>
 <span class="sd">        symmetric top molecules which has possible rotational symmetry</span>
 <span class="sd">        operations &gt; 2.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -1143,7 +1215,7 @@
 
     <span class="k">def</span> <span class="nf">_check_perpendicular_r2_axis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">axis</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Checks for R2 axes perpendicular to unique axis.  For handling</span>
+<span class="sd">        Checks for R2 axes perpendicular to unique axis. For handling</span>
 <span class="sd">        symmetric top molecules.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">min_set</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_smallest_set_not_on_axis</span><span class="p">(</span><span class="n">axis</span><span class="p">)</span>
@@ -1196,7 +1268,7 @@
 
     <span class="k">def</span> <span class="nf">_find_spherical_axes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Looks for R5, R4, R3 and R2 axes in spherical top molecules.  Point</span>
+<span class="sd">        Looks for R5, R4, R3 and R2 axes in spherical top molecules. Point</span>
 <span class="sd">        group T molecules have only one unique 3-fold and one unique 2-fold</span>
 <span class="sd">        axis. O molecules have one unique 4, 3 and 2-fold axes. I molecules</span>
 <span class="sd">        have a unique 5-fold axis.</span>
@@ -1537,7 +1609,7 @@
 <span class="sd">    Recursive algorithm to permute through all possible combinations of the</span>
 <span class="sd">    initially supplied symmetry operations to arrive at a complete set of</span>
 <span class="sd">    operations mapping a single atom to all other equivalent atoms in the</span>
-<span class="sd">    point group.  This assumes that the initial number already uniquely</span>
+<span class="sd">    point group. This assumes that the initial number already uniquely</span>
 <span class="sd">    identifies all operations.</span>
 
 <span class="sd">    Args:</span>
@@ -1595,7 +1667,7 @@
 <div class="viewcode-block" id="SpacegroupOperations.are_symmetrically_equivalent"><a class="viewcode-back" href="../../../pymatgen.symmetry.analyzer.html#pymatgen.symmetry.analyzer.SpacegroupOperations.are_symmetrically_equivalent">[docs]</a>    <span class="k">def</span> <span class="nf">are_symmetrically_equivalent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sites1</span><span class="p">,</span> <span class="n">sites2</span><span class="p">,</span> <span class="n">symm_prec</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Given two sets of PeriodicSites, test if they are actually</span>
-<span class="sd">        symmetrically equivalent under this space group.  Useful, for example,</span>
+<span class="sd">        symmetrically equivalent under this space group. Useful, for example,</span>
 <span class="sd">        if you want to test if selecting atoms 1 and 2 out of a set of 4 atoms</span>
 <span class="sd">        are symmetrically the same as selecting atoms 3 and 4, etc.</span>
 
@@ -1676,7 +1748,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.symmetry.analyzer</a></li> 
       </ul>
@@ -1684,7 +1756,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

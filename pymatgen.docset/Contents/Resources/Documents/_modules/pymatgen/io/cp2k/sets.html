@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.cp2k.sets &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.io.cp2k.sets &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
     <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.cp2k.sets</a></li> 
       </ul>
@@ -61,11 +61,15 @@
 <span class="sd">    (3) Call self.update(override_default_params) in order to allow user settings.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">Element</span>
+<span class="kn">from</span> <span class="nn">ruamel.yaml</span> <span class="kn">import</span> <span class="n">YAML</span>
+
 <span class="kn">from</span> <span class="nn">pymatgen.core.lattice</span> <span class="kn">import</span> <span class="n">Lattice</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Molecule</span><span class="p">,</span> <span class="n">Structure</span>
 <span class="kn">from</span> <span class="nn">pymatgen.io.cp2k.inputs</span> <span class="kn">import</span> <span class="p">(</span>
@@ -73,7 +77,7 @@
     <span class="n">PBE</span><span class="p">,</span>
     <span class="n">PDOS</span><span class="p">,</span>
     <span class="n">QS</span><span class="p">,</span>
-    <span class="n">XC_FUNCTIONAL</span><span class="p">,</span>
+    <span class="n">BrokenSymmetry</span><span class="p">,</span>
     <span class="n">Cell</span><span class="p">,</span>
     <span class="n">Coord</span><span class="p">,</span>
     <span class="n">Cp2kInput</span><span class="p">,</span>
@@ -90,22 +94,31 @@
     <span class="n">OrbitalTransformation</span><span class="p">,</span>
     <span class="n">Scf</span><span class="p">,</span>
     <span class="n">Section</span><span class="p">,</span>
+    <span class="n">SectionList</span><span class="p">,</span>
     <span class="n">Smear</span><span class="p">,</span>
     <span class="n">Subsys</span><span class="p">,</span>
     <span class="n">V_Hartree_Cube</span><span class="p">,</span>
+    <span class="n">Xc_Functional</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">pymatgen.io.cp2k.utils</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_aux_basis</span><span class="p">,</span>
     <span class="n">get_basis_and_potential</span><span class="p">,</span>
+    <span class="n">get_cutoff_from_basis</span><span class="p">,</span>
+    <span class="n">get_truncated_coulomb_cutoff</span><span class="p">,</span>
     <span class="n">get_unique_site_indices</span><span class="p">,</span>
+    <span class="n">get_xc_functionals</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Nicholas Winner&quot;</span>
-<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.2&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;1.0&quot;</span>
 <span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;nwinner@berkeley.edu&quot;</span>
-<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;January 2019&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;March 2022&quot;</span>
 
 <span class="n">MODULE_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">MODULE_DIR</span><span class="p">,</span> <span class="s2">&quot;settings.yaml&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">yaml</span> <span class="o">=</span> <span class="n">YAML</span><span class="p">(</span><span class="n">typ</span><span class="o">=</span><span class="s2">&quot;unsafe&quot;</span><span class="p">,</span> <span class="n">pure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">SETTINGS</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="Cp2kInputSet"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.Cp2kInputSet">[docs]</a><span class="k">class</span> <span class="nc">Cp2kInputSet</span><span class="p">(</span><span class="n">Cp2kInput</span><span class="p">):</span>
@@ -131,11 +144,11 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">structure</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">],</span>
-        <span class="n">potential_and_basis</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{},</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
+        <span class="n">basis_and_potential</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;preferred&quot;</span><span class="p">,</span>
         <span class="n">multiplicity</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
         <span class="n">project_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;CP2K&quot;</span><span class="p">,</span>
-        <span class="n">override_default_params</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{},</span>
+        <span class="n">override_default_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -161,15 +174,12 @@
 
         <span class="c1"># Important CP2K set parameters</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="n">structure</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">charge</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">potential_and_basis</span> <span class="o">=</span> <span class="n">potential_and_basis</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">charge</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">basis_and_potential</span> <span class="o">=</span> <span class="n">basis_and_potential</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">multiplicity</span> <span class="o">=</span> <span class="n">multiplicity</span>  <span class="c1"># spin multiplicity = 2s+1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">override_default_params</span> <span class="o">=</span> <span class="n">override_default_params</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span> <span class="o">=</span> <span class="n">project_name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
-
-        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">species</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">Element</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">ForceEval</span><span class="p">())</span>  <span class="c1"># always present in cp2k</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">basis_set_file_names</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># need for dft</span>
@@ -178,12 +188,10 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;print_forces&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">print_forces</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;print_motion&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">print_motion</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">override_default_params</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Cp2kInputSet.create_subsys"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.Cp2kInputSet.create_subsys">[docs]</a>    <span class="k">def</span> <span class="nf">create_subsys</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">]):</span>
+<div class="viewcode-block" id="Cp2kInputSet.create_subsys"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.Cp2kInputSet.create_subsys">[docs]</a>    <span class="k">def</span> <span class="nf">create_subsys</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create the structure for the input</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -192,14 +200,24 @@
             <span class="n">subsys</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Cell</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="p">))</span>
 
         <span class="c1"># Decide what basis sets/pseudopotentials to use</span>
-        <span class="n">basis_and_potential</span> <span class="o">=</span> <span class="n">get_basis_and_potential</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">species</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">potential_and_basis</span><span class="p">)</span>
+        <span class="n">basis_and_potential</span> <span class="o">=</span> <span class="n">get_basis_and_potential</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">symbol_set</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_and_potential</span><span class="p">)</span>
 
         <span class="c1"># Insert atom kinds by identifying the unique sites (unique element and site properties)</span>
         <span class="n">unique_kinds</span> <span class="o">=</span> <span class="n">get_unique_site_indices</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">unique_kinds</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">kind</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="k">if</span> <span class="s2">&quot;magmom&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">:</span>
+
+            <span class="n">_ox</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;oxi_state&quot;</span><span class="p">][</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+                <span class="k">if</span> <span class="s2">&quot;oxi_state&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span>
+                <span class="k">else</span> <span class="mi">0</span>
+            <span class="p">)</span>
+            <span class="n">_sp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;spin&quot;</span><span class="p">][</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="k">if</span> <span class="s2">&quot;spin&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span> <span class="k">else</span> <span class="mi">0</span>
+
+            <span class="n">bs</span> <span class="o">=</span> <span class="n">BrokenSymmetry</span><span class="o">.</span><span class="n">from_el</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">_ox</span><span class="p">,</span> <span class="n">_sp</span><span class="p">)</span> <span class="k">if</span> <span class="n">_ox</span> <span class="k">else</span> <span class="kc">None</span>
+
+            <span class="k">if</span> <span class="s2">&quot;magmom&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">bs</span><span class="p">:</span>
                 <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;magnetization&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;magmom&quot;</span><span class="p">][</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
 
             <span class="k">if</span> <span class="s2">&quot;ghost&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">:</span>
@@ -217,8 +235,15 @@
 
             <span class="k">if</span> <span class="s2">&quot;aux_basis&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">:</span>
                 <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;aux_basis&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;aux_basis&quot;</span><span class="p">][</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+                <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;aux_basis&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;match&quot;</span><span class="p">:</span>
+                    <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;aux_basis&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">basis_set</span>
 
-            <span class="n">subsys</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Kind</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">alias</span><span class="o">=</span><span class="n">k</span><span class="p">,</span> <span class="n">basis_set</span><span class="o">=</span><span class="n">basis_set</span><span class="p">,</span> <span class="n">potential</span><span class="o">=</span><span class="n">potential</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+            <span class="n">_kind</span> <span class="o">=</span> <span class="n">Kind</span><span class="p">(</span>
+                <span class="n">kind</span><span class="p">,</span> <span class="n">alias</span><span class="o">=</span><span class="n">k</span><span class="p">,</span> <span class="n">basis_set</span><span class="o">=</span><span class="n">basis_set</span><span class="p">,</span> <span class="n">potential</span><span class="o">=</span><span class="n">potential</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;BS&quot;</span><span class="p">:</span> <span class="n">bs</span><span class="p">}</span> <span class="k">if</span> <span class="n">bs</span> <span class="k">else</span> <span class="p">{},</span> <span class="o">**</span><span class="n">kwargs</span>
+            <span class="p">)</span>
+
+            <span class="n">subsys</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">_kind</span><span class="p">)</span>
+
         <span class="n">coord</span> <span class="o">=</span> <span class="n">Coord</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="n">unique_kinds</span><span class="p">)</span>
         <span class="n">subsys</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">coord</span><span class="p">)</span>
         <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">subsys</span><span class="p">)</span>
@@ -231,19 +256,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;PRINT&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
         <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;FORCES&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
-        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;STRESS_TENSOR&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span></div>
-
-<div class="viewcode-block" id="Cp2kInputSet.print_motion"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.Cp2kInputSet.print_motion">[docs]</a>    <span class="k">def</span> <span class="nf">print_motion</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Print the motion info (trajectory, cell, forces, stress</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="s2">&quot;MOTION&quot;</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;MOTION&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
-        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;MOTION&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;PRINT&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
-        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;MOTION&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;TRAJECTORY&quot;</span><span class="p">,</span> <span class="n">section_parameters</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ON&quot;</span><span class="p">],</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
-        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;MOTION&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;CELL&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
-        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;MOTION&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;FORCES&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
-        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;MOTION&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;STRESS&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span></div></div>
+        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;STRESS_TENSOR&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span></div></div>
 
 
 <div class="viewcode-block" id="DftSet"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet">[docs]</a><span class="k">class</span> <span class="nc">DftSet</span><span class="p">(</span><span class="n">Cp2kInputSet</span><span class="p">):</span>
@@ -255,23 +268,25 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">structure</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">],</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
         <span class="n">ot</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">band_gap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
+        <span class="n">energy_gap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
         <span class="n">eps_default</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-12</span><span class="p">,</span>
-        <span class="n">eps_scf</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-7</span><span class="p">,</span>
-        <span class="n">max_scf</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">eps_scf</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+        <span class="n">max_scf</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">minimizer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;DIIS&quot;</span><span class="p">,</span>
-        <span class="n">preconditioner</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;FULL_ALL&quot;</span><span class="p">,</span>
-        <span class="n">algorithm</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;STRICT&quot;</span><span class="p">,</span>
+        <span class="n">preconditioner</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;FULL_SINGLE_INVERSE&quot;</span><span class="p">,</span>
+        <span class="n">algorithm</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;IRAC&quot;</span><span class="p">,</span>
         <span class="n">linesearch</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;2PNT&quot;</span><span class="p">,</span>
-        <span class="n">cutoff</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1200</span><span class="p">,</span>
-        <span class="n">rel_cutoff</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+        <span class="n">rotation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">occupation_preconditioner</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">cutoff</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">rel_cutoff</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
         <span class="n">ngrids</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
         <span class="n">progression_factor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
-        <span class="n">override_default_params</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{},</span>
+        <span class="n">override_default_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
         <span class="n">wfn_restart_file_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">kpoints</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Kpoints</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">kpoints</span><span class="p">:</span> <span class="n">Kpoints</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">smearing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
@@ -284,49 +299,69 @@
 <span class="sd">                Band gap is also used by the preconditioner for OT, and should be set as a value SMALLER than the true</span>
 <span class="sd">                band gap to get good efficiency. Generally, this parameter does not need to be changed from</span>
 <span class="sd">                default of 0.01</span>
-<span class="sd">            band_gap (float): The band gap can also be specified in order to determine if ot should be turned on.</span>
+<span class="sd">            energy_gap (float): Estimate of energy gap for preconditioner. Default is -1, leaving it up to cp2k.</span>
 <span class="sd">            eps_default (float): Replaces all EPS_XX Keywords in the DFT section (NOT its subsections!) to have this</span>
 <span class="sd">                value, ensuring an overall accuracy of at least this much.</span>
-<span class="sd">            eps_scf (float): The convergence criteria for leaving the SCF loop in Hartrees. Default is 1e-7. Should</span>
-<span class="sd">                ensure reasonable results for all properties. Smaller than 1e-7 is generally not needed unless</span>
-<span class="sd">                you need very high precision. 1e-6 may be used for difficult systems, and should still give</span>
-<span class="sd">                reasonable results for most properties.</span>
+<span class="sd">            eps_scf (float): The convergence criteria for leaving the SCF loop. Default is 1e-6. Should</span>
+<span class="sd">                ensure reasonable results, but is not applicable to all situations.</span>
+<span class="sd">                    Note: eps_scf is *not* in units of energy, as in most DFT codes. For OT method, it is the largest</span>
+<span class="sd">                    gradient of the energy with respect to changing any of the molecular orbital coefficients. For</span>
+<span class="sd">                    diagonalization, it is the largest change in the density matrix from the last step.</span>
 <span class="sd">            max_scf (int): The max number of SCF cycles before terminating the solver. NOTE: With the OT solver, this</span>
 <span class="sd">                corresponds to the max number of INNER scf loops, and then the outer loops are set with outer_max_scf,</span>
-<span class="sd">                while with diagnolization it corresponds to the overall (INNER*OUTER) number of SCF steps, with the</span>
+<span class="sd">                while with diagonalization it corresponds to the overall (INNER*OUTER) number of SCF steps, with the</span>
 <span class="sd">                inner loop limit set by</span>
 <span class="sd">            minimizer (str): The minimization scheme. DIIS can be as much as 50% faster than the more robust conjugate</span>
 <span class="sd">                gradient method, and so it is chosen as default. Switch to CG if dealing with a difficult system.</span>
-<span class="sd">            preconditioner (str): Preconditioner for the OT method. FULL_ALL is the most reliable, and is the</span>
-<span class="sd">                default. Though FULL_SINGLE_INVERSE has faster convergence according to our internal tests. Should</span>
-<span class="sd">                only change from theses two when simulation cell gets to be VERY large,</span>
-<span class="sd">                in which case FULL_KINETIC might be preferred.</span>
+<span class="sd">            preconditioner (str): Preconditioner for the OT method. FULL_SINGLE_INVERSE is very robust and compatible</span>
+<span class="sd">                with non-integer occupations from IRAC+rotation. FULL_ALL is considered &quot;best&quot; but needs algorithm to</span>
+<span class="sd">                be set to STRICT. Only change from these two when simulation cell gets to be VERY large, in which case</span>
+<span class="sd">                FULL_KINETIC might be preferred.</span>
+<span class="sd">            algorithm (str): Algorithm for the OT method. STRICT assumes that the orbitals are strictly orthogonal to</span>
+<span class="sd">                each other, which works well for wide gap ionic systems, but can diverge for systems with small gaps,</span>
+<span class="sd">                fractional occupations, and some other cases. IRAC (iterative refinement of the approximate congruency)</span>
+<span class="sd">                transformation is not analytically correct and uses a truncated polynomial expansion, but is robust to</span>
+<span class="sd">                the problems with STRICT, and so is the default.</span>
+<span class="sd">            linesearch (str): Linesearch method for CG. 2PNT is the default, and is the fastest, but is not as robust</span>
+<span class="sd">                as 3PNT. 2PNT is required as of cp2k v9.1 for compatibility with irac+rotation. This may be upgraded</span>
+<span class="sd">                in the future. 3PNT can be good for wide gapped transition metal systems as an alternative.</span>
+<span class="sd">            rotation (bool): Whether or not to allow for rotation of the orbitals in the OT method. This equates to</span>
+<span class="sd">                allowing for fractional occupations in the calculation.</span>
+<span class="sd">            occupation_preconditioner (bool): Whether or not to account for fractional occupations in the</span>
+<span class="sd">                preconditioner. This method is not fully integrated as of cp2k v9.1 and is set to false by default.</span>
 <span class="sd">            cutoff (int): Cutoff energy (in Ry) for the finest level of the multigrid. A high cutoff will allow you to</span>
-<span class="sd">                have very accurate calculations PROVIDED that REL_CUTOFF is appropriate.</span>
+<span class="sd">                have very accurate calculations PROVIDED that REL_CUTOFF is appropriate. By default cutoff is set to 0,</span>
+<span class="sd">                which will assign it to be the largest exponent of your basis times the rel_cutoff.</span>
 <span class="sd">            rel_cutoff (int): This cutoff decides how the Guassians are mapped onto the different levels of the</span>
-<span class="sd">                multigrid. From CP2K: A Gaussian is mapped onto the coarsest level of the multi-grid, on which the</span>
+<span class="sd">                multigrid. If REL_CUTOFF is too low, then even if you have a high CUTOFF, all Gaussians will be</span>
+<span class="sd">                mapped onto the coarsest level of the multi-grid, and thus the effective integration grid for</span>
+<span class="sd">                the calculation may still be too coarse. By default 50Ry is chosen, which should be sufficient</span>
+<span class="sd">                given the cutoff is large enough.</span>
+<span class="sd">                    From CP2K manual: A Gaussian is mapped onto the coarsest level of the multi-grid, on which the</span>
 <span class="sd">                    function will cover number of grid points greater than or equal to the number of grid points</span>
 <span class="sd">                    will cover on a reference grid defined by REL_CUTOFF.</span>
+<span class="sd">            ngrids (int): number of multi-grids to use. CP2K default is 4, but the molopt basis files recommend 5.</span>
 <span class="sd">            progression_factor (int): Divisor of CUTOFF to get the cutoff for the next level of the multigrid.</span>
-
-<span class="sd">            Takeaway for the cutoffs: https://www.cp2k.org/howto:converging_cutoff</span>
-<span class="sd">            If CUTOFF is too low, then all grids will be coarse and the calculation may become inaccurate; and if</span>
-<span class="sd">            REL_CUTOFF is too low, then even if you have a high CUTOFF, all Gaussians will be mapped onto the coarsest</span>
-<span class="sd">            level of the multi-grid, and thus the effective integration grid for the calculation may still be too</span>
-<span class="sd">            coarse.</span>
+<span class="sd">            wfn_restart_file_name (str): RESTART file for the initial wavefunction guess.</span>
+<span class="sd">            kpoints (Kpoints): kpoints object from pymatgen.io.vasp.inputs.Kpoints. By default, CP2K runs with gamma</span>
+<span class="sd">                point only.</span>
+<span class="sd">            smearing (bool): whether or not to activate smearing (should be done for systems containing no (or a very</span>
+<span class="sd">                small) band gap.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="n">structure</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ot</span> <span class="o">=</span> <span class="n">ot</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">band_gap</span> <span class="o">=</span> <span class="n">band_gap</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">energy_gap</span> <span class="o">=</span> <span class="n">energy_gap</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">eps_default</span> <span class="o">=</span> <span class="n">eps_default</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">eps_scf</span> <span class="o">=</span> <span class="n">eps_scf</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_scf</span> <span class="o">=</span> <span class="n">max_scf</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">minimizer</span> <span class="o">=</span> <span class="n">minimizer</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">preconditioner</span> <span class="o">=</span> <span class="n">preconditioner</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">algorithm</span> <span class="o">=</span> <span class="n">algorithm</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotation</span> <span class="o">=</span> <span class="n">rotation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">occupation_preconditioner</span> <span class="o">=</span> <span class="n">occupation_preconditioner</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">linesearch</span> <span class="o">=</span> <span class="n">linesearch</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cutoff</span> <span class="o">=</span> <span class="n">cutoff</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">rel_cutoff</span> <span class="o">=</span> <span class="n">rel_cutoff</span>
@@ -343,22 +378,18 @@
         <span class="n">max_scf</span> <span class="o">=</span> <span class="n">max_scf</span> <span class="k">if</span> <span class="n">max_scf</span> <span class="k">else</span> <span class="mi">20</span> <span class="k">if</span> <span class="n">ot</span> <span class="k">else</span> <span class="mi">400</span>  <span class="c1"># If ot, max_scf is for inner loop</span>
         <span class="n">scf</span> <span class="o">=</span> <span class="n">Scf</span><span class="p">(</span><span class="n">eps_scf</span><span class="o">=</span><span class="n">eps_scf</span><span class="p">,</span> <span class="n">max_scf</span><span class="o">=</span><span class="n">max_scf</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{})</span>
 
-        <span class="c1"># If there&#39;s a band gap, use OT, else use Davidson</span>
+        <span class="c1"># If there&#39;s a band gap, use OT, else use diagonalization</span>
         <span class="k">if</span> <span class="n">ot</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">band_gap</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                    <span class="s2">&quot;Orbital Transformation method is being used for&quot;</span>
-                    <span class="s2">&quot;a system without a bandgap. OT can have very poor&quot;</span>
-                    <span class="s2">&quot;convergence for metallic systems, proceed with caution.&quot;</span><span class="p">,</span>
-                    <span class="ne">UserWarning</span><span class="p">,</span>
-                <span class="p">)</span>
+
             <span class="n">scf</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
                 <span class="n">OrbitalTransformation</span><span class="p">(</span>
                     <span class="n">minimizer</span><span class="o">=</span><span class="n">minimizer</span><span class="p">,</span>
                     <span class="n">preconditioner</span><span class="o">=</span><span class="n">preconditioner</span><span class="p">,</span>
-                    <span class="n">energy_gap</span><span class="o">=</span><span class="n">band_gap</span><span class="p">,</span>
+                    <span class="n">energy_gap</span><span class="o">=</span><span class="n">energy_gap</span><span class="p">,</span>
                     <span class="n">algorithm</span><span class="o">=</span><span class="n">algorithm</span><span class="p">,</span>
                     <span class="n">linesearch</span><span class="o">=</span><span class="n">linesearch</span><span class="p">,</span>
+                    <span class="n">rotation</span><span class="o">=</span><span class="n">rotation</span><span class="p">,</span>
+                    <span class="n">occupation_preconditioner</span><span class="o">=</span><span class="n">occupation_preconditioner</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="p">)</span>
             <span class="n">scf</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
@@ -374,17 +405,24 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">scf</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;DIAGONALIZATION&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
             <span class="n">mixing_kwds</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;METHOD&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;METHOD&quot;</span><span class="p">,</span> <span class="s2">&quot;BROYDEN_MIXING&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;ALPHA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;ALPHA&quot;</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">),</span>
-                <span class="s2">&quot;NBUFFER&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;NBUFFER&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+                <span class="s2">&quot;ALPHA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;ALPHA&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;alpha&quot;</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">)),</span>
+                <span class="s2">&quot;BETA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;BETA&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;beta&quot;</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)),</span>
+                <span class="s2">&quot;NBUFFER&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;NBUFFER&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nbuffer&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span>
+                <span class="s2">&quot;N_SIMPLE_MIX&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;N_SIMPLE_MIX&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_simple_mix&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span>
+                <span class="s2">&quot;METHOD&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;METHOD&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mixing_method&quot;</span><span class="p">,</span> <span class="s2">&quot;BROYDEN_MIXING&quot;</span><span class="p">)),</span>
             <span class="p">}</span>
             <span class="n">mixing</span> <span class="o">=</span> <span class="n">Section</span><span class="p">(</span><span class="s2">&quot;MIXING&quot;</span><span class="p">,</span> <span class="n">keywords</span><span class="o">=</span><span class="n">mixing_kwds</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
             <span class="n">scf</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">mixing</span><span class="p">)</span>
-            <span class="n">davidson_kwds</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;PRECONDITIONER&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;PRECONDITIONER&quot;</span><span class="p">,</span> <span class="s2">&quot;FULL_ALL&quot;</span><span class="p">)}</span>
-            <span class="n">davidson</span> <span class="o">=</span> <span class="n">Section</span><span class="p">(</span><span class="s2">&quot;DAVIDSON&quot;</span><span class="p">,</span> <span class="n">keywords</span><span class="o">=</span><span class="n">davidson_kwds</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-            <span class="n">scf</span><span class="p">[</span><span class="s2">&quot;DIAGONALIZATION&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">davidson</span><span class="p">)</span>
+            <span class="n">scf</span><span class="p">[</span><span class="s2">&quot;MAX_DIIS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;MAX_DIIS&quot;</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span>
 
         <span class="c1"># Create the multigrid for FFTs</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cutoff</span><span class="p">:</span>
+            <span class="n">basis_and_potential</span> <span class="o">=</span> <span class="n">get_basis_and_potential</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">symbol_set</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_and_potential</span><span class="p">)</span>
+            <span class="n">cutoff</span> <span class="o">=</span> <span class="n">get_cutoff_from_basis</span><span class="p">(</span>
+                <span class="n">els</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">symbol_set</span><span class="p">,</span>
+                <span class="n">bases</span><span class="o">=</span><span class="p">[</span><span class="n">basis_and_potential</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="s2">&quot;basis&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">symbol_set</span><span class="p">],</span>
+                <span class="n">rel_cutoff</span><span class="o">=</span><span class="n">rel_cutoff</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="n">mgrid</span> <span class="o">=</span> <span class="n">Mgrid</span><span class="p">(</span>
             <span class="n">cutoff</span><span class="o">=</span><span class="n">cutoff</span><span class="p">,</span>
             <span class="n">rel_cutoff</span><span class="o">=</span><span class="n">rel_cutoff</span><span class="p">,</span>
@@ -402,16 +440,18 @@
             <span class="n">wfn_restart_file_name</span><span class="o">=</span><span class="n">wfn_restart_file_name</span><span class="p">,</span>
         <span class="p">)</span>
 
+        <span class="c1"># Set kpoints only if user supplies them</span>
         <span class="k">if</span> <span class="n">kpoints</span><span class="p">:</span>
-            <span class="n">dft</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Kpoints</span><span class="o">.</span><span class="n">from_kpoints</span><span class="p">(</span><span class="n">kpoints</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">smearing</span> <span class="ow">or</span> <span class="p">(</span><span class="n">band_gap</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
-            <span class="n">scf</span><span class="o">.</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;ADDED_MOS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">100</span>
-            <span class="n">scf</span><span class="p">[</span><span class="s2">&quot;ADDED_MOS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># TODO: how to grab the appropriate number?</span>
-            <span class="n">scf</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Smear</span><span class="p">())</span>
+            <span class="n">dft</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Kpoints</span><span class="o">.</span><span class="n">from_kpoints</span><span class="p">(</span><span class="n">kpoints</span><span class="p">,</span> <span class="n">structure</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">,</span> <span class="n">reduce</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">smearing</span><span class="p">:</span>
+            <span class="n">scf</span><span class="o">.</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;ADDED_MOS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">500</span>
+            <span class="n">scf</span><span class="p">[</span><span class="s2">&quot;ADDED_MOS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">500</span>  <span class="c1"># TODO: how to grab the appropriate number?</span>
+            <span class="n">scf</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Smear</span><span class="p">(</span><span class="n">elec_temp</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;elec_temp&quot;</span><span class="p">,</span> <span class="mi">300</span><span class="p">)))</span>
 
         <span class="c1"># Create subsections and insert into them</span>
         <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">dft</span><span class="p">)</span>
-        <span class="n">xc_functional</span> <span class="o">=</span> <span class="n">XC_FUNCTIONAL</span><span class="p">(</span><span class="n">functional</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;functional&quot;</span><span class="p">,</span> <span class="s2">&quot;PBE&quot;</span><span class="p">))</span>
+        <span class="n">xc_functionals</span> <span class="o">=</span> <span class="n">get_xc_functionals</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;xc_functional&quot;</span><span class="p">,</span> <span class="s2">&quot;PBE&quot;</span><span class="p">))</span>
+        <span class="n">xc_functional</span> <span class="o">=</span> <span class="n">Xc_Functional</span><span class="p">(</span><span class="n">functionals</span><span class="o">=</span><span class="n">xc_functionals</span><span class="p">)</span>
         <span class="n">xc</span> <span class="o">=</span> <span class="n">Section</span><span class="p">(</span><span class="s2">&quot;XC&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;XC_FUNCTIONAL&quot;</span><span class="p">:</span> <span class="n">xc_functional</span><span class="p">})</span>
         <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;DFT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">xc</span><span class="p">)</span>
         <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;DFT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;PRINT&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
@@ -425,9 +465,9 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">print_ldos</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;print_mo_cubes&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">print_mo_cubes</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;print_hartree_potential&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;print_hartree_potential&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">print_hartree_potential</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;print_e_density&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;print_e_density&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">print_e_density</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">override_default_params</span><span class="p">)</span>
@@ -474,7 +514,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
-<div class="viewcode-block" id="DftSet.print_hartree_potential"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.print_hartree_potential">[docs]</a>    <span class="k">def</span> <span class="nf">print_hartree_potential</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]):</span>
+<div class="viewcode-block" id="DftSet.print_hartree_potential"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.print_hartree_potential">[docs]</a>    <span class="k">def</span> <span class="nf">print_hartree_potential</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Controls the printing of a cube file with eletrostatic potential generated by the total density</span>
 <span class="sd">        (electrons+ions). It is valid only for QS with GPW formalism.</span>
@@ -483,18 +523,18 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="s2">&quot;FORCE_EVAL/DFT/PRINT/V_HARTREE_CUBE&quot;</span><span class="p">):</span>
             <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;DFT&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">V_Hartree_Cube</span><span class="p">(</span><span class="n">keywords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;STRIDE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;STRIDE&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">stride</span><span class="p">)}))</span></div>
 
-<div class="viewcode-block" id="DftSet.print_e_density"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.print_e_density">[docs]</a>    <span class="k">def</span> <span class="nf">print_e_density</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="DftSet.print_e_density"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.print_e_density">[docs]</a>    <span class="k">def</span> <span class="nf">print_e_density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Controls the printing of cube files with the electronic density and, for LSD calculations, the spin density</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="s2">&quot;FORCE_EVAL/DFT/PRINT/E_DENSITY_CUBE&quot;</span><span class="p">):</span>
-            <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;DFT&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">E_Density_Cube</span><span class="p">())</span></div>
+            <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;DFT&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">E_Density_Cube</span><span class="p">(</span><span class="n">keywords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;STRIDE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;STRIDE&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">stride</span><span class="p">)}))</span></div>
 
-<div class="viewcode-block" id="DftSet.set_charge"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.set_charge">[docs]</a>    <span class="k">def</span> <span class="nf">set_charge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">charge</span><span class="p">):</span>
+<div class="viewcode-block" id="DftSet.set_charge"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.set_charge">[docs]</a>    <span class="k">def</span> <span class="nf">set_charge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">charge</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set the overall charge of the simulation cell</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;DFT&quot;</span><span class="p">][</span><span class="s2">&quot;CHARGE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;CHARGE&quot;</span><span class="p">,</span> <span class="n">charge</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;DFT&quot;</span><span class="p">][</span><span class="s2">&quot;CHARGE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;CHARGE&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">charge</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="DftSet.activate_hybrid"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.activate_hybrid">[docs]</a>    <span class="k">def</span> <span class="nf">activate_hybrid</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -505,14 +545,18 @@
         <span class="n">max_memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span>
         <span class="n">cutoff_radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">8.0</span><span class="p">,</span>
         <span class="n">potential_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">omega</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
-        <span class="n">aux_basis</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">scale_coulomb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">scale_gaussian</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">scale_longrange</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">omega</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.11</span><span class="p">,</span>
+        <span class="n">aux_basis</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">admm</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">eps_schwarz</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+        <span class="n">eps_schwarz</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-7</span><span class="p">,</span>
         <span class="n">eps_schwarz_forces</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
         <span class="n">screen_on_initial_p</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">screen_p_forces</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
+
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Basic set for activating hybrid DFT calculation using Auxiliary Density Matrix Method.</span>
 
@@ -557,9 +601,8 @@
 <span class="sd">                possible when compared to non ADMM hybrid calculations. Default: True</span>
 <span class="sd">            eps_schwarz (float): Screening threshold for HFX, in Ha. Contributions smaller than this</span>
 <span class="sd">                will be screened. The smaller the value, the more accurate, but also the more</span>
-<span class="sd">                costly. Default value is 1e-6, which is quite aggressive. Aggressive screening</span>
-<span class="sd">                can also lead to convergence issues. 1e-7 should be a safe value if 1e-6 is too</span>
-<span class="sd">                aggressive.</span>
+<span class="sd">                costly. Default value is 1e-7. 1e-6 works in a large number of cases, but is</span>
+<span class="sd">                quite aggressive, which can lead to convergence issues.</span>
 <span class="sd">            eps_schwarz_forces (float): Same as for eps_schwarz, but for screening contributions to</span>
 <span class="sd">                forces. Convergence is not as sensitive with respect to eps_schwarz forces as</span>
 <span class="sd">                compared to eps_schwarz, and so 1e-6 should be good default.</span>
@@ -580,6 +623,12 @@
 
             <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;SUBSYS&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">subsections</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;KIND&quot;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">keywords</span><span class="p">[</span><span class="s2">&quot;BASIS_SET&quot;</span><span class="p">],</span> <span class="n">KeywordList</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+                        <span class="s2">&quot;AUX_FIT&quot;</span> <span class="ow">in</span> <span class="n">k</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">keywords</span><span class="p">[</span><span class="s2">&quot;BASIS_SET&quot;</span><span class="p">]</span>
+                    <span class="p">):</span>
+                        <span class="k">continue</span>
+                    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">k</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;AUX_FIT&quot;</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">keywords</span><span class="p">[</span><span class="s2">&quot;BASIS_SET&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">):</span>
+                        <span class="k">continue</span>
                     <span class="n">kind</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="s2">&quot;ELEMENT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
                     <span class="n">v</span><span class="o">.</span><span class="n">keywords</span><span class="p">[</span><span class="s2">&quot;BASIS_SET&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;BASIS_SET&quot;</span><span class="p">,</span> <span class="s2">&quot;AUX_FIT&quot;</span><span class="p">,</span> <span class="n">basis</span><span class="p">[</span><span class="n">kind</span><span class="p">])</span>
 
@@ -597,9 +646,6 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">subsections</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;DFT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">aux_matrix</span><span class="p">)</span>
 
         <span class="c1"># Define the GGA functional as PBE</span>
-        <span class="n">pbe</span> <span class="o">=</span> <span class="n">PBE</span><span class="p">(</span><span class="s2">&quot;ORIG&quot;</span><span class="p">,</span> <span class="n">scale_c</span><span class="o">=</span><span class="n">gga_c_fraction</span><span class="p">,</span> <span class="n">scale_x</span><span class="o">=</span><span class="n">gga_x_fraction</span><span class="p">)</span>
-        <span class="n">xc_functional</span> <span class="o">=</span> <span class="n">XC_FUNCTIONAL</span><span class="p">(</span><span class="s2">&quot;PBE&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;PBE&quot;</span><span class="p">:</span> <span class="n">pbe</span><span class="p">})</span>
-
         <span class="n">screening</span> <span class="o">=</span> <span class="n">Section</span><span class="p">(</span>
             <span class="s2">&quot;SCREENING&quot;</span><span class="p">,</span>
             <span class="n">subsections</span><span class="o">=</span><span class="p">{},</span>
@@ -611,8 +657,20 @@
             <span class="p">},</span>
         <span class="p">)</span>
 
+        <span class="c1"># Check for unphysical cutoff radius</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">,</span> <span class="n">Structure</span><span class="p">):</span>
+            <span class="n">max_cutoff_radius</span> <span class="o">=</span> <span class="n">get_truncated_coulomb_cutoff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">max_cutoff_radius</span> <span class="o">&lt;</span> <span class="n">cutoff_radius</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;Provided cutoff radius exceeds half the minimum&quot;</span>
+                    <span class="s2">&quot; distance between atoms. I hope you know what you&#39;re doing.&quot;</span>
+                <span class="p">)</span>
+
         <span class="n">ip_keywords</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">if</span> <span class="n">hybrid_functional</span> <span class="o">==</span> <span class="s2">&quot;HSE06&quot;</span><span class="p">:</span>
+            <span class="n">pbe</span> <span class="o">=</span> <span class="n">PBE</span><span class="p">(</span><span class="s2">&quot;ORIG&quot;</span><span class="p">,</span> <span class="n">scale_c</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">scale_x</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">xc_functional</span> <span class="o">=</span> <span class="n">Xc_Functional</span><span class="p">(</span><span class="n">functionals</span><span class="o">=</span><span class="p">[],</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;PBE&quot;</span><span class="p">:</span> <span class="n">pbe</span><span class="p">})</span>
+
             <span class="n">potential_type</span> <span class="o">=</span> <span class="n">potential_type</span> <span class="k">if</span> <span class="n">potential_type</span> <span class="k">else</span> <span class="s2">&quot;SHORTRANGE&quot;</span>
             <span class="n">xc_functional</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
                 <span class="n">Section</span><span class="p">(</span>
@@ -620,19 +678,36 @@
                     <span class="n">subsections</span><span class="o">=</span><span class="p">{},</span>
                     <span class="n">keywords</span><span class="o">=</span><span class="p">{</span>
                         <span class="s2">&quot;SCALE_X0&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_X0&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                        <span class="s2">&quot;SCALE_X&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_X&quot;</span><span class="p">,</span> <span class="o">-</span><span class="n">hf_fraction</span><span class="p">),</span>
-                        <span class="s2">&quot;OMEGA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;OMEGA&quot;</span><span class="p">,</span> <span class="n">omega</span><span class="p">),</span>
+                        <span class="s2">&quot;SCALE_X&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_X&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.25</span><span class="p">),</span>
+                        <span class="s2">&quot;OMEGA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;OMEGA&quot;</span><span class="p">,</span> <span class="mf">0.11</span><span class="p">),</span>
                     <span class="p">},</span>
                 <span class="p">)</span>
             <span class="p">)</span>
             <span class="n">ip_keywords</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
                 <span class="p">{</span>
                     <span class="s2">&quot;POTENTIAL_TYPE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;POTENTIAL_TYPE&quot;</span><span class="p">,</span> <span class="n">potential_type</span><span class="p">),</span>
-                    <span class="s2">&quot;OMEGA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;OMEGA&quot;</span><span class="p">,</span> <span class="n">omega</span><span class="p">),</span>
+                    <span class="s2">&quot;OMEGA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;OMEGA&quot;</span><span class="p">,</span> <span class="mf">0.11</span><span class="p">),</span>
+                    <span class="s2">&quot;CUTOFF_RADIUS&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;CUTOFF_RADIUS&quot;</span><span class="p">,</span> <span class="n">cutoff_radius</span><span class="p">),</span>
                 <span class="p">}</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="n">hybrid_functional</span> <span class="o">==</span> <span class="s2">&quot;PBE0&quot;</span><span class="p">:</span>
-            <span class="n">potential_type</span> <span class="o">=</span> <span class="n">potential_type</span> <span class="k">if</span> <span class="n">potential_type</span> <span class="k">else</span> <span class="s2">&quot;TRUNCATED&quot;</span>
+            <span class="n">pbe</span> <span class="o">=</span> <span class="n">PBE</span><span class="p">(</span><span class="s2">&quot;ORIG&quot;</span><span class="p">,</span> <span class="n">scale_c</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">scale_x</span><span class="o">=</span><span class="mi">1</span> <span class="o">-</span> <span class="n">hf_fraction</span><span class="p">)</span>
+            <span class="n">xc_functional</span> <span class="o">=</span> <span class="n">Xc_Functional</span><span class="p">(</span><span class="n">functionals</span><span class="o">=</span><span class="p">[],</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;PBE&quot;</span><span class="p">:</span> <span class="n">pbe</span><span class="p">})</span>
+            <span class="n">xc_functional</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+                <span class="n">Section</span><span class="p">(</span>
+                    <span class="s2">&quot;PBE_HOLE_T_C_LR&quot;</span><span class="p">,</span>
+                    <span class="n">subsections</span><span class="o">=</span><span class="p">{},</span>
+                    <span class="n">keywords</span><span class="o">=</span><span class="p">{</span>
+                        <span class="s2">&quot;CUTOFF_RADIUS&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;CUTOFF_RADIUS&quot;</span><span class="p">,</span> <span class="n">cutoff_radius</span><span class="p">),</span>
+                        <span class="s2">&quot;SCALE_X&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_X&quot;</span><span class="p">,</span> <span class="n">hf_fraction</span><span class="p">),</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">):</span>
+                <span class="n">potential_type</span> <span class="o">=</span> <span class="s2">&quot;COULOMB&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">potential_type</span> <span class="o">=</span> <span class="s2">&quot;TRUNCATED&quot;</span>
             <span class="n">ip_keywords</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
                 <span class="p">{</span>
                     <span class="s2">&quot;POTENTIAL_TYPE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;POTENTIAL_TYPE&quot;</span><span class="p">,</span> <span class="n">potential_type</span><span class="p">),</span>
@@ -640,6 +715,69 @@
                     <span class="s2">&quot;T_C_G_DATA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;T_C_G_DATA&quot;</span><span class="p">,</span> <span class="s2">&quot;t_c_g.dat&quot;</span><span class="p">),</span>
                 <span class="p">}</span>
             <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">hybrid_functional</span> <span class="o">==</span> <span class="s2">&quot;RSH&quot;</span><span class="p">:</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Activates range separated functional using mixing of the truncated</span>
+<span class="sd">            coulomb operator and the long range operator using scale_longrange,</span>
+<span class="sd">            scale_coulomb, cutoff_radius, and omega.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">pbe</span> <span class="o">=</span> <span class="n">PBE</span><span class="p">(</span><span class="s2">&quot;ORIG&quot;</span><span class="p">,</span> <span class="n">scale_c</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">scale_x</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">xc_functional</span> <span class="o">=</span> <span class="n">Xc_Functional</span><span class="p">(</span><span class="n">functionals</span><span class="o">=</span><span class="p">[],</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;PBE&quot;</span><span class="p">:</span> <span class="n">pbe</span><span class="p">})</span>
+
+            <span class="n">potential_type</span> <span class="o">=</span> <span class="n">potential_type</span> <span class="k">if</span> <span class="n">potential_type</span> <span class="k">else</span> <span class="s2">&quot;MIX_CL_TRUNC&quot;</span>
+            <span class="n">hf_fraction</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">ip_keywords</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;POTENTIAL_TYPE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;POTENTIAL_TYPE&quot;</span><span class="p">,</span> <span class="n">potential_type</span><span class="p">),</span>
+                    <span class="s2">&quot;CUTOFF_RADIUS&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;CUTOFF_RADIUS&quot;</span><span class="p">,</span> <span class="n">cutoff_radius</span><span class="p">),</span>
+                    <span class="s2">&quot;T_C_G_DATA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;T_C_G_DATA&quot;</span><span class="p">,</span> <span class="s2">&quot;t_c_g.dat&quot;</span><span class="p">),</span>
+                    <span class="s2">&quot;OMEGA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;OMEGA&quot;</span><span class="p">,</span> <span class="n">omega</span><span class="p">),</span>
+                    <span class="s2">&quot;SCALE_COULOMB&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_COULOMB&quot;</span><span class="p">,</span> <span class="n">scale_coulomb</span><span class="p">),</span>
+                    <span class="s2">&quot;SCALE_LONGRANGE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_LONGRANGE&quot;</span><span class="p">,</span> <span class="n">scale_longrange</span> <span class="o">-</span> <span class="n">scale_coulomb</span><span class="p">),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+            <span class="n">xc_functional</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+                <span class="n">Section</span><span class="p">(</span>
+                    <span class="s2">&quot;XWPBE&quot;</span><span class="p">,</span>
+                    <span class="n">subsections</span><span class="o">=</span><span class="p">{},</span>
+                    <span class="n">keywords</span><span class="o">=</span><span class="p">{</span>
+                        <span class="s2">&quot;SCALE_X0&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_X0&quot;</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">scale_longrange</span><span class="p">),</span>
+                        <span class="s2">&quot;SCALE_X&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_X&quot;</span><span class="p">,</span> <span class="n">scale_longrange</span> <span class="o">-</span> <span class="n">scale_coulomb</span><span class="p">),</span>
+                        <span class="s2">&quot;OMEGA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;OMEGA&quot;</span><span class="p">,</span> <span class="n">omega</span><span class="p">),</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">xc_functional</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+                <span class="n">Section</span><span class="p">(</span>
+                    <span class="s2">&quot;PBE_HOLE_T_C_LR&quot;</span><span class="p">,</span>
+                    <span class="n">subsections</span><span class="o">=</span><span class="p">{},</span>
+                    <span class="n">keywords</span><span class="o">=</span><span class="p">{</span>
+                        <span class="s2">&quot;CUTOFF_RADIUS&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;CUTOFF_RADIUS&quot;</span><span class="p">,</span> <span class="n">cutoff_radius</span><span class="p">),</span>
+                        <span class="s2">&quot;SCALE_X&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_X&quot;</span><span class="p">,</span> <span class="n">scale_longrange</span><span class="p">),</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Uknown hybrid functional. Using PBE base functional&quot;</span>
+                <span class="s2">&quot; and overriding all settings manually. Proceed with&quot;</span>
+                <span class="s2">&quot; caution.&quot;</span>
+            <span class="p">)</span>
+            <span class="n">pbe</span> <span class="o">=</span> <span class="n">PBE</span><span class="p">(</span><span class="s2">&quot;ORIG&quot;</span><span class="p">,</span> <span class="n">scale_c</span><span class="o">=</span><span class="n">gga_c_fraction</span><span class="p">,</span> <span class="n">scale_x</span><span class="o">=</span><span class="n">gga_x_fraction</span><span class="p">)</span>
+            <span class="n">xc_functional</span> <span class="o">=</span> <span class="n">Xc_Functional</span><span class="p">(</span><span class="n">functionals</span><span class="o">=</span><span class="p">[],</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;PBE&quot;</span><span class="p">:</span> <span class="n">pbe</span><span class="p">})</span>
+
+            <span class="n">ip_keywords</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;POTENTIAL_TYPE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;POTENTIAL_TYPE&quot;</span><span class="p">,</span> <span class="n">potential_type</span><span class="p">),</span>
+                    <span class="s2">&quot;CUTOFF_RADIUS&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;CUTOFF_RADIUS&quot;</span><span class="p">,</span> <span class="n">cutoff_radius</span><span class="p">),</span>
+                    <span class="s2">&quot;T_C_G_DATA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;T_C_G_DATA&quot;</span><span class="p">,</span> <span class="s2">&quot;t_c_g.dat&quot;</span><span class="p">),</span>
+                    <span class="s2">&quot;SCALE_COULOMB&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_COULOMB&quot;</span><span class="p">,</span> <span class="n">scale_coulomb</span><span class="p">),</span>
+                    <span class="s2">&quot;SCALE_GAUSSIAN&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_GAUSSIAN&quot;</span><span class="p">,</span> <span class="n">scale_gaussian</span><span class="p">),</span>
+                    <span class="s2">&quot;SCALE_LONGRANGE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;SCALE_LONGRANGE&quot;</span><span class="p">,</span> <span class="n">scale_longrange</span><span class="p">),</span>
+                    <span class="s2">&quot;OMEGA&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;OMEGA&quot;</span><span class="p">,</span> <span class="n">omega</span><span class="p">),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+
         <span class="n">interaction_potential</span> <span class="o">=</span> <span class="n">Section</span><span class="p">(</span><span class="s2">&quot;INTERACTION_POTENTIAL&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{},</span> <span class="n">keywords</span><span class="o">=</span><span class="n">ip_keywords</span><span class="p">)</span>
 
         <span class="c1"># Unlikely for users to override</span>
@@ -673,6 +811,54 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">subsections</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;DFT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">xc</span><span class="p">)</span></div>
 
+<div class="viewcode-block" id="DftSet.activate_motion"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.activate_motion">[docs]</a>    <span class="k">def</span> <span class="nf">activate_motion</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Turns on the motion section for GEO_OPT, CELL_OPT, etc. calculations.</span>
+<span class="sd">        Will turn on the printing subsections and also bind any constraints</span>
+<span class="sd">        to their respective atoms.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="s2">&quot;MOTION&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;MOTION&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
+
+        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;MOTION&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;PRINT&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
+        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;MOTION&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;TRAJECTORY&quot;</span><span class="p">,</span> <span class="n">section_parameters</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ON&quot;</span><span class="p">],</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
+        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;MOTION&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;CELL&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
+        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;MOTION&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;FORCES&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
+        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;MOTION&quot;</span><span class="p">][</span><span class="s2">&quot;PRINT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;STRESS&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
+
+        <span class="k">if</span> <span class="s2">&quot;fix&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">:</span>
+            <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;motion&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;CONSTRAINT&quot;</span><span class="p">))</span>
+
+            <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">components</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">tuples</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">):</span>
+                <span class="n">end</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">(</span>
+                    <span class="mi">1</span>
+                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">takewhile</span><span class="p">(</span>
+                        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;fix&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">],</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;fix&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">:],</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">components</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;fix&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">tuples</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">end</span>
+            <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;motion&quot;</span><span class="p">][</span><span class="s2">&quot;constraint&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+                <span class="n">SectionList</span><span class="p">(</span>
+                    <span class="n">sections</span><span class="o">=</span><span class="p">[</span>
+                        <span class="n">Section</span><span class="p">(</span>
+                            <span class="s2">&quot;FIXED_ATOMS&quot;</span><span class="p">,</span>
+                            <span class="n">keywords</span><span class="o">=</span><span class="p">{</span>
+                                <span class="s2">&quot;COMPONENTS_TO_FIX&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;COMPONENTS_TO_FIX&quot;</span><span class="p">,</span> <span class="n">c</span><span class="p">),</span>
+                                <span class="s2">&quot;LIST&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;LIST&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">..</span><span class="si">{</span><span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                            <span class="p">},</span>
+                        <span class="p">)</span>
+                        <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tuples</span><span class="p">,</span> <span class="n">components</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">c</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+            <span class="p">)</span></div>
+
 <div class="viewcode-block" id="DftSet.activate_fast_minimization"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.activate_fast_minimization">[docs]</a>    <span class="k">def</span> <span class="nf">activate_fast_minimization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">on</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Method to modify the set to use fast SCF minimization.</span>
@@ -682,7 +868,6 @@
                 <span class="n">minimizer</span><span class="o">=</span><span class="s2">&quot;DIIS&quot;</span><span class="p">,</span>
                 <span class="n">preconditioner</span><span class="o">=</span><span class="s2">&quot;FULL_ALL&quot;</span><span class="p">,</span>
                 <span class="n">algorithm</span><span class="o">=</span><span class="s2">&quot;IRAC&quot;</span><span class="p">,</span>
-                <span class="n">energy_gap</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
                 <span class="n">linesearch</span><span class="o">=</span><span class="s2">&quot;2PNT&quot;</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;DFT&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;SCF&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;OT&quot;</span><span class="p">:</span> <span class="n">ot</span><span class="p">}}}})</span></div>
@@ -695,7 +880,6 @@
             <span class="n">minimizer</span><span class="o">=</span><span class="s2">&quot;CG&quot;</span><span class="p">,</span>
             <span class="n">preconditioner</span><span class="o">=</span><span class="s2">&quot;FULL_ALL&quot;</span><span class="p">,</span>
             <span class="n">algorithm</span><span class="o">=</span><span class="s2">&quot;STRICT&quot;</span><span class="p">,</span>
-            <span class="n">energy_gap</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
             <span class="n">linesearch</span><span class="o">=</span><span class="s2">&quot;3PNT&quot;</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;DFT&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;SCF&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;OT&quot;</span><span class="p">:</span> <span class="n">ot</span><span class="p">}}}})</span></div>
@@ -709,27 +893,23 @@
             <span class="n">minimizer</span><span class="o">=</span><span class="s2">&quot;CG&quot;</span><span class="p">,</span>
             <span class="n">preconditioner</span><span class="o">=</span><span class="s2">&quot;FULL_ALL&quot;</span><span class="p">,</span>
             <span class="n">algorithm</span><span class="o">=</span><span class="s2">&quot;STRICT&quot;</span><span class="p">,</span>
-            <span class="n">energy_gap</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
             <span class="n">linesearch</span><span class="o">=</span><span class="s2">&quot;GOLD&quot;</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;DFT&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;SCF&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;OT&quot;</span><span class="p">:</span> <span class="n">ot</span><span class="p">}}}})</span></div>
 
-<div class="viewcode-block" id="DftSet.activate_nonperiodic"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.activate_nonperiodic">[docs]</a>    <span class="k">def</span> <span class="nf">activate_nonperiodic</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="DftSet.activate_nonperiodic"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.activate_nonperiodic">[docs]</a>    <span class="k">def</span> <span class="nf">activate_nonperiodic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;MT&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Activates a calculation with non-periodic calculations by turning of PBC and</span>
 <span class="sd">        changing the poisson solver. Still requires a CELL to put the atoms</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">kwds</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;POISSON_SOLVER&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;POISSON_SOLVER&quot;</span><span class="p">,</span> <span class="s2">&quot;MT&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;PERIODIC&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;PERIODIC&quot;</span><span class="p">,</span> <span class="s2">&quot;NONE&quot;</span><span class="p">),</span>
-        <span class="p">}</span>
-        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;DFT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;POISSON&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{},</span> <span class="n">keywords</span><span class="o">=</span><span class="n">kwds</span><span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="s2">&quot;FORCE_EVAL/SUBSYS/CELL&quot;</span><span class="p">):</span>
             <span class="n">x</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">sites</span><span class="p">)</span>
             <span class="n">y</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">sites</span><span class="p">)</span>
             <span class="n">z</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">sites</span><span class="p">)</span>
             <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;SUBSYS&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Cell</span><span class="p">(</span><span class="n">lattice</span><span class="o">=</span><span class="n">Lattice</span><span class="p">([[</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">z</span><span class="p">]])))</span>
-        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;SUBSYS&quot;</span><span class="p">][</span><span class="s2">&quot;CELL&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;PERIODIC&quot;</span><span class="p">,</span> <span class="s2">&quot;NONE&quot;</span><span class="p">))</span></div>
+        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;SUBSYS&quot;</span><span class="p">][</span><span class="s2">&quot;CELL&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;PERIODIC&quot;</span><span class="p">,</span> <span class="s2">&quot;NONE&quot;</span><span class="p">))</span>
+        <span class="n">kwds</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;POISSON_SOLVER&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;POISSON_SOLVER&quot;</span><span class="p">,</span> <span class="n">solver</span><span class="p">),</span> <span class="s2">&quot;PERIODIC&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;PERIODIC&quot;</span><span class="p">,</span> <span class="s2">&quot;NONE&quot;</span><span class="p">)}</span>
+        <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;FORCE_EVAL&quot;</span><span class="p">][</span><span class="s2">&quot;DFT&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;POISSON&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{},</span> <span class="n">keywords</span><span class="o">=</span><span class="n">kwds</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="DftSet.modify_dft_print_iters"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.DftSet.modify_dft_print_iters">[docs]</a>    <span class="k">def</span> <span class="nf">modify_dft_print_iters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iters</span><span class="p">,</span> <span class="n">add_last</span><span class="o">=</span><span class="s2">&quot;no&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -751,23 +931,10 @@
             <span class="n">run_type</span> <span class="o">=</span> <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;global&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_type&quot;</span><span class="p">,</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;run_type&quot;</span><span class="p">,</span> <span class="s2">&quot;energy&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;force_eval&quot;</span><span class="p">][</span><span class="s2">&quot;dft&quot;</span><span class="p">][</span><span class="s2">&quot;print&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">subsections</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
 
-                <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="ow">in</span> <span class="p">[</span>
-                    <span class="s2">&quot;ACTIVE_SPACE&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;BAND_STRUCTURE&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;GAPW&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;IMPLICIT_PSOLVER&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;SCCS&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;WFN_MIX&quot;</span><span class="p">,</span>
-                <span class="p">]:</span>
+                <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ACTIVE_SPACE&quot;</span><span class="p">,</span> <span class="s2">&quot;BAND_STRUCTURE&quot;</span><span class="p">,</span> <span class="s2">&quot;GAPW&quot;</span><span class="p">,</span> <span class="s2">&quot;IMPLICIT_PSOLVER&quot;</span><span class="p">,</span> <span class="s2">&quot;SCCS&quot;</span><span class="p">,</span> <span class="s2">&quot;WFN_MIX&quot;</span><span class="p">]:</span>
                     <span class="k">continue</span>
 
-                <span class="n">v</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
-                    <span class="n">Section</span><span class="p">(</span>
-                        <span class="s2">&quot;EACH&quot;</span><span class="p">,</span>
-                        <span class="n">subsections</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                        <span class="n">keywords</span><span class="o">=</span><span class="p">{</span><span class="n">run_type</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="n">run_type</span><span class="p">,</span> <span class="n">iters</span><span class="p">)},</span>
-                    <span class="p">)</span>
-                <span class="p">)</span>
+                <span class="n">v</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;EACH&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keywords</span><span class="o">=</span><span class="p">{</span><span class="n">run_type</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="n">run_type</span><span class="p">,</span> <span class="n">iters</span><span class="p">)}))</span>
                 <span class="n">v</span><span class="o">.</span><span class="n">keywords</span><span class="p">[</span><span class="s2">&quot;ADD_LAST&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;ADD_LAST&quot;</span><span class="p">,</span> <span class="n">add_last</span><span class="p">)</span></div></div>
 
 
@@ -780,10 +947,10 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">structure</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">],</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
         <span class="n">project_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Static&quot;</span><span class="p">,</span>
         <span class="n">run_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;ENERGY_FORCE&quot;</span><span class="p">,</span>
-        <span class="n">override_default_params</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{},</span>
+        <span class="n">override_default_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -812,25 +979,36 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">structure</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">],</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
         <span class="n">max_drift</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3e-3</span><span class="p">,</span>
-        <span class="n">max_force</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">4.5e-3</span><span class="p">,</span>
+        <span class="n">rms_drift</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5e-3</span><span class="p">,</span>
+        <span class="n">max_force</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">4.5e-4</span><span class="p">,</span>
+        <span class="n">rms_force</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3e-4</span><span class="p">,</span>
         <span class="n">max_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
         <span class="n">project_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Relax&quot;</span><span class="p">,</span>
         <span class="n">optimizer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;BFGS&quot;</span><span class="p">,</span>
-        <span class="n">override_default_params</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{},</span>
+        <span class="n">override_default_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
+
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
-<span class="sd">            structure:</span>
+<span class="sd">            structure: Pymatgen structure object</span>
 <span class="sd">            max_drift: Convergence criterion for the maximum geometry change between the current and the</span>
 <span class="sd">                last optimizer iteration. This keyword cannot be repeated and it expects precisely one real.</span>
-<span class="sd">                Default value: 3.00000000E-003</span>
+<span class="sd">                Default value: 1.5.00000000E-003</span>
+<span class="sd">                Default unit: [bohr]</span>
+<span class="sd">            rms_drift: Convergence criterion for the RMS geometry change between the current and the</span>
+<span class="sd">                last optimizer iteration. This keyword cannot be repeated and it expects precisely one real.</span>
+<span class="sd">                Default value: 1.00000000E-003</span>
 <span class="sd">                Default unit: [bohr]</span>
 <span class="sd">            max_force (float): Convergence criterion for the maximum force component of the current configuration.</span>
 <span class="sd">                This keyword cannot be repeated and it expects precisely one real.</span>
-<span class="sd">                Default value: 4.50000000E-004</span>
+<span class="sd">                Default value: 1e-3</span>
+<span class="sd">                Default unit: [bohr^-1*hartree]</span>
+<span class="sd">            rms_force (float): Convergence criterion for the RMS force component of the current configuration.</span>
+<span class="sd">                This keyword cannot be repeated and it expects precisely one real.</span>
+<span class="sd">                Default value: 1e-3</span>
 <span class="sd">                Default unit: [bohr^-1*hartree]</span>
 <span class="sd">            max_iter (int): Specifies the maximum number of geometry optimization steps.</span>
 <span class="sd">                One step might imply several force evaluations for the CG and LBFGS optimizers.</span>
@@ -840,7 +1018,7 @@
 <span class="sd">                This keyword cannot be repeated and it expects precisely one keyword. BFGS is a</span>
 <span class="sd">                quasi-newtonian method, and will best for &quot;small&quot; systems near the minimum. LBFGS</span>
 <span class="sd">                is a limited memory version that can be used for &quot;large&quot; (&gt;1000 atom) systems when</span>
-<span class="sd">                efficiency outweights robustness. CG is more robust, especially when you are far from</span>
+<span class="sd">                efficiency outweighs robustness. CG is more robust, especially when you are far from</span>
 <span class="sd">                the minimum, but it slower.</span>
 <span class="sd">                Default value: BFGS</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -848,7 +1026,9 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="n">structure</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_drift</span> <span class="o">=</span> <span class="n">max_drift</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rms_drift</span> <span class="o">=</span> <span class="n">rms_drift</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_force</span> <span class="o">=</span> <span class="n">max_force</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rms_force</span> <span class="o">=</span> <span class="n">rms_force</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span> <span class="o">=</span> <span class="n">max_iter</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span> <span class="o">=</span> <span class="n">project_name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">optimizer</span>
@@ -861,19 +1041,26 @@
             <span class="s2">&quot;TYPE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;TYPE&quot;</span><span class="p">,</span> <span class="s2">&quot;MINIMIZATION&quot;</span><span class="p">),</span>
             <span class="s2">&quot;MAX_DR&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;MAX_DR&quot;</span><span class="p">,</span> <span class="n">max_drift</span><span class="p">),</span>
             <span class="s2">&quot;MAX_FORCE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;MAX_FORCE&quot;</span><span class="p">,</span> <span class="n">max_force</span><span class="p">),</span>
-            <span class="s2">&quot;RMS_DR&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;RMS_DR&quot;</span><span class="p">,</span> <span class="mf">1.5e-3</span><span class="p">),</span>
+            <span class="s2">&quot;RMS_DR&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;RMS_DR&quot;</span><span class="p">,</span> <span class="n">rms_drift</span><span class="p">),</span>
+            <span class="s2">&quot;RMS_FORCE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;RMS_FORCE&quot;</span><span class="p">,</span> <span class="n">rms_force</span><span class="p">),</span>
             <span class="s2">&quot;MAX_ITER&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;MAX_ITER&quot;</span><span class="p">,</span> <span class="n">max_iter</span><span class="p">),</span>
             <span class="s2">&quot;OPTIMIZER&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;OPTIMIZER&quot;</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">),</span>
         <span class="p">}</span>
         <span class="n">geo_opt</span> <span class="o">=</span> <span class="n">Section</span><span class="p">(</span><span class="s2">&quot;GEO_OPT&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{},</span> <span class="n">keywords</span><span class="o">=</span><span class="n">geo_opt_params</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="s2">&quot;MOTION&quot;</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">&quot;MOTION&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{}))</span>
+
+        <span class="k">if</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;CG&quot;</span><span class="p">:</span>
+            <span class="n">ls</span> <span class="o">=</span> <span class="n">Section</span><span class="p">(</span><span class="s2">&quot;LINE_SEARCH&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{},</span> <span class="n">keywords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;TYPE&quot;</span><span class="p">:</span> <span class="n">Keyword</span><span class="p">(</span><span class="s2">&quot;TYPE&quot;</span><span class="p">,</span> <span class="s2">&quot;2PNT&quot;</span><span class="p">)})</span>
+            <span class="n">cg</span> <span class="o">=</span> <span class="n">Section</span><span class="p">(</span><span class="s2">&quot;CG&quot;</span><span class="p">,</span> <span class="n">subsections</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;LINE_SEARCH&quot;</span><span class="p">:</span> <span class="n">ls</span><span class="p">},</span> <span class="n">keywords</span><span class="o">=</span><span class="p">{})</span>
+            <span class="n">geo_opt</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">cg</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">activate_motion</span><span class="p">()</span>
         <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;MOTION&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">geo_opt</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">global_section</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">modify_dft_print_iters</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">add_last</span><span class="o">=</span><span class="s2">&quot;numeric&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">modify_dft_print_iters</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">add_last</span><span class="o">=</span><span class="s2">&quot;numeric&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">override_default_params</span><span class="p">)</span></div>
 
 
+<span class="c1"># TODO Add cell opt convergence criteria</span>
 <div class="viewcode-block" id="CellOptSet"><a class="viewcode-back" href="../../../../pymatgen.io.cp2k.sets.html#pymatgen.io.cp2k.sets.CellOptSet">[docs]</a><span class="k">class</span> <span class="nc">CellOptSet</span><span class="p">(</span><span class="n">DftSet</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;</span>
@@ -883,11 +1070,12 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">structure</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">],</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
         <span class="n">project_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;CellOpt&quot;</span><span class="p">,</span>
-        <span class="n">override_default_params</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{},</span>
+        <span class="n">override_default_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
+
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            structure: Pymatgen structure object</span>
@@ -907,7 +1095,7 @@
 <span class="sd">                This keyword cannot be repeated and it expects precisely one keyword. BFGS is a</span>
 <span class="sd">                quasi-newtonian method, and will best for &quot;small&quot; systems near the minimum. LBFGS</span>
 <span class="sd">                is a limited memory version that can be used for &quot;large&quot; (&gt;1000 atom) systems when</span>
-<span class="sd">                efficiency outweights robustness. CG is more robust, especially when you are far from</span>
+<span class="sd">                efficiency outweighs robustness. CG is more robust, especially when you are far from</span>
 <span class="sd">                the minimum, but it slower.</span>
 <span class="sd">                Default value: BFGS</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -919,7 +1107,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
         <span class="n">global_section</span> <span class="o">=</span> <span class="n">Global</span><span class="p">(</span><span class="n">project_name</span><span class="o">=</span><span class="n">project_name</span><span class="p">,</span> <span class="n">run_type</span><span class="o">=</span><span class="s2">&quot;CELL_OPT&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">global_section</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">modify_dft_print_iters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_iter&quot;</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">add_last</span><span class="o">=</span><span class="s2">&quot;numeric&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">activate_motion</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">modify_dft_print_iters</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">add_last</span><span class="o">=</span><span class="s2">&quot;numeric&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">override_default_params</span><span class="p">)</span></div>
 
 
@@ -931,17 +1120,21 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">structure</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">],</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
         <span class="n">hybrid_functional</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;PBE0&quot;</span><span class="p">,</span>
         <span class="n">hf_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
         <span class="n">project_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Hybrid-Static&quot;</span><span class="p">,</span>
         <span class="n">gga_x_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.75</span><span class="p">,</span>
         <span class="n">gga_c_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="n">override_default_params</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{},</span>
+        <span class="n">potential_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">scale_coulomb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">scale_gaussian</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">scale_longrange</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">override_default_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
         <span class="n">max_memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span>
         <span class="n">cutoff_radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">8.0</span><span class="p">,</span>
         <span class="n">omega</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
-        <span class="n">aux_basis</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">aux_basis</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">admm</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">eps_schwarz</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
         <span class="n">eps_schwarz_forces</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
@@ -965,8 +1158,12 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">hybrid_functional</span> <span class="o">=</span> <span class="n">hybrid_functional</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">hf_fraction</span> <span class="o">=</span> <span class="n">hf_fraction</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span> <span class="o">=</span> <span class="n">project_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">potential_type</span> <span class="o">=</span> <span class="n">potential_type</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gga_x_fraction</span> <span class="o">=</span> <span class="n">gga_x_fraction</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gga_c_fraction</span> <span class="o">=</span> <span class="n">gga_c_fraction</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale_coulomb</span> <span class="o">=</span> <span class="n">scale_coulomb</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale_gaussian</span> <span class="o">=</span> <span class="n">scale_gaussian</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale_longrange</span> <span class="o">=</span> <span class="n">scale_longrange</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">override_default_params</span> <span class="o">=</span> <span class="n">override_default_params</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_memory</span> <span class="o">=</span> <span class="n">max_memory</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cutoff_radius</span> <span class="o">=</span> <span class="n">cutoff_radius</span>
@@ -980,19 +1177,23 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">activate_hybrid</span><span class="p">(</span>
-            <span class="n">hybrid_functional</span><span class="o">=</span><span class="n">hybrid_functional</span><span class="p">,</span>
-            <span class="n">hf_fraction</span><span class="o">=</span><span class="n">hf_fraction</span><span class="p">,</span>
-            <span class="n">gga_x_fraction</span><span class="o">=</span><span class="n">gga_x_fraction</span><span class="p">,</span>
-            <span class="n">gga_c_fraction</span><span class="o">=</span><span class="n">gga_c_fraction</span><span class="p">,</span>
-            <span class="n">max_memory</span><span class="o">=</span><span class="n">max_memory</span><span class="p">,</span>
+            <span class="n">hybrid_functional</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hybrid_functional</span><span class="p">,</span>
+            <span class="n">hf_fraction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_fraction</span><span class="p">,</span>
+            <span class="n">potential_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">potential_type</span><span class="p">,</span>
+            <span class="n">gga_x_fraction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gga_x_fraction</span><span class="p">,</span>
+            <span class="n">gga_c_fraction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gga_c_fraction</span><span class="p">,</span>
+            <span class="n">scale_coulomb</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_coulomb</span><span class="p">,</span>
+            <span class="n">scale_gaussian</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_gaussian</span><span class="p">,</span>
+            <span class="n">scale_longrange</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_longrange</span><span class="p">,</span>
+            <span class="n">max_memory</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_memory</span><span class="p">,</span>
             <span class="n">cutoff_radius</span><span class="o">=</span><span class="n">cutoff_radius</span><span class="p">,</span>
-            <span class="n">omega</span><span class="o">=</span><span class="n">omega</span><span class="p">,</span>
-            <span class="n">aux_basis</span><span class="o">=</span><span class="n">aux_basis</span><span class="p">,</span>
-            <span class="n">admm</span><span class="o">=</span><span class="n">admm</span><span class="p">,</span>
-            <span class="n">eps_schwarz</span><span class="o">=</span><span class="n">eps_schwarz</span><span class="p">,</span>
-            <span class="n">eps_schwarz_forces</span><span class="o">=</span><span class="n">eps_schwarz_forces</span><span class="p">,</span>
-            <span class="n">screen_on_initial_p</span><span class="o">=</span><span class="n">screen_on_initial_p</span><span class="p">,</span>
-            <span class="n">screen_p_forces</span><span class="o">=</span><span class="n">screen_p_forces</span><span class="p">,</span>
+            <span class="n">omega</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="p">,</span>
+            <span class="n">aux_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">aux_basis</span><span class="p">,</span>
+            <span class="n">admm</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">admm</span><span class="p">,</span>
+            <span class="n">eps_schwarz</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eps_schwarz</span><span class="p">,</span>
+            <span class="n">eps_schwarz_forces</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eps_schwarz_forces</span><span class="p">,</span>
+            <span class="n">screen_on_initial_p</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_on_initial_p</span><span class="p">,</span>
+            <span class="n">screen_p_forces</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_p_forces</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">override_default_params</span><span class="p">)</span></div>
 
@@ -1005,17 +1206,21 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">structure</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">],</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
         <span class="n">hybrid_functional</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;PBE0&quot;</span><span class="p">,</span>
         <span class="n">hf_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
-        <span class="n">project_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Hybrid-Relax&quot;</span><span class="p">,</span>
+        <span class="n">project_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Hybrid-Static&quot;</span><span class="p">,</span>
+        <span class="n">potential_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">gga_x_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.75</span><span class="p">,</span>
         <span class="n">gga_c_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="n">override_default_params</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{},</span>
+        <span class="n">scale_coulomb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">scale_gaussian</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">scale_longrange</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">override_default_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
         <span class="n">max_memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span>
         <span class="n">cutoff_radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">8.0</span><span class="p">,</span>
         <span class="n">omega</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
-        <span class="n">aux_basis</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">aux_basis</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">admm</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">eps_schwarz</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
         <span class="n">eps_schwarz_forces</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
@@ -1039,8 +1244,12 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">hybrid_functional</span> <span class="o">=</span> <span class="n">hybrid_functional</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">hf_fraction</span> <span class="o">=</span> <span class="n">hf_fraction</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span> <span class="o">=</span> <span class="n">project_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">potential_type</span> <span class="o">=</span> <span class="n">potential_type</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gga_x_fraction</span> <span class="o">=</span> <span class="n">gga_x_fraction</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gga_c_fraction</span> <span class="o">=</span> <span class="n">gga_c_fraction</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale_coulomb</span> <span class="o">=</span> <span class="n">scale_coulomb</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale_gaussian</span> <span class="o">=</span> <span class="n">scale_gaussian</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale_longrange</span> <span class="o">=</span> <span class="n">scale_longrange</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">override_default_params</span> <span class="o">=</span> <span class="n">override_default_params</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_memory</span> <span class="o">=</span> <span class="n">max_memory</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cutoff_radius</span> <span class="o">=</span> <span class="n">cutoff_radius</span>
@@ -1054,19 +1263,23 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">activate_hybrid</span><span class="p">(</span>
-            <span class="n">hybrid_functional</span><span class="o">=</span><span class="n">hybrid_functional</span><span class="p">,</span>
-            <span class="n">hf_fraction</span><span class="o">=</span><span class="n">hf_fraction</span><span class="p">,</span>
-            <span class="n">gga_x_fraction</span><span class="o">=</span><span class="n">gga_x_fraction</span><span class="p">,</span>
-            <span class="n">gga_c_fraction</span><span class="o">=</span><span class="n">gga_c_fraction</span><span class="p">,</span>
-            <span class="n">max_memory</span><span class="o">=</span><span class="n">max_memory</span><span class="p">,</span>
+            <span class="n">hybrid_functional</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hybrid_functional</span><span class="p">,</span>
+            <span class="n">hf_fraction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_fraction</span><span class="p">,</span>
+            <span class="n">potential_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">potential_type</span><span class="p">,</span>
+            <span class="n">gga_x_fraction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gga_x_fraction</span><span class="p">,</span>
+            <span class="n">gga_c_fraction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gga_c_fraction</span><span class="p">,</span>
+            <span class="n">scale_coulomb</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_coulomb</span><span class="p">,</span>
+            <span class="n">scale_gaussian</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_gaussian</span><span class="p">,</span>
+            <span class="n">scale_longrange</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_longrange</span><span class="p">,</span>
+            <span class="n">max_memory</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_memory</span><span class="p">,</span>
             <span class="n">cutoff_radius</span><span class="o">=</span><span class="n">cutoff_radius</span><span class="p">,</span>
-            <span class="n">omega</span><span class="o">=</span><span class="n">omega</span><span class="p">,</span>
-            <span class="n">aux_basis</span><span class="o">=</span><span class="n">aux_basis</span><span class="p">,</span>
-            <span class="n">admm</span><span class="o">=</span><span class="n">admm</span><span class="p">,</span>
-            <span class="n">eps_schwarz</span><span class="o">=</span><span class="n">eps_schwarz</span><span class="p">,</span>
-            <span class="n">eps_schwarz_forces</span><span class="o">=</span><span class="n">eps_schwarz_forces</span><span class="p">,</span>
-            <span class="n">screen_on_initial_p</span><span class="o">=</span><span class="n">screen_on_initial_p</span><span class="p">,</span>
-            <span class="n">screen_p_forces</span><span class="o">=</span><span class="n">screen_p_forces</span><span class="p">,</span>
+            <span class="n">omega</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="p">,</span>
+            <span class="n">aux_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">aux_basis</span><span class="p">,</span>
+            <span class="n">admm</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">admm</span><span class="p">,</span>
+            <span class="n">eps_schwarz</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eps_schwarz</span><span class="p">,</span>
+            <span class="n">eps_schwarz_forces</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eps_schwarz_forces</span><span class="p">,</span>
+            <span class="n">screen_on_initial_p</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_on_initial_p</span><span class="p">,</span>
+            <span class="n">screen_p_forces</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_p_forces</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">override_default_params</span><span class="p">)</span></div>
 
@@ -1079,17 +1292,21 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">structure</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">],</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
         <span class="n">hybrid_functional</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;PBE0&quot;</span><span class="p">,</span>
         <span class="n">hf_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
-        <span class="n">project_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Hybrid-CellOpt&quot;</span><span class="p">,</span>
+        <span class="n">project_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Hybrid-Static&quot;</span><span class="p">,</span>
+        <span class="n">potential_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">gga_x_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.75</span><span class="p">,</span>
         <span class="n">gga_c_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="n">override_default_params</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{},</span>
+        <span class="n">scale_coulomb</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">scale_gaussian</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">scale_longrange</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">override_default_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
         <span class="n">max_memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span>
         <span class="n">cutoff_radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">8.0</span><span class="p">,</span>
         <span class="n">omega</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
-        <span class="n">aux_basis</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">aux_basis</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">admm</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">eps_schwarz</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
         <span class="n">eps_schwarz_forces</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
@@ -1113,8 +1330,12 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">hybrid_functional</span> <span class="o">=</span> <span class="n">hybrid_functional</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">hf_fraction</span> <span class="o">=</span> <span class="n">hf_fraction</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span> <span class="o">=</span> <span class="n">project_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">potential_type</span> <span class="o">=</span> <span class="n">potential_type</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gga_x_fraction</span> <span class="o">=</span> <span class="n">gga_x_fraction</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gga_c_fraction</span> <span class="o">=</span> <span class="n">gga_c_fraction</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale_coulomb</span> <span class="o">=</span> <span class="n">scale_coulomb</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale_gaussian</span> <span class="o">=</span> <span class="n">scale_gaussian</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale_longrange</span> <span class="o">=</span> <span class="n">scale_longrange</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">override_default_params</span> <span class="o">=</span> <span class="n">override_default_params</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_memory</span> <span class="o">=</span> <span class="n">max_memory</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cutoff_radius</span> <span class="o">=</span> <span class="n">cutoff_radius</span>
@@ -1128,19 +1349,23 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">activate_hybrid</span><span class="p">(</span>
-            <span class="n">hybrid_functional</span><span class="o">=</span><span class="n">hybrid_functional</span><span class="p">,</span>
-            <span class="n">hf_fraction</span><span class="o">=</span><span class="n">hf_fraction</span><span class="p">,</span>
-            <span class="n">gga_x_fraction</span><span class="o">=</span><span class="n">gga_x_fraction</span><span class="p">,</span>
-            <span class="n">gga_c_fraction</span><span class="o">=</span><span class="n">gga_c_fraction</span><span class="p">,</span>
-            <span class="n">max_memory</span><span class="o">=</span><span class="n">max_memory</span><span class="p">,</span>
+            <span class="n">hybrid_functional</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hybrid_functional</span><span class="p">,</span>
+            <span class="n">hf_fraction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_fraction</span><span class="p">,</span>
+            <span class="n">potential_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">potential_type</span><span class="p">,</span>
+            <span class="n">gga_x_fraction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gga_x_fraction</span><span class="p">,</span>
+            <span class="n">gga_c_fraction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gga_c_fraction</span><span class="p">,</span>
+            <span class="n">scale_coulomb</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_coulomb</span><span class="p">,</span>
+            <span class="n">scale_gaussian</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_gaussian</span><span class="p">,</span>
+            <span class="n">scale_longrange</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_longrange</span><span class="p">,</span>
+            <span class="n">max_memory</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_memory</span><span class="p">,</span>
             <span class="n">cutoff_radius</span><span class="o">=</span><span class="n">cutoff_radius</span><span class="p">,</span>
-            <span class="n">omega</span><span class="o">=</span><span class="n">omega</span><span class="p">,</span>
-            <span class="n">aux_basis</span><span class="o">=</span><span class="n">aux_basis</span><span class="p">,</span>
-            <span class="n">admm</span><span class="o">=</span><span class="n">admm</span><span class="p">,</span>
-            <span class="n">eps_schwarz</span><span class="o">=</span><span class="n">eps_schwarz</span><span class="p">,</span>
-            <span class="n">eps_schwarz_forces</span><span class="o">=</span><span class="n">eps_schwarz_forces</span><span class="p">,</span>
-            <span class="n">screen_on_initial_p</span><span class="o">=</span><span class="n">screen_on_initial_p</span><span class="p">,</span>
-            <span class="n">screen_p_forces</span><span class="o">=</span><span class="n">screen_p_forces</span><span class="p">,</span>
+            <span class="n">omega</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="p">,</span>
+            <span class="n">aux_basis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">aux_basis</span><span class="p">,</span>
+            <span class="n">admm</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">admm</span><span class="p">,</span>
+            <span class="n">eps_schwarz</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eps_schwarz</span><span class="p">,</span>
+            <span class="n">eps_schwarz_forces</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eps_schwarz_forces</span><span class="p">,</span>
+            <span class="n">screen_on_initial_p</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_on_initial_p</span><span class="p">,</span>
+            <span class="n">screen_p_forces</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">screen_p_forces</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">override_default_params</span><span class="p">)</span></div>
 </pre></div>
@@ -1159,7 +1384,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.cp2k.sets</a></li> 
       </ul>
@@ -1167,7 +1392,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

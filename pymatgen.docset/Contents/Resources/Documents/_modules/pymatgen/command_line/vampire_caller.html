@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.command_line.vampire_caller &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.command_line.vampire_caller &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.command_line.vampire_caller</a></li> 
       </ul>
@@ -62,11 +62,11 @@
 
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">from</span> <span class="nn">shutil</span> <span class="kn">import</span> <span class="n">which</span>
 
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">monty.dev</span> <span class="kn">import</span> <span class="n">requires</span>
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
-<span class="kn">from</span> <span class="nn">monty.os.path</span> <span class="kn">import</span> <span class="n">which</span>
 
 <span class="kn">from</span> <span class="nn">pymatgen.analysis.magnetism.heisenberg</span> <span class="kn">import</span> <span class="n">HeisenbergMapper</span>
 
@@ -246,7 +246,7 @@
             <span class="k">if</span> <span class="n">spin_up</span> <span class="ow">and</span> <span class="n">spin_down</span><span class="p">:</span>
                 <span class="n">nmats</span> <span class="o">+=</span> <span class="mi">1</span>
 
-        <span class="n">mat_file</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;material:num-materials=</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">nmats</span><span class="p">)]</span>
+        <span class="n">mat_file</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;material:num-materials=</span><span class="si">{</span><span class="n">nmats</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
 
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">unique_site_ids</span><span class="p">:</span>
             <span class="n">i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unique_site_ids</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>  <span class="c1"># unique site id</span>
@@ -264,12 +264,12 @@
 
                 <span class="n">atom</span> <span class="o">=</span> <span class="n">structure</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">species</span><span class="o">.</span><span class="n">reduced_formula</span>
 
-                <span class="n">mat_file</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;material[</span><span class="si">%d</span><span class="s2">]:material-element=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mat_id</span><span class="p">,</span> <span class="n">atom</span><span class="p">)]</span>
+                <span class="n">mat_file</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;material[</span><span class="si">{</span><span class="n">mat_id</span><span class="si">}</span><span class="s2">]:material-element=</span><span class="si">{</span><span class="n">atom</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
                 <span class="n">mat_file</span> <span class="o">+=</span> <span class="p">[</span>
-                    <span class="s2">&quot;material[</span><span class="si">%d</span><span class="s2">]:damping-constant=1.0&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mat_id</span><span class="p">),</span>
-                    <span class="s2">&quot;material[</span><span class="si">%d</span><span class="s2">]:uniaxial-anisotropy-constant=1.0e-24&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mat_id</span><span class="p">),</span>  <span class="c1"># xx - do we need this?</span>
-                    <span class="s2">&quot;material[</span><span class="si">%d</span><span class="s2">]:atomic-spin-moment=</span><span class="si">%.2f</span><span class="s2"> !muB&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mat_id</span><span class="p">,</span> <span class="n">m_magnitude</span><span class="p">),</span>
-                    <span class="s2">&quot;material[</span><span class="si">%d</span><span class="s2">]:initial-spin-direction=0,0,</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mat_id</span><span class="p">,</span> <span class="n">spin</span><span class="p">),</span>
+                    <span class="sa">f</span><span class="s2">&quot;material[</span><span class="si">{</span><span class="n">mat_id</span><span class="si">}</span><span class="s2">]:damping-constant=1.0&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;material[</span><span class="si">{</span><span class="n">mat_id</span><span class="si">}</span><span class="s2">]:uniaxial-anisotropy-constant=1.0e-24&quot;</span><span class="p">,</span>  <span class="c1"># xx - do we need this?</span>
+                    <span class="sa">f</span><span class="s2">&quot;material[</span><span class="si">{</span><span class="n">mat_id</span><span class="si">}</span><span class="s2">]:atomic-spin-moment=</span><span class="si">{</span><span class="n">m_magnitude</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> !muB&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;material[</span><span class="si">{</span><span class="n">mat_id</span><span class="si">}</span><span class="s2">]:initial-spin-direction=0,0,</span><span class="si">{</span><span class="n">spin</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
                 <span class="p">]</span>
 
         <span class="n">mat_file</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">mat_file</span><span class="p">)</span>
@@ -288,8 +288,8 @@
         <span class="n">mc_timesteps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mc_timesteps</span>
         <span class="n">mat_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mat_name</span>
 
-        <span class="n">input_script</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;material:unit-cell-file=</span><span class="si">%s</span><span class="s2">.ucf&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mat_name</span><span class="p">)]</span>
-        <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;material:file=</span><span class="si">%s</span><span class="s2">.mat&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mat_name</span><span class="p">)]</span>
+        <span class="n">input_script</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;material:unit-cell-file=</span><span class="si">{</span><span class="n">mat_name</span><span class="si">}</span><span class="s2">.ucf&quot;</span><span class="p">]</span>
+        <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;material:file=</span><span class="si">{</span><span class="n">mat_name</span><span class="si">}</span><span class="s2">.mat&quot;</span><span class="p">]</span>
 
         <span class="c1"># Specify periodic boundary conditions</span>
         <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span>
@@ -302,15 +302,15 @@
         <span class="n">abc</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">abc</span>
         <span class="n">ucx</span><span class="p">,</span> <span class="n">ucy</span><span class="p">,</span> <span class="n">ucz</span> <span class="o">=</span> <span class="n">abc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">abc</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">abc</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
 
-        <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;dimensions:unit-cell-size-x = </span><span class="si">%.10f</span><span class="s2"> !A&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ucx</span><span class="p">)]</span>
-        <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;dimensions:unit-cell-size-y = </span><span class="si">%.10f</span><span class="s2"> !A&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ucy</span><span class="p">)]</span>
-        <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;dimensions:unit-cell-size-z = </span><span class="si">%.10f</span><span class="s2"> !A&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ucz</span><span class="p">)]</span>
+        <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;dimensions:unit-cell-size-x = </span><span class="si">{</span><span class="n">ucx</span><span class="si">:</span><span class="s2">.10f</span><span class="si">}</span><span class="s2"> !A&quot;</span><span class="p">]</span>
+        <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;dimensions:unit-cell-size-y = </span><span class="si">{</span><span class="n">ucy</span><span class="si">:</span><span class="s2">.10f</span><span class="si">}</span><span class="s2"> !A&quot;</span><span class="p">]</span>
+        <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;dimensions:unit-cell-size-z = </span><span class="si">{</span><span class="n">ucz</span><span class="si">:</span><span class="s2">.10f</span><span class="si">}</span><span class="s2"> !A&quot;</span><span class="p">]</span>
 
         <span class="c1"># System size in nm</span>
         <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span>
-            <span class="s2">&quot;dimensions:system-size-x = </span><span class="si">%.1f</span><span class="s2"> !nm&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mcbs</span><span class="p">),</span>
-            <span class="s2">&quot;dimensions:system-size-y = </span><span class="si">%.1f</span><span class="s2"> !nm&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mcbs</span><span class="p">),</span>
-            <span class="s2">&quot;dimensions:system-size-z = </span><span class="si">%.1f</span><span class="s2"> !nm&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mcbs</span><span class="p">),</span>
+            <span class="sa">f</span><span class="s2">&quot;dimensions:system-size-x = </span><span class="si">{</span><span class="n">mcbs</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> !nm&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;dimensions:system-size-y = </span><span class="si">{</span><span class="n">mcbs</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> !nm&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;dimensions:system-size-z = </span><span class="si">{</span><span class="n">mcbs</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> !nm&quot;</span><span class="p">,</span>
         <span class="p">]</span>
 
         <span class="c1"># Critical temperature Monte Carlo calculation</span>
@@ -321,8 +321,8 @@
 
         <span class="c1"># Default Monte Carlo params</span>
         <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span>
-            <span class="s2">&quot;sim:equilibration-time-steps = </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">equil_timesteps</span><span class="p">),</span>
-            <span class="s2">&quot;sim:loop-time-steps = </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mc_timesteps</span><span class="p">),</span>
+            <span class="sa">f</span><span class="s2">&quot;sim:equilibration-time-steps = </span><span class="si">{</span><span class="n">equil_timesteps</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;sim:loop-time-steps = </span><span class="si">{</span><span class="n">mc_timesteps</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="s2">&quot;sim:time-steps-increment = 1&quot;</span><span class="p">,</span>
         <span class="p">]</span>
 
@@ -343,9 +343,9 @@
             <span class="n">temp_increment</span> <span class="o">=</span> <span class="mi">25</span>
 
         <span class="n">input_script</span> <span class="o">+=</span> <span class="p">[</span>
-            <span class="s2">&quot;sim:minimum-temperature = </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">start_t</span><span class="p">),</span>
-            <span class="s2">&quot;sim:maximum-temperature = </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">end_t</span><span class="p">),</span>
-            <span class="s2">&quot;sim:temperature-increment = </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">temp_increment</span><span class="p">),</span>
+            <span class="sa">f</span><span class="s2">&quot;sim:minimum-temperature = </span><span class="si">{</span><span class="n">start_t</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;sim:maximum-temperature = </span><span class="si">{</span><span class="n">end_t</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;sim:temperature-increment = </span><span class="si">{</span><span class="n">temp_increment</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="p">]</span>
 
         <span class="c1"># Output to save</span>
@@ -383,13 +383,13 @@
         <span class="n">nmats</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mat_id_dict</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
 
         <span class="n">ucf</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;# Atoms num_materials; id cx cy cz mat cat hcat&quot;</span><span class="p">]</span>
-        <span class="n">ucf</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">structure</span><span class="p">),</span> <span class="n">nmats</span><span class="p">)]</span>
+        <span class="n">ucf</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">nmats</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
 
         <span class="c1"># Fractional coordinates of atoms</span>
         <span class="k">for</span> <span class="n">site</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">frac_coords</span><span class="p">):</span>
             <span class="c1"># Back to 0 indexing for some reason...</span>
             <span class="n">mat_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mat_id_dict</span><span class="p">[</span><span class="n">site</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
-            <span class="n">ucf</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> </span><span class="si">%.10f</span><span class="s2"> </span><span class="si">%.10f</span><span class="s2"> </span><span class="si">%.10f</span><span class="s2"> </span><span class="si">%d</span><span class="s2"> 0 0&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">mat_id</span><span class="p">)]</span>
+            <span class="n">ucf</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">site</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.10f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.10f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.10f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">mat_id</span><span class="si">}</span><span class="s2"> 0 0&quot;</span><span class="p">]</span>
 
         <span class="c1"># J_ij exchange interaction matrix</span>
         <span class="n">sgraph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sgraph</span>
@@ -398,7 +398,7 @@
             <span class="n">ninter</span> <span class="o">+=</span> <span class="n">sgraph</span><span class="o">.</span><span class="n">get_coordination_of_site</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
 
         <span class="n">ucf</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;# Interactions&quot;</span><span class="p">]</span>
-        <span class="n">ucf</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> isotropic&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ninter</span><span class="p">)]</span>
+        <span class="n">ucf</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ninter</span><span class="si">}</span><span class="s2"> isotropic&quot;</span><span class="p">]</span>
 
         <span class="n">iid</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># counts number of interaction</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sgraph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">):</span>
@@ -422,7 +422,7 @@
 
                 <span class="n">j_exc</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">j_exc</span><span class="p">)</span>  <span class="c1"># otherwise this rounds to 0</span>
 
-                <span class="n">ucf</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> </span><span class="si">%d</span><span class="s2"> </span><span class="si">%d</span><span class="s2"> </span><span class="si">%d</span><span class="s2"> </span><span class="si">%d</span><span class="s2"> </span><span class="si">%d</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">iid</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span><span class="p">,</span> <span class="n">j_exc</span><span class="p">)]</span>
+                <span class="n">ucf</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">iid</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">dx</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">dy</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">dz</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">j_exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
                 <span class="n">iid</span> <span class="o">+=</span> <span class="mi">1</span>
 
         <span class="n">ucf</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ucf</span><span class="p">)</span>
@@ -493,7 +493,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.command_line.vampire_caller</a></li> 
       </ul>
@@ -501,7 +501,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

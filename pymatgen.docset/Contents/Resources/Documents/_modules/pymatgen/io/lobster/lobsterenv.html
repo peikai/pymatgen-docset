@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.lobster.lobsterenv &#8212; pymatgen 2022.0.17 documentation</title>
+    <title>pymatgen.io.lobster.lobsterenv &#8212; pymatgen 2022.4.19 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
     <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.lobster.lobsterenv</a></li> 
       </ul>
@@ -57,9 +57,14 @@
 <span class="kn">import</span> <span class="nn">os</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
 <span class="kn">from</span> <span class="nn">pymatgen.analysis.bond_valence</span> <span class="kn">import</span> <span class="n">BVAnalyzer</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.coordination_geometry_finder</span> <span class="kn">import</span> <span class="n">LocalGeometryFinder</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.structure_environments</span> <span class="kn">import</span> <span class="n">LightStructureEnvironments</span>
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.coordination_geometry_finder</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">LocalGeometryFinder</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.structure_environments</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">LightStructureEnvironments</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">pymatgen.analysis.local_env</span> <span class="kn">import</span> <span class="n">NearNeighbors</span>
 <span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.cohp</span> <span class="kn">import</span> <span class="n">CompleteCohp</span>
 <span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.core</span> <span class="kn">import</span> <span class="n">Spin</span>
@@ -93,6 +98,7 @@
         <span class="n">perc_strength_ICOHP</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span>
         <span class="n">valences_from_charges</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">filename_CHARGE</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">which_charge</span><span class="o">=</span><span class="s2">&quot;Mulliken&quot;</span><span class="p">,</span>
         <span class="n">adapt_extremum_to_add_cond</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -120,6 +126,7 @@
 <span class="sd">            valences_from_charges: if True and path to CHARGE.lobster is provided, will use Lobster charges (</span>
 <span class="sd">            Mulliken) instead of valences</span>
 <span class="sd">            filename_CHARGE: (str) Path to Charge.lobster</span>
+<span class="sd">            which_charge: (str) &quot;Mulliken&quot; or &quot;Loewdin&quot;</span>
 <span class="sd">            adapt_extremum_to_add_cond: (bool) will adapt the limits to only focus on the bonds determined by the</span>
 <span class="sd">            additional condition</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -145,7 +152,10 @@
         <span class="k">if</span> <span class="n">valences</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">valences_from_charges</span> <span class="ow">and</span> <span class="n">filename_CHARGE</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">chg</span> <span class="o">=</span> <span class="n">Charge</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="n">filename_CHARGE</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">valences</span> <span class="o">=</span> <span class="n">chg</span><span class="o">.</span><span class="n">Mulliken</span>
+                <span class="k">if</span> <span class="n">which_charge</span> <span class="o">==</span> <span class="s2">&quot;Mulliken&quot;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">valences</span> <span class="o">=</span> <span class="n">chg</span><span class="o">.</span><span class="n">Mulliken</span>
+                <span class="k">elif</span> <span class="n">which_charge</span> <span class="o">==</span> <span class="s2">&quot;Loewdin&quot;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">valences</span> <span class="o">=</span> <span class="n">chg</span><span class="o">.</span><span class="n">Loewdin</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">bv_analyzer</span> <span class="o">=</span> <span class="n">BVAnalyzer</span><span class="p">()</span>
                 <span class="k">try</span><span class="p">:</span>
@@ -153,9 +163,18 @@
                 <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">valences</span> <span class="o">=</span> <span class="kc">None</span>
                     <span class="k">if</span> <span class="n">additional_condition</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Valences cannot be assigned, additional_conditions 1 and 3 and 5 and 6 will not work&quot;</span><span class="p">)</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="s2">&quot;Valences cannot be assigned, additional_conditions 1 and 3 and 5 and 6 will not work&quot;</span>
+                        <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">valences</span> <span class="o">=</span> <span class="n">valences</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valences</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valences</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span> <span class="ow">and</span> <span class="n">additional_condition</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="mi">1</span><span class="p">,</span>
+            <span class="mi">3</span><span class="p">,</span>
+            <span class="mi">5</span><span class="p">,</span>
+            <span class="mi">6</span><span class="p">,</span>
+        <span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;All valences are equal to 0, additional_conditions 1 and 3 and 5 and 6 will not work&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">limits</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">lowerlimit</span> <span class="o">=</span> <span class="kc">None</span>
@@ -338,11 +357,11 @@
 
         <span class="k">return</span> <span class="n">lse</span></div>
 
-<div class="viewcode-block" id="LobsterNeighbors.get_info_icohps_to_neighbors"><a class="viewcode-back" href="../../../../pymatgen.io.lobster.lobsterenv.html#pymatgen.io.lobster.lobsterenv.LobsterNeighbors.get_info_icohps_to_neighbors">[docs]</a>    <span class="k">def</span> <span class="nf">get_info_icohps_to_neighbors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">isites</span><span class="o">=</span><span class="p">[],</span> <span class="n">onlycation_isites</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="LobsterNeighbors.get_info_icohps_to_neighbors"><a class="viewcode-back" href="../../../../pymatgen.io.lobster.lobsterenv.html#pymatgen.io.lobster.lobsterenv.LobsterNeighbors.get_info_icohps_to_neighbors">[docs]</a>    <span class="k">def</span> <span class="nf">get_info_icohps_to_neighbors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">isites</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">onlycation_isites</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        this method will return information of cohps of neighbors</span>
 <span class="sd">        Args:</span>
-<span class="sd">            isites: list of site ids, if isite==[], all isites will be used to add the icohps of the neighbors</span>
+<span class="sd">            isites: list of site ids, if isite==None, all isites will be used to add the icohps of the neighbors</span>
 <span class="sd">            onlycation_isites: will only use cations, if isite==[]</span>
 
 
@@ -350,12 +369,13 @@
 <span class="sd">            sum of icohps of neighbors to certain sites [given by the id in structure], number of bonds to this site,</span>
 <span class="sd">            labels (from ICOHPLIST) for</span>
 <span class="sd">            these bonds</span>
-<span class="sd">            [the latter is useful for plotting summed COHP plots]</span>
+<span class="sd">            [the latter is useful for plotting summed COHP plots],</span>
+<span class="sd">            list of the central isite for each label</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">valences</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">onlycation_isites</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No valences are provided&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">isites</span> <span class="o">==</span> <span class="p">[]:</span>
+        <span class="k">if</span> <span class="n">isites</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">onlycation_isites</span><span class="p">:</span>
                 <span class="n">isites</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">))</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">valences</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
@@ -366,6 +386,7 @@
         <span class="n">number_bonds</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">labels</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">atoms</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">final_isites</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">ival</span><span class="p">,</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">ival</span> <span class="ow">in</span> <span class="n">isites</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">keys</span><span class="p">,</span> <span class="n">icohpsum</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_keys</span><span class="p">[</span><span class="n">ival</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_icohps</span><span class="p">[</span><span class="n">ival</span><span class="p">]):</span>
@@ -379,8 +400,8 @@
                         <span class="p">]</span>
                     <span class="p">)</span>
                     <span class="n">number_bonds</span> <span class="o">+=</span> <span class="mi">1</span>
-
-        <span class="k">return</span> <span class="n">summed_icohps</span><span class="p">,</span> <span class="n">list_icohps</span><span class="p">,</span> <span class="n">number_bonds</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">atoms</span></div>
+                    <span class="n">final_isites</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ival</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">summed_icohps</span><span class="p">,</span> <span class="n">list_icohps</span><span class="p">,</span> <span class="n">number_bonds</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">atoms</span><span class="p">,</span> <span class="n">final_isites</span></div>
 
 <div class="viewcode-block" id="LobsterNeighbors.plot_cohps_of_neighbors"><a class="viewcode-back" href="../../../../pymatgen.io.lobster.lobsterenv.html#pymatgen.io.lobster.lobsterenv.LobsterNeighbors.plot_cohps_of_neighbors">[docs]</a>    <span class="k">def</span> <span class="nf">plot_cohps_of_neighbors</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -440,7 +461,7 @@
 <div class="viewcode-block" id="LobsterNeighbors.get_info_cohps_to_neighbors"><a class="viewcode-back" href="../../../../pymatgen.io.lobster.lobsterenv.html#pymatgen.io.lobster.lobsterenv.LobsterNeighbors.get_info_cohps_to_neighbors">[docs]</a>    <span class="k">def</span> <span class="nf">get_info_cohps_to_neighbors</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">path_to_COHPCAR</span><span class="o">=</span><span class="s2">&quot;COHPCAR.lobster&quot;</span><span class="p">,</span>
-        <span class="n">isites</span><span class="o">=</span><span class="p">[],</span>
+        <span class="n">isites</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">only_bonds_to</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">onlycation_isites</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">per_bond</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -452,7 +473,7 @@
 <span class="sd">            path_to_COHPCAR: str, path to COHPCAR</span>
 <span class="sd">            isites: list of int that indicate the number of the site</span>
 <span class="sd">            only_bonds_to: list of str, e.g. [&quot;O&quot;] to only show cohps of anything to oxygen</span>
-<span class="sd">            onlycation_isites: if isites=[], only cation sites will be returned</span>
+<span class="sd">            onlycation_isites: if isites=None, only cation sites will be returned</span>
 <span class="sd">            per_bond: will normalize per bond</span>
 <span class="sd">            summed_spin_channels: will sum all spin channels</span>
 
@@ -461,7 +482,7 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># TODO: add options for orbital-resolved cohps</span>
-        <span class="n">summed_icohps</span><span class="p">,</span> <span class="n">list_icohps</span><span class="p">,</span> <span class="n">number_bonds</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">atoms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_info_icohps_to_neighbors</span><span class="p">(</span>
+        <span class="n">summed_icohps</span><span class="p">,</span> <span class="n">list_icohps</span><span class="p">,</span> <span class="n">number_bonds</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">atoms</span><span class="p">,</span> <span class="n">final_isites</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_info_icohps_to_neighbors</span><span class="p">(</span>
             <span class="n">isites</span><span class="o">=</span><span class="n">isites</span><span class="p">,</span> <span class="n">onlycation_isites</span><span class="o">=</span><span class="n">onlycation_isites</span>
         <span class="p">)</span>
 
@@ -496,21 +517,26 @@
             <span class="p">)</span>
 
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># TODO: check if this is okay</span>
             <span class="c1"># labels of the COHPs that will be summed!</span>
             <span class="c1"># iterate through labels and atoms and check which bonds can be included</span>
             <span class="n">new_labels</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="n">new_atoms</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="c1"># print(labels)</span>
             <span class="c1"># print(atoms)</span>
-            <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">atompair</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">atoms</span><span class="p">):</span>
-                <span class="c1"># durchlaufe only_bonds_to=[] und sage ja, falls eines der Labels in atompair ist, dann speichere</span>
-                <span class="c1"># new_label</span>
+            <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">atompair</span><span class="p">,</span> <span class="n">isite</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">atoms</span><span class="p">,</span> <span class="n">final_isites</span><span class="p">):</span>
                 <span class="n">present</span> <span class="o">=</span> <span class="kc">False</span>
-                <span class="c1"># print(only_bonds_to)</span>
                 <span class="k">for</span> <span class="n">atomtype</span> <span class="ow">in</span> <span class="n">only_bonds_to</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">atomtype</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_split_string</span><span class="p">(</span><span class="n">atompair</span><span class="p">[</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_string</span><span class="p">(</span><span class="n">atompair</span><span class="p">[</span><span class="mi">1</span><span class="p">])[</span><span class="mi">0</span><span class="p">]):</span>
-                        <span class="n">present</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="c1"># This is necessary to identify also bonds between the same elements correctly!</span>
+                    <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">[</span><span class="n">isite</span><span class="p">]</span><span class="o">.</span><span class="n">species</span><span class="o">.</span><span class="n">elements</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="n">atomtype</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">atomtype</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_split_string</span><span class="p">(</span><span class="n">atompair</span><span class="p">[</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_string</span><span class="p">(</span><span class="n">atompair</span><span class="p">[</span><span class="mi">1</span><span class="p">])[</span><span class="mi">0</span><span class="p">]):</span>
+                            <span class="n">present</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="p">(</span>
+                            <span class="n">atomtype</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_string</span><span class="p">(</span><span class="n">atompair</span><span class="p">[</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+                            <span class="ow">and</span> <span class="n">atomtype</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_string</span><span class="p">(</span><span class="n">atompair</span><span class="p">[</span><span class="mi">1</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="p">):</span>
+                            <span class="n">present</span> <span class="o">=</span> <span class="kc">True</span>
+
                 <span class="k">if</span> <span class="n">present</span><span class="p">:</span>
                     <span class="n">new_labels</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
                     <span class="n">new_atoms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atompair</span><span class="p">)</span>
@@ -550,13 +576,13 @@
             <span class="n">plotlabel</span> <span class="o">=</span> <span class="n">plotlabel</span> <span class="o">+</span> <span class="s2">&quot; (per bond)&quot;</span>
         <span class="k">return</span> <span class="n">plotlabel</span>
 
-<div class="viewcode-block" id="LobsterNeighbors.get_info_icohps_between_neighbors"><a class="viewcode-back" href="../../../../pymatgen.io.lobster.lobsterenv.html#pymatgen.io.lobster.lobsterenv.LobsterNeighbors.get_info_icohps_between_neighbors">[docs]</a>    <span class="k">def</span> <span class="nf">get_info_icohps_between_neighbors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">isites</span><span class="o">=</span><span class="p">[],</span> <span class="n">onlycation_isites</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="LobsterNeighbors.get_info_icohps_between_neighbors"><a class="viewcode-back" href="../../../../pymatgen.io.lobster.lobsterenv.html#pymatgen.io.lobster.lobsterenv.LobsterNeighbors.get_info_icohps_between_neighbors">[docs]</a>    <span class="k">def</span> <span class="nf">get_info_icohps_between_neighbors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">isites</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">onlycation_isites</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        will return infos about interactions between neighbors of a certain atom</span>
 <span class="sd">        Args:</span>
-<span class="sd">            isites: list of site ids, if isite==[], all isites will be used</span>
-<span class="sd">            onlycation_isites: will only use cations, if isite==[]</span>
+<span class="sd">            isites: list of site ids, if isite==None, all isites will be used</span>
+<span class="sd">            onlycation_isites: will only use cations, if isite==None</span>
 
 <span class="sd">        Returns:</span>
 
@@ -567,7 +593,7 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">valences</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">onlycation_isites</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No valences are provided&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">isites</span> <span class="o">==</span> <span class="p">[]:</span>
+        <span class="k">if</span> <span class="n">isites</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">onlycation_isites</span><span class="p">:</span>
                 <span class="n">isites</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">))</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">valences</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
@@ -743,7 +769,7 @@
 <span class="sd">        Args:</span>
 <span class="sd">            additional_condition (int): additional condition (see above)</span>
 <span class="sd">            lowerlimit (float): lower limit that tells you which ICOHPs are considered</span>
-<span class="sd">            upperlimit (float): upper limit that tells you which ICOHPs are considerd</span>
+<span class="sd">            upperlimit (float): upper limit that tells you which ICOHPs are considered</span>
 <span class="sd">            only_bonds_to (list): list of str, e.g. [&quot;O&quot;] that will ensure that only bonds to &quot;O&quot; will be considered</span>
 
 <span class="sd">        Returns:</span>
@@ -849,7 +875,7 @@
 <span class="sd">        Args:</span>
 <span class="sd">            isite: number of site in structure (starts with 0)</span>
 <span class="sd">            icohps: icohps</span>
-<span class="sd">            additional_condition (int): additonal condition</span>
+<span class="sd">            additional_condition (int): additional condition</span>
 
 <span class="sd">        Returns:</span>
 
@@ -983,7 +1009,7 @@
 <span class="sd">            icohpcollection: Icohpcollection object</span>
 <span class="sd">            isite (int): number of a site</span>
 <span class="sd">            lowerlimit (float): lower limit that tells you which ICOHPs are considered</span>
-<span class="sd">            upperlimit (float): upper limit that tells you which ICOHPs are considerd</span>
+<span class="sd">            upperlimit (float): upper limit that tells you which ICOHPs are considered</span>
 <span class="sd">            only_bonds_to (list): list of str, e.g. [&quot;O&quot;] that will ensure that only bonds to &quot;O&quot; will be considered</span>
 
 <span class="sd">        Returns:</span>
@@ -1151,7 +1177,7 @@
 <span class="sd">        Args:</span>
 <span class="sd">            structure: Structure object</span>
 <span class="sd">            list_ce_symbol: list of symbols for coordination environments</span>
-<span class="sd">            list_csm: list of continous symmetry measures</span>
+<span class="sd">            list_csm: list of continuous symmetry measures</span>
 <span class="sd">            list_permutation: list of permutations</span>
 <span class="sd">            list_neighsite: list of neighboring sites</span>
 <span class="sd">            list_neighisite: list of neighboring isites (number of a site)</span>
@@ -1245,8 +1271,8 @@
 <span class="sd">        :return: Bson-serializable dict representation of the LightStructureEnvironments object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
-            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
             <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span>
             <span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span>
             <span class="s2">&quot;coordination_environments&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">coordination_environments</span><span class="p">,</span>
@@ -1280,7 +1306,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.0.17 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.lobster.lobsterenv</a></li> 
       </ul>
@@ -1288,7 +1314,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking
