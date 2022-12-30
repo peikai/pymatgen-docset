@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.vasp.outputs &#8212; pymatgen 2022.4.19 documentation</title>
+    <title>pymatgen.io.vasp.outputs &#8212; pymatgen 2022.4.26 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
     <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.26 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.vasp.outputs</a></li> 
       </ul>
@@ -3186,7 +3186,20 @@
 
             <span class="n">micro_pyawk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">search</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
 
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="c1"># fix polarization units in new versions of vasp</span>
+            <span class="n">regex</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;^.*Ionic dipole moment: .*&quot;</span>
+            <span class="n">search</span> <span class="o">=</span> <span class="p">[[</span><span class="n">regex</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">))]]</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">micro_pyawk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">search</span><span class="p">,</span> <span class="p">[])</span>
+
+            <span class="k">if</span> <span class="s2">&quot;|e|&quot;</span> <span class="ow">in</span> <span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">p_elec</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">p_ion</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spin</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">noncollinear</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">p_sp1</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">p_sp2</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">args</span><span class="p">)</span>
             <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;LCALCPOL OUTCAR could not be parsed.&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Outcar.read_pseudo_zval"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.outputs.html#pymatgen.io.vasp.outputs.Outcar.read_pseudo_zval">[docs]</a>    <span class="k">def</span> <span class="nf">read_pseudo_zval</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -5696,12 +5709,19 @@
 <span class="sd">    The indices of WSWQ.data are:</span>
 <span class="sd">        [spin][kpoint][band_i][band_j]</span>
 
+<span class="sd">    Attributes:</span>
+<span class="sd">        nspin: Number of spin channels</span>
+<span class="sd">        nkpoints: Number of k-points</span>
+<span class="sd">        nbands: Number of bands</span>
+<span class="sd">        me_real: Real part of the overlap matrix elements</span>
+<span class="sd">        me_imag: Imaginary part of the overlap matrix elements</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">nspin</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">nkpoints</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">nbands</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">me_real</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">me_imag</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
 
 <div class="viewcode-block" id="WSWQ.from_file"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.outputs.html#pymatgen.io.vasp.outputs.WSWQ.from_file">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
@@ -5738,7 +5758,7 @@
         <span class="c1"># NOTE: loop order (slow-&gt;fast) spin -&gt; kpoint -&gt; j -&gt; i</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">nspin</span><span class="p">,</span> <span class="n">nkpoints</span><span class="p">,</span> <span class="n">nbands</span><span class="p">,</span> <span class="n">nbands</span><span class="p">))</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>  <span class="c1"># swap i and j</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">nspin</span><span class="o">=</span><span class="n">nspin</span><span class="p">,</span> <span class="n">nkpoints</span><span class="o">=</span><span class="n">nkpoints</span><span class="p">,</span> <span class="n">nbands</span><span class="o">=</span><span class="n">nbands</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">nspin</span><span class="o">=</span><span class="n">nspin</span><span class="p">,</span> <span class="n">nkpoints</span><span class="o">=</span><span class="n">nkpoints</span><span class="p">,</span> <span class="n">nbands</span><span class="o">=</span><span class="n">nbands</span><span class="p">,</span> <span class="n">me_real</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="n">me_imag</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">data</span><span class="p">))</span></div></div>
 
 
 <div class="viewcode-block" id="UnconvergedVASPWarning"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.outputs.html#pymatgen.io.vasp.outputs.UnconvergedVASPWarning">[docs]</a><span class="k">class</span> <span class="nc">UnconvergedVASPWarning</span><span class="p">(</span><span class="ne">Warning</span><span class="p">):</span>
@@ -5761,7 +5781,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.19 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.26 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.vasp.outputs</a></li> 
       </ul>
@@ -5769,7 +5789,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.4.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking
