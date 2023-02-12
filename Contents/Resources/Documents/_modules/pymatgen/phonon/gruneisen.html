@@ -1,0 +1,507 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.phonon.gruneisen &#8212; pymatgen 2023.1.30 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+ 
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-33990148-1']);
+  _gaq.push(['_trackPageview']);
+</script>
+
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.phonon.gruneisen</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.phonon.gruneisen</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
+<span class="c1"># Distributed under the terms of the MIT License.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module provides classes to define a Grueneisen band structure.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.constants</span> <span class="k">as</span> <span class="nn">const</span>
+<span class="kn">from</span> <span class="nn">monty.dev</span> <span class="kn">import</span> <span class="n">requires</span>
+<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
+
+<span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">Structure</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.lattice</span> <span class="kn">import</span> <span class="n">Lattice</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.units</span> <span class="kn">import</span> <span class="n">amu_to_kg</span>
+<span class="kn">from</span> <span class="nn">pymatgen.phonon.bandstructure</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">PhononBandStructure</span><span class="p">,</span>
+    <span class="n">PhononBandStructureSymmLine</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymatgen.phonon.dos</span> <span class="kn">import</span> <span class="n">PhononDos</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">phonopy</span>
+    <span class="kn">from</span> <span class="nn">phonopy.phonon.dos</span> <span class="kn">import</span> <span class="n">TotalDos</span>
+<span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
+    <span class="n">phonopy</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;A. Bonkowski, J. George, G. Petretto&quot;</span>
+<span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2021, The Materials Project&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.1&quot;</span>
+<span class="n">__maintainer__</span> <span class="o">=</span> <span class="s2">&quot;A. Bonkowski, J. George&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;alexander.bonkowski@rwth-aachen.de, janine.george@bam.de&quot;</span>
+<span class="n">__status__</span> <span class="o">=</span> <span class="s2">&quot;Production&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;Apr 11, 2021&quot;</span>
+
+
+<div class="viewcode-block" id="GruneisenParameter"><a class="viewcode-back" href="../../../pymatgen.phonon.gruneisen.html#pymatgen.phonon.gruneisen.GruneisenParameter">[docs]</a><span class="k">class</span> <span class="nc">GruneisenParameter</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class for Grueneisen parameters on a regular grid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">qpoints</span><span class="p">,</span>
+        <span class="n">gruneisen</span><span class="p">,</span>
+        <span class="n">frequencies</span><span class="p">,</span>
+        <span class="n">multiplicities</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">structure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">lattice</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            qpoints: list of qpoints as numpy arrays, in frac_coords of the given lattice by default</span>
+<span class="sd">            gruneisen: list of gruneisen parameters as numpy arrays, shape: (3*len(structure), len(qpoints))</span>
+<span class="sd">            frequencies: list of phonon frequencies in THz as a numpy array with shape (3*len(structure), len(qpoints))</span>
+<span class="sd">            multiplicities: list of multiplicities</span>
+<span class="sd">            structure: The crystal structure (as a pymatgen Structure object) associated with the gruneisen parameters.</span>
+<span class="sd">            lattice: The reciprocal lattice as a pymatgen Lattice object. Pymatgen uses the physics convention of</span>
+<span class="sd">                     reciprocal lattice vectors WITH a 2*pi coefficient</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">qpoints</span> <span class="o">=</span> <span class="n">qpoints</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gruneisen</span> <span class="o">=</span> <span class="n">gruneisen</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">frequencies</span> <span class="o">=</span> <span class="n">frequencies</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">multiplicities</span> <span class="o">=</span> <span class="n">multiplicities</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lattice</span> <span class="o">=</span> <span class="n">lattice</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="n">structure</span>
+
+<div class="viewcode-block" id="GruneisenParameter.average_gruneisen"><a class="viewcode-back" href="../../../pymatgen.phonon.gruneisen.html#pymatgen.phonon.gruneisen.GruneisenParameter.average_gruneisen">[docs]</a>    <span class="k">def</span> <span class="nf">average_gruneisen</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">squared</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">limit_frequencies</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculates the average of the Gruneisen based on the values on the regular grid.</span>
+<span class="sd">        If squared is True the average will use the squared value of the Gruneisen and a squared root</span>
+<span class="sd">        is performed on the final result.</span>
+<span class="sd">        Values associated to negative frequencies will be ignored.</span>
+<span class="sd">        See Scripta Materialia 129, 88 for definitions.</span>
+<span class="sd">        Adapted from classes in abipy that have been written by Guido Petretto (UCLouvain).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t: the temperature at which the average Gruneisen will be evaluated. If None the acoustic Debye</span>
+<span class="sd">                temperature is used (see acoustic_debye_temp).</span>
+<span class="sd">            squared: if True the average is performed on the squared values of the Grueneisen.</span>
+<span class="sd">            limit_frequencies: if None (default) no limit on the frequencies will be applied.</span>
+<span class="sd">                Possible values are &quot;debye&quot; (only modes with frequencies lower than the acoustic Debye</span>
+<span class="sd">                temperature) and &quot;acoustic&quot; (only the acoustic modes, i.e. the first three modes).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The average Gruneisen parameter</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">acoustic_debye_temp</span>
+
+        <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">frequencies</span>  <span class="c1"># in THz</span>
+        <span class="n">wdkt</span> <span class="o">=</span> <span class="n">w</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">tera</span> <span class="o">/</span> <span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Boltzmann constant in Hz/K&quot;</span><span class="p">)</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span>
+        <span class="n">exp_wdkt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">wdkt</span><span class="p">)</span>
+        <span class="n">cv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">choose</span><span class="p">(</span>
+            <span class="n">w</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Boltzmann constant in eV/K&quot;</span><span class="p">)</span> <span class="o">*</span> <span class="n">wdkt</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">exp_wdkt</span> <span class="o">/</span> <span class="p">(</span><span class="n">exp_wdkt</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="p">)</span>  <span class="c1"># in eV</span>
+
+        <span class="n">gamma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gruneisen</span>
+
+        <span class="k">if</span> <span class="n">squared</span><span class="p">:</span>
+            <span class="n">gamma</span> <span class="o">=</span> <span class="n">gamma</span><span class="o">**</span><span class="mi">2</span>
+
+        <span class="k">if</span> <span class="n">limit_frequencies</span> <span class="o">==</span> <span class="s2">&quot;debye&quot;</span><span class="p">:</span>
+            <span class="n">acoustic_debye_freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">acoustic_debye_temp</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Boltzmann constant in Hz/K&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">tera</span>
+            <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">w</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">w</span> <span class="o">&lt;=</span> <span class="n">acoustic_debye_freq</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">limit_frequencies</span> <span class="o">==</span> <span class="s2">&quot;acoustic&quot;</span><span class="p">:</span>
+            <span class="n">w_acoustic</span> <span class="o">=</span> <span class="n">w</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">3</span><span class="p">]</span>
+            <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">w_acoustic</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">limit_frequencies</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">w</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">limit_frequencies</span><span class="si">}</span><span class="s2"> is not an accepted value for limit_frequencies.&quot;</span><span class="p">)</span>
+
+        <span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">multiplicities</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">weights</span><span class="p">[</span><span class="n">ind</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">cv</span><span class="p">,</span> <span class="n">gamma</span><span class="p">)[</span><span class="n">ind</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">weights</span><span class="p">[</span><span class="n">ind</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">cv</span><span class="p">[</span><span class="n">ind</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">squared</span><span class="p">:</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">g</span></div>
+
+<div class="viewcode-block" id="GruneisenParameter.thermal_conductivity_slack"><a class="viewcode-back" href="../../../pymatgen.phonon.gruneisen.html#pymatgen.phonon.gruneisen.GruneisenParameter.thermal_conductivity_slack">[docs]</a>    <span class="k">def</span> <span class="nf">thermal_conductivity_slack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">squared</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">limit_frequencies</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">theta_d</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculates the thermal conductivity at the acoustic Debye temperature with the Slack formula,</span>
+<span class="sd">        using the average Gruneisen.</span>
+<span class="sd">        Adapted from abipy.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            squared (bool): if True the average is performed on the squared values of the Gruenisen</span>
+<span class="sd">            limit_frequencies: if None (default) no limit on the frequencies will be applied.</span>
+<span class="sd">                Possible values are &quot;debye&quot; (only modes with frequencies lower than the acoustic Debye</span>
+<span class="sd">                temperature) and &quot;acoustic&quot; (only the acoustic modes, i.e. the first three modes).</span>
+<span class="sd">            theta_d: the temperature used to estimate the average of the Gruneisen used in the</span>
+<span class="sd">                Slack formula. If None the acoustic Debye temperature is used (see</span>
+<span class="sd">                acoustic_debye_temp). Will also be considered as the Debye temperature in the</span>
+<span class="sd">                Slack formula.</span>
+<span class="sd">            t: temperature at which the thermal conductivity is estimated. If None the value at</span>
+<span class="sd">                the calculated acoustic Debye temperature is given. The value is obtained as a</span>
+<span class="sd">                simple rescaling of the value at the Debye temperature.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The value of the thermal conductivity in W/(m*K)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">average_mass</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">([</span><span class="n">s</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">atomic_mass</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">])</span> <span class="o">*</span> <span class="n">amu_to_kg</span>
+        <span class="k">if</span> <span class="n">theta_d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">theta_d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">acoustic_debye_temp</span>
+        <span class="n">mean_g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">average_gruneisen</span><span class="p">(</span><span class="n">t</span><span class="o">=</span><span class="n">theta_d</span><span class="p">,</span> <span class="n">squared</span><span class="o">=</span><span class="n">squared</span><span class="p">,</span> <span class="n">limit_frequencies</span><span class="o">=</span><span class="n">limit_frequencies</span><span class="p">)</span>
+
+        <span class="n">f1</span> <span class="o">=</span> <span class="mf">0.849</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">(</span><span class="mi">4</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">20</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mf">0.514</span> <span class="o">*</span> <span class="n">mean_g</span><span class="o">**-</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">0.228</span> <span class="o">*</span> <span class="n">mean_g</span><span class="o">**-</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">f2</span> <span class="o">=</span> <span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">k</span> <span class="o">*</span> <span class="n">theta_d</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">hbar</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="n">f3</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">k</span> <span class="o">*</span> <span class="n">average_mass</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">volume</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e-10</span> <span class="o">/</span> <span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">hbar</span> <span class="o">*</span> <span class="n">mean_g</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">f1</span> <span class="o">*</span> <span class="n">f2</span> <span class="o">*</span> <span class="n">f3</span>
+
+        <span class="k">if</span> <span class="n">t</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">k</span> <span class="o">*=</span> <span class="n">theta_d</span> <span class="o">/</span> <span class="n">t</span>
+
+        <span class="k">return</span> <span class="n">k</span></div>
+
+    <span class="nd">@property</span>  <span class="c1"># type: ignore</span>
+    <span class="nd">@requires</span><span class="p">(</span><span class="n">phonopy</span><span class="p">,</span> <span class="s2">&quot;This method requires phonopy to be installed&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">tdos</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The total DOS (re)constructed from the gruneisen.yaml file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Here, we will reuse phonopy classes</span>
+        <span class="k">class</span> <span class="nc">TempMesh</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Temporary Class</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="n">TempMesh</span><span class="p">()</span>
+        <span class="n">a</span><span class="o">.</span><span class="n">frequencies</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frequencies</span><span class="p">)</span>
+        <span class="n">a</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">multiplicities</span>
+
+        <span class="n">b</span> <span class="o">=</span> <span class="n">TotalDos</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">b</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">phdos</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns: PhononDos object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">PhononDos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tdos</span><span class="o">.</span><span class="n">frequency_points</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">tdos</span><span class="o">.</span><span class="n">dos</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">debye_temp_limit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Debye temperature in K. Adapted from apipy.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="kn">import</span> <span class="n">UnivariateSpline</span>
+
+        <span class="n">f_mesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tdos</span><span class="o">.</span><span class="n">frequency_points</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">tera</span>
+        <span class="n">dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tdos</span><span class="o">.</span><span class="n">dos</span>
+
+        <span class="n">i_a</span> <span class="o">=</span> <span class="n">UnivariateSpline</span><span class="p">(</span><span class="n">f_mesh</span><span class="p">,</span> <span class="n">dos</span> <span class="o">*</span> <span class="n">f_mesh</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">integral</span><span class="p">(</span><span class="n">f_mesh</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">f_mesh</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">i_b</span> <span class="o">=</span> <span class="n">UnivariateSpline</span><span class="p">(</span><span class="n">f_mesh</span><span class="p">,</span> <span class="n">dos</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">integral</span><span class="p">(</span><span class="n">f_mesh</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">f_mesh</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">integrals</span> <span class="o">=</span> <span class="n">i_a</span> <span class="o">/</span> <span class="n">i_b</span>
+        <span class="n">t_d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">5</span> <span class="o">/</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">integrals</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Boltzmann constant in Hz/K&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">t_d</span>
+
+<div class="viewcode-block" id="GruneisenParameter.debye_temp_phonopy"><a class="viewcode-back" href="../../../pymatgen.phonon.gruneisen.html#pymatgen.phonon.gruneisen.GruneisenParameter.debye_temp_phonopy">[docs]</a>    <span class="k">def</span> <span class="nf">debye_temp_phonopy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq_max_fit</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get Debye temperature in K as implemented in phonopy.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            freq_max_fit: Maximum frequency to include for fitting.</span>
+<span class="sd">                          Defaults to include first quartile of frequencies.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Debye temperature in K.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Use of phonopy classes to compute Debye frequency</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tdos</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">set_Debye_frequency</span><span class="p">(</span><span class="n">num_atoms</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">num_sites</span><span class="p">,</span> <span class="n">freq_max_fit</span><span class="o">=</span><span class="n">freq_max_fit</span><span class="p">)</span>
+        <span class="n">f_d</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">get_Debye_frequency</span><span class="p">()</span>  <span class="c1"># in THz</span>
+        <span class="c1"># f_d in THz is converted in a temperature (K)</span>
+        <span class="n">t_d</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Planck constant&quot;</span><span class="p">)</span> <span class="o">*</span> <span class="n">f_d</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">tera</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Boltzmann constant&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">t_d</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">acoustic_debye_temp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Acoustic Debye temperature in K, i.e. the Debye temperature divided by nsites**(1/3).</span>
+<span class="sd">        Adapted from abipy.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">debye_temp_limit</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">num_sites</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GruneisenPhononBandStructure"><a class="viewcode-back" href="../../../pymatgen.phonon.gruneisen.html#pymatgen.phonon.gruneisen.GruneisenPhononBandStructure">[docs]</a><span class="k">class</span> <span class="nc">GruneisenPhononBandStructure</span><span class="p">(</span><span class="n">PhononBandStructure</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This is the most generic phonon band structure data possible</span>
+<span class="sd">    it&#39;s defined by a list of qpoints + frequencies for each of them.</span>
+<span class="sd">    Additional information may be given for frequencies at Gamma, where</span>
+<span class="sd">    non-analytical contribution may be taken into account.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">qpoints</span><span class="p">,</span>
+        <span class="n">frequencies</span><span class="p">,</span>
+        <span class="n">gruneisenparameters</span><span class="p">,</span>
+        <span class="n">lattice</span><span class="p">,</span>
+        <span class="n">eigendisplacements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">labels_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">structure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            qpoints: list of qpoint as numpy arrays, in frac_coords of the</span>
+<span class="sd">                given lattice by default</span>
+<span class="sd">            frequencies: list of phonon frequencies in THz as a numpy array with shape</span>
+<span class="sd">                (3*len(structure), len(qpoints)). The First index of the array</span>
+<span class="sd">                refers to the band and the second to the index of the qpoint.</span>
+<span class="sd">            gruneisenparameters: list of Grueneisen parameters with the same structure</span>
+<span class="sd">                frequencies.</span>
+<span class="sd">            lattice: The reciprocal lattice as a pymatgen Lattice object.</span>
+<span class="sd">                Pymatgen uses the physics convention of reciprocal lattice vectors</span>
+<span class="sd">                WITH a 2*pi coefficient.</span>
+<span class="sd">            eigendisplacements: the phonon eigendisplacements associated to the</span>
+<span class="sd">                frequencies in Cartesian coordinates. A numpy array of complex</span>
+<span class="sd">                numbers with shape (3*len(structure), len(qpoints), len(structure), 3).</span>
+<span class="sd">                The first index of the array refers to the band, the second to the index</span>
+<span class="sd">                of the qpoint, the third to the atom in the structure and the fourth</span>
+<span class="sd">                to the Cartesian coordinates.</span>
+<span class="sd">            labels_dict: (dict) of {} this links a qpoint (in frac coords or</span>
+<span class="sd">                Cartesian coordinates depending on the coords) to a label.</span>
+<span class="sd">            coords_are_cartesian: Whether the qpoint coordinates are Cartesian.</span>
+<span class="sd">            structure: The crystal structure (as a pymatgen Structure object)</span>
+<span class="sd">                associated with the band structure. This is needed if we</span>
+<span class="sd">                provide projections to the band structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">PhononBandStructure</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">qpoints</span><span class="p">,</span>
+            <span class="n">frequencies</span><span class="p">,</span>
+            <span class="n">lattice</span><span class="p">,</span>
+            <span class="n">nac_frequencies</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">eigendisplacements</span><span class="o">=</span><span class="n">eigendisplacements</span><span class="p">,</span>
+            <span class="n">nac_eigendisplacements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">labels_dict</span><span class="o">=</span><span class="n">labels_dict</span><span class="p">,</span>
+            <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="n">coords_are_cartesian</span><span class="p">,</span>
+            <span class="n">structure</span><span class="o">=</span><span class="n">structure</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gruneisen</span> <span class="o">=</span> <span class="n">gruneisenparameters</span>
+
+<div class="viewcode-block" id="GruneisenPhononBandStructure.as_dict"><a class="viewcode-back" href="../../../pymatgen.phonon.gruneisen.html#pymatgen.phonon.gruneisen.GruneisenPhononBandStructure.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            MSONable (dict)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;lattice_rec&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lattice_rec</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span>
+            <span class="s2">&quot;qpoints&quot;</span><span class="p">:</span> <span class="p">[],</span>
+        <span class="p">}</span>
+        <span class="c1"># qpoints are not Kpoint objects dicts but are frac coords. This makes</span>
+        <span class="c1"># the dict smaller and avoids the repetition of the lattice</span>
+        <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">qpoints</span><span class="p">:</span>
+            <span class="n">d</span><span class="p">[</span><span class="s2">&quot;qpoints&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()[</span><span class="s2">&quot;fcoords&quot;</span><span class="p">])</span>
+        <span class="n">d</span><span class="p">[</span><span class="s2">&quot;bands&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bands</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">d</span><span class="p">[</span><span class="s2">&quot;labels_dict&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">kpoint_letter</span><span class="p">,</span> <span class="n">kpoint_object</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">labels_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">d</span><span class="p">[</span><span class="s2">&quot;labels_dict&quot;</span><span class="p">][</span><span class="n">kpoint_letter</span><span class="p">]</span> <span class="o">=</span> <span class="n">kpoint_object</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()[</span><span class="s2">&quot;fcoords&quot;</span><span class="p">]</span>
+        <span class="c1"># split the eigendisplacements to real and imaginary part for serialization</span>
+        <span class="n">d</span><span class="p">[</span><span class="s2">&quot;eigendisplacements&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">real</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eigendisplacements</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">imag</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eigendisplacements</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">d</span><span class="p">[</span><span class="s2">&quot;gruneisen&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gruneisen</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">:</span>
+            <span class="n">d</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">d</span></div>
+
+<div class="viewcode-block" id="GruneisenPhononBandStructure.from_dict"><a class="viewcode-back" href="../../../pymatgen.phonon.gruneisen.html#pymatgen.phonon.gruneisen.GruneisenPhononBandStructure.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            d (dict): Dict representation</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            GruneisenPhononBandStructure: Phonon band structure with Grueneisen parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lattice_rec</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;lattice_rec&quot;</span><span class="p">][</span><span class="s2">&quot;matrix&quot;</span><span class="p">])</span>
+        <span class="n">eigendisplacements</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;eigendisplacements&quot;</span><span class="p">][</span><span class="s2">&quot;real&quot;</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;eigendisplacements&quot;</span><span class="p">][</span><span class="s2">&quot;imag&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="mi">1</span><span class="n">j</span>
+        <span class="n">structure</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;structure&quot;</span> <span class="ow">in</span> <span class="n">d</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">qpoints</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;qpoints&quot;</span><span class="p">],</span>
+            <span class="n">frequencies</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;bands&quot;</span><span class="p">]),</span>
+            <span class="n">gruneisenparameters</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;gruneisen&quot;</span><span class="p">]),</span>
+            <span class="n">lattice</span><span class="o">=</span><span class="n">lattice_rec</span><span class="p">,</span>
+            <span class="n">eigendisplacements</span><span class="o">=</span><span class="n">eigendisplacements</span><span class="p">,</span>
+            <span class="n">labels_dict</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;labels_dict&quot;</span><span class="p">],</span>
+            <span class="n">structure</span><span class="o">=</span><span class="n">structure</span><span class="p">,</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="GruneisenPhononBandStructureSymmLine"><a class="viewcode-back" href="../../../pymatgen.phonon.gruneisen.html#pymatgen.phonon.gruneisen.GruneisenPhononBandStructureSymmLine">[docs]</a><span class="k">class</span> <span class="nc">GruneisenPhononBandStructureSymmLine</span><span class="p">(</span><span class="n">GruneisenPhononBandStructure</span><span class="p">,</span> <span class="n">PhononBandStructureSymmLine</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This object stores a GruneisenPhononBandStructureSymmLine together with Grueneisen parameters</span>
+<span class="sd">    for every frequency.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">qpoints</span><span class="p">,</span>
+        <span class="n">frequencies</span><span class="p">,</span>
+        <span class="n">gruneisenparameters</span><span class="p">,</span>
+        <span class="n">lattice</span><span class="p">,</span>
+        <span class="n">eigendisplacements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">labels_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">structure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            qpoints: list of qpoints as numpy arrays, in frac_coords of the</span>
+<span class="sd">                given lattice by default</span>
+<span class="sd">            frequencies: list of phonon frequencies in eV as a numpy array with shape</span>
+<span class="sd">                (3*len(structure), len(qpoints))</span>
+<span class="sd">            gruneisenparameters: list of Grueneisen parameters as a numpy array with the</span>
+<span class="sd">                shape (3*len(structure), len(qpoints))</span>
+<span class="sd">            lattice: The reciprocal lattice as a pymatgen Lattice object.</span>
+<span class="sd">                Pymatgen uses the physics convention of reciprocal lattice vectors</span>
+<span class="sd">                WITH a 2*pi coefficient</span>
+<span class="sd">            eigendisplacements: the phonon eigendisplacements associated to the</span>
+<span class="sd">                frequencies in Cartesian coordinates. A numpy array of complex</span>
+<span class="sd">                numbers with shape (3*len(structure), len(qpoints), len(structure), 3).</span>
+<span class="sd">                The first index of the array refers to the band, the second to the index</span>
+<span class="sd">                of the qpoint, the third to the atom in the structure and the fourth</span>
+<span class="sd">                to the Cartesian coordinates.</span>
+<span class="sd">            labels_dict: (dict) of {} this links a qpoint (in frac coords or</span>
+<span class="sd">                Cartesian coordinates depending on the coords) to a label.</span>
+<span class="sd">            coords_are_cartesian: Whether the qpoint coordinates are cartesian.</span>
+<span class="sd">            structure: The crystal structure (as a pymatgen Structure object)</span>
+<span class="sd">                associated with the band structure. This is needed if we</span>
+<span class="sd">                provide projections to the band structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">GruneisenPhononBandStructure</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">qpoints</span><span class="o">=</span><span class="n">qpoints</span><span class="p">,</span>
+            <span class="n">frequencies</span><span class="o">=</span><span class="n">frequencies</span><span class="p">,</span>
+            <span class="n">gruneisenparameters</span><span class="o">=</span><span class="n">gruneisenparameters</span><span class="p">,</span>
+            <span class="n">lattice</span><span class="o">=</span><span class="n">lattice</span><span class="p">,</span>
+            <span class="n">eigendisplacements</span><span class="o">=</span><span class="n">eigendisplacements</span><span class="p">,</span>
+            <span class="n">labels_dict</span><span class="o">=</span><span class="n">labels_dict</span><span class="p">,</span>
+            <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="n">coords_are_cartesian</span><span class="p">,</span>
+            <span class="n">structure</span><span class="o">=</span><span class="n">structure</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">PhononBandStructureSymmLine</span><span class="o">.</span><span class="n">_reuse_init</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">eigendisplacements</span><span class="o">=</span><span class="n">eigendisplacements</span><span class="p">,</span> <span class="n">frequencies</span><span class="o">=</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">has_nac</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">qpoints</span><span class="o">=</span><span class="n">qpoints</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="GruneisenPhononBandStructureSymmLine.from_dict"><a class="viewcode-back" href="../../../pymatgen.phonon.gruneisen.html#pymatgen.phonon.gruneisen.GruneisenPhononBandStructureSymmLine.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            d: Dict representation</span>
+
+<span class="sd">        Returns: GruneisenPhononBandStructureSummLine</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lattice_rec</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;lattice_rec&quot;</span><span class="p">][</span><span class="s2">&quot;matrix&quot;</span><span class="p">])</span>
+        <span class="n">eigendisplacements</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;eigendisplacements&quot;</span><span class="p">][</span><span class="s2">&quot;real&quot;</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;eigendisplacements&quot;</span><span class="p">][</span><span class="s2">&quot;imag&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="mi">1</span><span class="n">j</span>
+        <span class="n">structure</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;structure&quot;</span> <span class="ow">in</span> <span class="n">d</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">qpoints</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;qpoints&quot;</span><span class="p">],</span>
+            <span class="n">frequencies</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;bands&quot;</span><span class="p">]),</span>
+            <span class="n">gruneisenparameters</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;gruneisen&quot;</span><span class="p">]),</span>
+            <span class="n">lattice</span><span class="o">=</span><span class="n">lattice_rec</span><span class="p">,</span>
+            <span class="n">eigendisplacements</span><span class="o">=</span><span class="n">eigendisplacements</span><span class="p">,</span>
+            <span class="n">labels_dict</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;labels_dict&quot;</span><span class="p">],</span>
+            <span class="n">structure</span><span class="o">=</span><span class="n">structure</span><span class="p">,</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.phonon.gruneisen</a></li> 
+      </ul>
+    </div>
+
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+<div class="footer">This page uses <a href="http://analytics.google.com/">
+Google Analytics</a> to collect statistics. You can disable it by blocking
+the JavaScript coming from www.google-analytics.com.
+<script type="text/javascript">
+  (function() {
+    var ga = document.createElement('script');
+    ga.src = ('https:' == document.location.protocol ?
+              'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    ga.setAttribute('async', 'true');
+    document.documentElement.firstChild.appendChild(ga);
+  })();
+</script>
+</div>
+
+  </body>
+</html>
