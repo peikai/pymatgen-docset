@@ -1,17 +1,16 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.symmetry.kpath &#8212; pymatgen 2022.4.26 documentation</title>
+    <title>pymatgen.symmetry.kpath &#8212; pymatgen 2023.1.30 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-    <script src="../../../_static/jquery.js"></script>
-    <script src="../../../_static/underscore.js"></script>
     <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
  
@@ -31,7 +30,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.26 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.symmetry.kpath</a></li> 
       </ul>
@@ -49,10 +48,13 @@
 <span class="sd">Provides classes for generating high-symmetry k-paths using different conventions.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span> <span class="nn">abc</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">operator</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">ceil</span><span class="p">,</span> <span class="n">cos</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">pi</span><span class="p">,</span> <span class="n">sin</span><span class="p">,</span> <span class="n">tan</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
 <span class="kn">from</span> <span class="nn">warnings</span> <span class="kn">import</span> <span class="n">warn</span>
 
 <span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
@@ -63,7 +65,9 @@
 
 <span class="kn">from</span> <span class="nn">pymatgen.core.lattice</span> <span class="kn">import</span> <span class="n">Lattice</span>
 <span class="kn">from</span> <span class="nn">pymatgen.core.operations</span> <span class="kn">import</span> <span class="n">MagSymmOp</span><span class="p">,</span> <span class="n">SymmOp</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
 <span class="kn">from</span> <span class="nn">pymatgen.symmetry.analyzer</span> <span class="kn">import</span> <span class="n">SpacegroupAnalyzer</span>
+<span class="kn">from</span> <span class="nn">pymatgen.util.typing</span> <span class="kn">import</span> <span class="n">SpeciesLike</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">seekpath</span> <span class="kn">import</span> <span class="n">get_path</span>
@@ -80,27 +84,26 @@
 
 
 <div class="viewcode-block" id="KPathBase"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathBase">[docs]</a><span class="k">class</span> <span class="nc">KPathBase</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    This is the base class for classes used to generate high-symmetry</span>
 <span class="sd">    paths in reciprocal space (k-paths) for band structure calculations.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">,</span> <span class="n">symprec</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">symprec</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
-<span class="sd">        structure (Structure): Structure object</span>
-<span class="sd">        symprec (float): Tolerance for symmetry finding</span>
+<span class="sd">        structure (Structure): Structure object.</span>
+<span class="sd">        symprec (float): Tolerance for symmetry finding.</span>
 <span class="sd">        angle_tolerance (float): Angle tolerance for symmetry finding.</span>
 <span class="sd">        atol (float): Absolute tolerance used to compare structures</span>
 <span class="sd">            and determine symmetric equivalence of points and lines</span>
 <span class="sd">            in the BZ.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_structure</span> <span class="o">=</span> <span class="n">structure</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_latt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_structure</span><span class="o">.</span><span class="n">lattice</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_rec_lattice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">reciprocal_lattice</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_kpath</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_kpath</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_symprec</span> <span class="o">=</span> <span class="n">symprec</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_atol</span> <span class="o">=</span> <span class="n">atol</span>
@@ -108,7 +111,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">structure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">        The input structure</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -116,7 +119,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">lattice</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">        The real space lattice</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -124,7 +127,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">rec_lattice</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">        The reciprocal space lattice</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -132,17 +135,17 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">kpath</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">        The symmetry line path in reciprocal space</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kpath</span>
 
 <div class="viewcode-block" id="KPathBase.get_kpoints"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathBase.get_kpoints">[docs]</a>    <span class="k">def</span> <span class="nf">get_kpoints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">line_density</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
-<span class="sd">        the kpoints along the paths in Cartesian coordinates</span>
-<span class="sd">        together with the labels for symmetry points -Wei.</span>
+<span class="sd">        kpoints along the path in Cartesian coordinates</span>
+<span class="sd">        together with the critical-point labels.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">list_k_points</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">sym_point_labels</span> <span class="o">=</span> <span class="p">[]</span>
@@ -174,35 +177,35 @@
 
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo">[docs]</a><span class="k">class</span> <span class="nc">KPathSetyawanCurtarolo</span><span class="p">(</span><span class="n">KPathBase</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    This class looks for path along high symmetry lines in</span>
-<span class="sd">    the Brillouin Zone.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class looks for a path along high-symmetry lines in</span>
+<span class="sd">    the Brillouin zone.</span>
 <span class="sd">    It is based on Setyawan, W., &amp; Curtarolo, S. (2010).</span>
 <span class="sd">    High-throughput electronic band structure calculations:</span>
 <span class="sd">    Challenges and tools. Computational Materials Science,</span>
 <span class="sd">    49(2), 299-312. doi:10.1016/j.commatsci.2010.05.010</span>
 <span class="sd">    It should be used with primitive structures that</span>
-<span class="sd">    comply with the definition from the paper.</span>
-<span class="sd">    The symmetry is determined by spglib through the</span>
+<span class="sd">    comply with the definition given in the paper.</span>
+<span class="sd">    The symmetry is determined by spglib using the</span>
 <span class="sd">    SpacegroupAnalyzer class. The analyzer can be used to</span>
-<span class="sd">    produce the correct primitive structure (method</span>
-<span class="sd">    get_primitive_standard_structure(international_monoclinic=False)).</span>
+<span class="sd">    produce the correct primitive structure with the method</span>
+<span class="sd">    get_primitive_standard_structure(international_monoclinic=False).</span>
 <span class="sd">    A warning will signal possible compatibility problems</span>
-<span class="sd">    with the given structure. KPoints from get_kpoints() method</span>
-<span class="sd">    are returned in the reciprocal cell basis defined in the paper.</span>
+<span class="sd">    with the given structure. k-points generated using the get_kpoints() method</span>
+<span class="sd">    are returned for the reciprocal cell basis defined in the paper.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">,</span> <span class="n">symprec</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">symprec</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
-<span class="sd">        structure (Structure): Structure object</span>
-<span class="sd">        symprec (float): Tolerance for symmetry finding</span>
+<span class="sd">        structure (Structure): Structure object.</span>
+<span class="sd">        symprec (float): Tolerance for symmetry finding.</span>
 <span class="sd">        angle_tolerance (float): Angle tolerance for symmetry finding.</span>
 <span class="sd">        atol (float): Absolute tolerance used to compare the input</span>
 <span class="sd">            structure with the one expected as primitive standard.</span>
-<span class="sd">            A warning will be issued if the lattices don&#39;t match.</span>
+<span class="sd">            A warning will be issued if the cells don&#39;t match.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="s2">&quot;magmom&quot;</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="s2">&quot;magmom&quot;</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">:</span>
             <span class="n">warn</span><span class="p">(</span>
                 <span class="s2">&quot;&#39;magmom&#39; entry found in site properties but will be ignored </span><span class="se">\</span>
 <span class="s2">                  for the Setyawan and Curtarolo convention.&quot;</span>
@@ -216,12 +219,12 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_rec_lattice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prim</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">reciprocal_lattice</span>
 
         <span class="c1"># Note: this warning will be issued for space groups 38-41, since the primitive cell must be</span>
-        <span class="c1"># reformatted to match Setyawan/Curtarolo convention in order to work with the current k-path</span>
+        <span class="c1"># reformatted to match the Setyawan/Curtarolo convention in order to work with the current k-path</span>
         <span class="c1"># generation scheme.</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prim</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">):</span>
             <span class="n">warn</span><span class="p">(</span>
                 <span class="s2">&quot;The input structure does not match the expected standard primitive! &quot;</span>
-                <span class="s2">&quot;The path can be incorrect. Use at your own risk.&quot;</span>
+                <span class="s2">&quot;The path may be incorrect. Use at your own risk.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">lattice_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sym</span><span class="o">.</span><span class="n">get_lattice_type</span><span class="p">()</span>
@@ -326,7 +329,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">conventional</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            The conventional cell structure</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -334,7 +337,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">prim</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            The primitive cell structure</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -342,14 +345,14 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">prim_rec</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            The primitive reciprocal cell structure</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rec_lattice</span>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.cubic"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.cubic">[docs]</a>    <span class="k">def</span> <span class="nf">cubic</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        CUB Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;CUB&quot;</span>
@@ -363,7 +366,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.fcc"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.fcc">[docs]</a>    <span class="k">def</span> <span class="nf">fcc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        FCC Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;FCC&quot;</span>
@@ -382,7 +385,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.bcc"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.bcc">[docs]</a>    <span class="k">def</span> <span class="nf">bcc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        BCC Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;BCC&quot;</span>
@@ -396,7 +399,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.tet"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.tet">[docs]</a>    <span class="k">def</span> <span class="nf">tet</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        TET Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;TET&quot;</span>
@@ -416,7 +419,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.bctet1"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.bctet1">[docs]</a>    <span class="k">def</span> <span class="nf">bctet1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        BCT1 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;BCT1&quot;</span>
@@ -434,7 +437,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.bctet2"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.bctet2">[docs]</a>    <span class="k">def</span> <span class="nf">bctet2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        BCT2 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;BCT2&quot;</span>
@@ -470,7 +473,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.orc"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.orc">[docs]</a>    <span class="k">def</span> <span class="nf">orc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        ORC Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;ORC&quot;</span>
@@ -493,7 +496,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.orcf1"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.orcf1">[docs]</a>    <span class="k">def</span> <span class="nf">orcf1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        ORFC1 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;ORCF1&quot;</span>
@@ -520,7 +523,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.orcf2"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.orcf2">[docs]</a>    <span class="k">def</span> <span class="nf">orcf2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        ORFC2 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;ORCF2&quot;</span>
@@ -550,7 +553,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.orcf3"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.orcf3">[docs]</a>    <span class="k">def</span> <span class="nf">orcf3</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        ORFC3 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;ORCF3&quot;</span>
@@ -575,7 +578,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.orci"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.orci">[docs]</a>    <span class="k">def</span> <span class="nf">orci</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        ORCI Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;ORCI&quot;</span>
@@ -606,7 +609,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.orcc"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.orcc">[docs]</a>    <span class="k">def</span> <span class="nf">orcc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        ORCC Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;ORCC&quot;</span>
@@ -643,7 +646,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.hex"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.hex">[docs]</a>    <span class="k">def</span> <span class="nf">hex</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        HEX Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;HEX&quot;</span>
@@ -663,7 +666,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.rhl1"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.rhl1">[docs]</a>    <span class="k">def</span> <span class="nf">rhl1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        RHL1 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;RHL1&quot;</span>
@@ -692,7 +695,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.rhl2"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.rhl2">[docs]</a>    <span class="k">def</span> <span class="nf">rhl2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        RHL2 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;RHL2&quot;</span>
@@ -712,7 +715,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.mcl"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.mcl">[docs]</a>    <span class="k">def</span> <span class="nf">mcl</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        MCL Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;MCL&quot;</span>
@@ -744,7 +747,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.mclc1"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.mclc1">[docs]</a>    <span class="k">def</span> <span class="nf">mclc1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        MCLC1 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;MCLC1&quot;</span>
@@ -780,7 +783,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.mclc2"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.mclc2">[docs]</a>    <span class="k">def</span> <span class="nf">mclc2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        MCLC2 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;MCLC2&quot;</span>
@@ -815,7 +818,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.mclc3"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.mclc3">[docs]</a>    <span class="k">def</span> <span class="nf">mclc3</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        MCLC3 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;MCLC3&quot;</span>
@@ -852,7 +855,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.mclc4"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.mclc4">[docs]</a>    <span class="k">def</span> <span class="nf">mclc4</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        MCLC4 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;MCLC4&quot;</span>
@@ -889,7 +892,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.mclc5"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.mclc5">[docs]</a>    <span class="k">def</span> <span class="nf">mclc5</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        MCLC5 Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;MCLC5&quot;</span>
@@ -930,7 +933,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.tria"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.tria">[docs]</a>    <span class="k">def</span> <span class="nf">tria</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        TRI1a Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;TRI1a&quot;</span>
@@ -953,7 +956,7 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span></div>
 
 <div class="viewcode-block" id="KPathSetyawanCurtarolo.trib"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSetyawanCurtarolo.trib">[docs]</a>    <span class="k">def</span> <span class="nf">trib</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        TRI1b Path</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;TRI1b&quot;</span>
@@ -977,36 +980,31 @@
 
 
 <div class="viewcode-block" id="KPathSeek"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathSeek">[docs]</a><span class="k">class</span> <span class="nc">KPathSeek</span><span class="p">(</span><span class="n">KPathBase</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    This class looks for path along high symmetry lines in</span>
-<span class="sd">    the Brillouin Zone.</span>
-<span class="sd">    It is based on Hinuma, Y., Pizzi, G., Kumagai, Y., Oba, F.,</span>
-<span class="sd">    &amp; Tanaka, I. (2017). Band structure diagram paths based on</span>
-<span class="sd">    crystallography. Computational Materials Science, 128, 140–184.</span>
-<span class="sd">    https://doi.org/10.1016/j.commatsci.2016.10.015</span>
-<span class="sd">    It should be used with primitive structures that</span>
-<span class="sd">    comply with the definition from the paper.</span>
-<span class="sd">    The symmetry is determined by spglib through the</span>
-<span class="sd">    SpacegroupAnalyzer class. KPoints from get_kpoints() method</span>
-<span class="sd">    are returned in the reciprocal cell basis defined in the paper.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class looks for a path along high-symmetry lines in the Brillouin zone. It is based on</span>
+<span class="sd">    Hinuma, Y., Pizzi, G., Kumagai, Y., Oba, F., &amp; Tanaka, I. (2017). Band structure diagram paths</span>
+<span class="sd">    based on crystallography. Computational Materials Science, 128, 140-184.</span>
+<span class="sd">    https://doi.org/10.1016/j.commatsci.2016.10.015. It should be used with primitive structures that</span>
+<span class="sd">    comply with the definition given in the paper. The symmetry is determined by spglib using the</span>
+<span class="sd">    SpacegroupAnalyzer class. k-points are generated using the get_kpoints() method for the</span>
+<span class="sd">    reciprocal cell basis defined in the paper.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="nd">@requires</span><span class="p">(</span>
         <span class="n">get_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="s2">&quot;SeeK-path is required to use the convention by Hinuma et al.&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SeeK-path needs to be installed to use the convention of Hinuma et al. (2015)&quot;</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">,</span> <span class="n">symprec</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">system_is_tri</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">symprec</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">system_is_tri</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            structure (Structure): Structure object</span>
 <span class="sd">            symprec (float): Tolerance for symmetry finding</span>
 <span class="sd">            angle_tolerance (float): Angle tolerance for symmetry finding.</span>
 <span class="sd">            atol (float): Absolute tolerance used to determine edge cases</span>
 <span class="sd">                for settings of structures.</span>
-<span class="sd">            system_is_tri (boolean): Indicates if the system is time-reversal</span>
+<span class="sd">            system_is_tri (bool): Indicates if the system is time-reversal</span>
 <span class="sd">                invariant.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">symprec</span><span class="o">=</span><span class="n">symprec</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="n">angle_tolerance</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">)</span>
 
         <span class="n">positions</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">frac_coords</span>
@@ -1017,9 +1015,9 @@
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">system_is_tri</span><span class="p">:</span>
             <span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Non-zero &#39;magmom&#39; data will be used to define unique atoms in the cell.&quot;</span><span class="p">)</span>
-            <span class="n">site_data</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="n">species</span><span class="p">,</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span> <span class="k">for</span> <span class="n">vec</span> <span class="ow">in</span> <span class="n">sp</span><span class="p">[</span><span class="s2">&quot;magmom&quot;</span><span class="p">]])</span>
+            <span class="n">site_data</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="n">species</span><span class="p">,</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span> <span class="k">for</span> <span class="n">vec</span> <span class="ow">in</span> <span class="n">sp</span><span class="p">[</span><span class="s2">&quot;magmom&quot;</span><span class="p">]])</span>  <span class="c1"># type: ignore</span>
 
-        <span class="n">unique_species</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">unique_species</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SpeciesLike</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">numbers</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="k">for</span> <span class="n">species</span><span class="p">,</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">site_data</span><span class="p">):</span>
@@ -1104,13 +1102,11 @@
 
 
 <div class="viewcode-block" id="KPathLatimerMunro"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathLatimerMunro">[docs]</a><span class="k">class</span> <span class="nc">KPathLatimerMunro</span><span class="p">(</span><span class="n">KPathBase</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    This class looks for a path along high symmetry lines in the</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class looks for a path along high-symmetry lines in the</span>
 <span class="sd">    Brillouin zone. It is based on the method outlined in:</span>
-
 <span class="sd">    npj Comput Mater 6, 112 (2020). 10.1038/s41524-020-00383-7</span>
-
-<span class="sd">    The user should ensure that the lattice of the input structure</span>
+<span class="sd">    The user should ensure that the unit cell of the input structure</span>
 <span class="sd">    is as reduced as possible, i.e. that there is no linear</span>
 <span class="sd">    combination of lattice vectors which can produce a vector of</span>
 <span class="sd">    lesser magnitude than the given set (this is required to</span>
@@ -1120,9 +1116,9 @@
 <span class="sd">    In the case of magnetic structures, care must also be taken to</span>
 <span class="sd">    provide the magnetic primitive cell (i.e. that which reproduces</span>
 <span class="sd">    the entire crystal, including the correct magnetic ordering,</span>
-<span class="sd">    upon application of lattice translations). There is no way to</span>
-<span class="sd">    programmatically check for this, so if the input structure is</span>
-<span class="sd">    incorrect, the class will output the incorrect kpath without</span>
+<span class="sd">    upon application of lattice translations). There is no algorithm to</span>
+<span class="sd">        check for this, so if the input structure is</span>
+<span class="sd">    incorrect, the class will output the incorrect k-path without</span>
 <span class="sd">    any warning being issued.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -1135,10 +1131,10 @@
         <span class="n">angle_tolerance</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
         <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            structure (Structure): Structure object</span>
-<span class="sd">            has_magmoms (boolean): Whether the input structure contains</span>
+<span class="sd">            has_magmoms (bool): Whether the input structure contains</span>
 <span class="sd">                magnetic moments as site properties with the key &#39;magmom.&#39;</span>
 <span class="sd">                Values may be in the form of 3-component vectors given in</span>
 <span class="sd">                the basis of the input lattice vectors, or as scalars, in</span>
@@ -1151,11 +1147,11 @@
 <span class="sd">            symprec (float): Tolerance for symmetry finding</span>
 <span class="sd">            angle_tolerance (float): Angle tolerance for symmetry finding.</span>
 <span class="sd">            atol (float): Absolute tolerance used to determine symmetric</span>
-<span class="sd">                equivalence of points and lines on the BZ.</span>
+<span class="sd">                equivalence of points and lines in the BZ.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">symprec</span><span class="o">=</span><span class="n">symprec</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="n">angle_tolerance</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">)</span>
 
-        <span class="c1"># Check to see if input lattice is reducible. Ref: B Gruber in Acta. Cryst. Vol. A29,</span>
+        <span class="c1"># Check to see if input cell is reducible. Ref: B Gruber in Acta. Cryst. Vol. A29,</span>
         <span class="c1"># pp. 433-440 (&#39;The Relationship between Reduced Cells in a General Bravais lattice&#39;).</span>
         <span class="c1"># The correct BZ will still be obtained if the lattice vectors are reducible by any</span>
         <span class="c1"># linear combination of themselves with coefficients of absolute value less than 2,</span>
@@ -1179,8 +1175,8 @@
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">reducible</span><span class="p">):</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;reducible&quot;</span><span class="p">)</span>
             <span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;The lattice of the input structure is not fully reduced!&quot;</span>
-                <span class="s2">&quot;The path can be incorrect. Use at your own risk.&quot;</span>
+                <span class="s2">&quot;The unit cell of the input structure is not fully reduced!&quot;</span>
+                <span class="s2">&quot;The path may be incorrect. Use at your own risk.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">magmom_axis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1193,7 +1189,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">mag_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">        The type of magnetic space group as a string.</span>
 <span class="sd">        Current implementation does not distinguish</span>
@@ -1284,16 +1280,16 @@
 
         <span class="c1"># 3: Find symmetry-equivalent points, which can be mapped to each other by a combination of point group</span>
         <span class="c1"># operations and integer translations by lattice vectors. The integers will only be -1, 0, or 1, since</span>
-        <span class="c1"># we are restricting to the BZ.</span>
+        <span class="c1"># we are restricted to the BZ.</span>
 
         <span class="n">key_points_inds_orbits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_key_point_orbits</span><span class="p">(</span><span class="n">key_points</span><span class="o">=</span><span class="n">key_points</span><span class="p">)</span>
 
-        <span class="c1"># 4: Get all lines on BZ between adjacent key points and between gamma</span>
+        <span class="c1"># 4: Get all lines in BZ between adjacent key points and between gamma</span>
         <span class="c1"># and key points (&quot;key lines&quot;)</span>
 
         <span class="n">key_lines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_key_lines</span><span class="p">(</span><span class="n">key_points</span><span class="o">=</span><span class="n">key_points</span><span class="p">,</span> <span class="n">bz_as_key_point_inds</span><span class="o">=</span><span class="n">bz_as_key_point_inds</span><span class="p">)</span>
 
-        <span class="c1"># 5: Find symmetry-equivalent key lines, defined as endpoints of first line being equivalent</span>
+        <span class="c1"># 5: Find symmetry-equivalent key lines, defined as end points of first line being equivalent</span>
         <span class="c1"># to end points of second line, and a random point in between being equivalent to the mapped</span>
         <span class="c1"># random point.</span>
 
@@ -1327,9 +1323,9 @@
             <span class="n">little_groups_lines</span><span class="o">=</span><span class="n">little_groups_lines</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="c1"># 10: Consolidate selected segments into a single irreducible section of the Brilouin zone (as determined</span>
+        <span class="c1"># 10: Consolidate selected segments into a single irreducible section of the BZ (as determined</span>
         <span class="c1"># by the reciprocal point and lattice symmetries). This is accomplished by identifying the boundary</span>
-        <span class="c1"># planes of the IRBZ. Also, get labels for points according to distance away from axes.</span>
+        <span class="c1"># planes of the IRBZ. Also, get labels for points according to distance from axes.</span>
 
         <span class="n">IRBZ_points_inds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_IRBZ</span><span class="p">(</span><span class="n">recip_point_group</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">key_points</span><span class="p">,</span> <span class="n">face_center_inds</span><span class="p">,</span> <span class="n">atol</span><span class="p">)</span>
         <span class="n">lines_in_path_inds</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1344,7 +1340,7 @@
         <span class="n">points_in_path_inds_unique</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">points_in_path_inds</span><span class="p">))</span>
 
         <span class="n">orbit_cosines</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">orbit</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">key_points_inds_orbits</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="k">for</span> <span class="n">orbit</span> <span class="ow">in</span> <span class="n">key_points_inds_orbits</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
 
             <span class="n">orbit_cosines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="nb">sorted</span><span class="p">(</span>
@@ -1378,11 +1374,11 @@
         <span class="n">reverse_kpoints</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">point_ind</span> <span class="ow">in</span> <span class="n">points_in_path_inds_unique</span><span class="p">:</span>
             <span class="n">point_label</span> <span class="o">=</span> <span class="n">key_points_labels</span><span class="p">[</span><span class="n">point_ind</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">point_label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kpoints</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">point_label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kpoints</span><span class="p">:</span>
                 <span class="n">kpoints</span><span class="p">[</span><span class="n">point_label</span><span class="p">]</span> <span class="o">=</span> <span class="n">key_points</span><span class="p">[</span><span class="n">point_ind</span><span class="p">]</span>
                 <span class="n">reverse_kpoints</span><span class="p">[</span><span class="n">point_ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">point_label</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">existing_labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">kpoints</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">point_label</span> <span class="ow">in</span> <span class="n">key</span><span class="p">]</span>
+                <span class="n">existing_labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">kpoints</span> <span class="k">if</span> <span class="n">point_label</span> <span class="ow">in</span> <span class="n">key</span><span class="p">]</span>
                 <span class="k">if</span> <span class="s2">&quot;&#39;&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">point_label</span><span class="p">:</span>
                     <span class="n">existing_labels</span><span class="p">[:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">label</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">existing_labels</span> <span class="k">if</span> <span class="s2">&quot;&#39;&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">label</span><span class="p">]</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">existing_labels</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -1440,7 +1436,7 @@
             <span class="n">nC2</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="n">nC3</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="n">nsig</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">opind</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">little_group</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">opind</span> <span class="ow">in</span> <span class="n">little_group</span><span class="p">:</span>
                 <span class="n">op</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rpg</span><span class="p">[</span><span class="n">opind</span><span class="p">]</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">op</span> <span class="o">==</span> <span class="n">ID</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
                     <span class="k">if</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span> <span class="o">==</span> <span class="n">ID</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
@@ -1576,14 +1572,14 @@
 
     <span class="k">def</span> <span class="nf">_get_key_point_orbits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key_points</span><span class="p">):</span>
         <span class="n">key_points_copy</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">key_points</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="n">key_points</span><span class="p">[</span><span class="mi">0</span> <span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">key_points</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]))</span>
-        <span class="c1"># gamma not equivalent to any on BZ and is last point added to</span>
+        <span class="c1"># gamma not equivalent to any in BZ and is last point added to</span>
         <span class="c1"># key_points</span>
         <span class="n">key_points_inds_orbits</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">key_points_copy</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">key_points_inds_orbits</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
-            <span class="n">k0ind</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">key_points_copy</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">k0ind</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">key_points_copy</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">k0</span> <span class="o">=</span> <span class="n">key_points_copy</span><span class="p">[</span><span class="n">k0ind</span><span class="p">]</span>
             <span class="n">key_points_inds_orbits</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">k0ind</span><span class="p">)</span>
             <span class="n">key_points_copy</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k0ind</span><span class="p">)</span>
@@ -1610,7 +1606,7 @@
         <span class="n">key_lines</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">gamma_ind</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">key_points</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
 
-        <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">facet_as_key_point_inds</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">bz_as_key_point_inds</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">facet_as_key_point_inds</span> <span class="ow">in</span> <span class="n">bz_as_key_point_inds</span><span class="p">:</span>
             <span class="n">facet_as_key_point_inds_bndy</span> <span class="o">=</span> <span class="n">facet_as_key_point_inds</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="n">facet_as_key_point_inds</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
             <span class="c1"># not the face center point (don&#39;t need to check it since it&#39;s not</span>
             <span class="c1"># shared with other facets)</span>
@@ -1651,7 +1647,7 @@
         <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">key_lines_copy</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">key_lines_inds_orbits</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
-            <span class="n">l0ind</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">key_lines_copy</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">l0ind</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">key_lines_copy</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">l0</span> <span class="o">=</span> <span class="n">key_lines_copy</span><span class="p">[</span><span class="n">l0ind</span><span class="p">]</span>
             <span class="n">key_lines_inds_orbits</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">l0</span><span class="p">)</span>
             <span class="n">key_lines_copy</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">l0ind</span><span class="p">)</span>
@@ -1865,8 +1861,8 @@
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pos1</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pos2</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pos1</span><span class="p">):</span>
-            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">pos1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">pos2</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">tolerance</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">pos1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">pos2</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">tolerance</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">p1</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pos1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">p1</span> <span class="o">-</span> <span class="n">pos2</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">tolerance</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">p1</span> <span class="o">-</span> <span class="n">pos2</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">tolerance</span><span class="p">[</span><span class="n">idx</span><span class="p">]:</span>
                 <span class="k">return</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="kc">True</span>
 
@@ -1875,7 +1871,7 @@
         <span class="c1"># in this implementation, G and H are lists of objects of type</span>
         <span class="c1"># SymmOp</span>
         <span class="n">gH</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">op1</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">G</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">op1</span> <span class="ow">in</span> <span class="n">G</span><span class="p">:</span>
             <span class="n">in_H</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">for</span> <span class="n">op2</span> <span class="ow">in</span> <span class="n">H</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">op1</span><span class="o">.</span><span class="n">rotation_matrix</span><span class="p">,</span> <span class="n">op2</span><span class="o">.</span><span class="n">rotation_matrix</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_atol</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closewrapped</span><span class="p">(</span>
@@ -1889,7 +1885,7 @@
                 <span class="n">gH</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op1</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">gH</span><span class="p">:</span>
-            <span class="n">opH</span> <span class="o">=</span> <span class="p">[</span><span class="n">op</span><span class="o">.</span><span class="fm">__mul__</span><span class="p">(</span><span class="n">h</span><span class="p">)</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">H</span><span class="p">]</span>
+            <span class="n">opH</span> <span class="o">=</span> <span class="p">[</span><span class="n">op</span> <span class="o">*</span> <span class="n">h</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">H</span><span class="p">]</span>
             <span class="n">is_coset_factor</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">for</span> <span class="n">op1</span> <span class="ow">in</span> <span class="n">opH</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">op2</span> <span class="ow">in</span> <span class="n">H</span><span class="p">:</span>
@@ -2330,10 +2326,9 @@
 
 <div class="viewcode-block" id="KPathLatimerMunro.LabelPoints"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathLatimerMunro.LabelPoints">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">LabelPoints</span><span class="p">(</span><span class="n">index</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Axes used in generating labels for Latimer-Munro convention</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="n">points</span> <span class="o">=</span> <span class="p">[</span>
             <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
             <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
@@ -2367,10 +2362,9 @@
 
 <div class="viewcode-block" id="KPathLatimerMunro.LabelSymbol"><a class="viewcode-back" href="../../../pymatgen.symmetry.kpath.html#pymatgen.symmetry.kpath.KPathLatimerMunro.LabelSymbol">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">LabelSymbol</span><span class="p">(</span><span class="n">index</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Letters used in generating labels for Latimer-Munro convention</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Letters used in generating labels for the Latimer-Munro convention</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="n">symbols</span> <span class="o">=</span> <span class="p">[</span>
             <span class="s2">&quot;a&quot;</span><span class="p">,</span>
             <span class="s2">&quot;b&quot;</span><span class="p">,</span>
@@ -2417,7 +2411,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.26 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.symmetry.kpath</a></li> 
       </ul>
@@ -2425,7 +2419,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

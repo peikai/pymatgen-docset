@@ -1,17 +1,16 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.entries.computed_entries &#8212; pymatgen 2022.4.26 documentation</title>
+    <title>pymatgen.entries.computed_entries &#8212; pymatgen 2023.1.30 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-    <script src="../../../_static/jquery.js"></script>
-    <script src="../../../_static/underscore.js"></script>
     <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
  
@@ -31,7 +30,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.26 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="../entries.html" accesskey="U">pymatgen.entries</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.entries.computed_entries</a></li> 
@@ -58,10 +57,11 @@
 
 <span class="kn">import</span> <span class="nn">abc</span>
 <span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">combinations</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MontyDecoder</span><span class="p">,</span> <span class="n">MontyEncoder</span><span class="p">,</span> <span class="n">MSONable</span>
@@ -84,7 +84,7 @@
 
 
 <div class="viewcode-block" id="EnergyAdjustment"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.EnergyAdjustment">[docs]</a><span class="k">class</span> <span class="nc">EnergyAdjustment</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Lightweight class to contain information about an energy adjustment or</span>
 <span class="sd">    energy correction.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -97,7 +97,7 @@
         <span class="bp">cls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            value: float, value of the energy adjustment in eV</span>
 <span class="sd">            uncertainty: float, uncertainty of the energy adjustment in eV. Default: np.nan</span>
@@ -107,28 +107,28 @@
 <span class="sd">            description: str, human-readable explanation of the energy adjustment.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">cls</span> <span class="o">=</span> <span class="bp">cls</span> <span class="k">if</span> <span class="bp">cls</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cls</span> <span class="o">=</span> <span class="bp">cls</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">value</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_uncertainty</span> <span class="o">=</span> <span class="n">uncertainty</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the value of the energy correction in eV.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">uncertainty</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the uncertainty in the value of the energy adjustment in eV</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_uncertainty</span>
 
 <div class="viewcode-block" id="EnergyAdjustment.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.EnergyAdjustment.normalize">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factor</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Scale the value of the current energy adjustment by factor in-place.</span>
 
 <span class="sd">        This method is utilized in ComputedEntry.normalize() to scale the energies to a formula unit basis</span>
@@ -138,8 +138,8 @@
     <span class="nd">@property</span>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return an explanaion of how the energy adjustment is calculated.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return an explanation of how the energy adjustment is calculated.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -149,13 +149,13 @@
             <span class="sa">f</span><span class="s2">&quot;  Value: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> eV&quot;</span><span class="p">,</span>
             <span class="sa">f</span><span class="s2">&quot;  Uncertainty: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">uncertainty</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> eV&quot;</span><span class="p">,</span>
             <span class="sa">f</span><span class="s2">&quot;  Description: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">explain</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="sa">f</span><span class="s2">&quot;  Generated by: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;@class&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;  Generated by: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cls</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;@class&#39;</span><span class="p">,</span><span class="w"> </span><span class="kc">None</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="p">]</span>
         <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ConstantEnergyAdjustment"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ConstantEnergyAdjustment">[docs]</a><span class="k">class</span> <span class="nc">ConstantEnergyAdjustment</span><span class="p">(</span><span class="n">EnergyAdjustment</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A constant energy adjustment applied to a ComputedEntry. Useful in energy referencing</span>
 <span class="sd">    schemes such as the Aqueous energy referencing scheme.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -168,10 +168,10 @@
         <span class="bp">cls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Constant energy adjustment&quot;</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            value: float, value of the energy adjustment in eV</span>
-<span class="sd">            uncertainty: float, uncertaint of the energy adjustment in eV. (Default: np.nan)</span>
+<span class="sd">            uncertainty: float, uncertainty of the energy adjustment in eV. (Default: np.nan)</span>
 <span class="sd">            name: str, human-readable name of the energy adjustment.</span>
 <span class="sd">                (Default: Constant energy adjustment)</span>
 <span class="sd">            cls: dict, Serialized Compatibility class used to generate the energy</span>
@@ -184,13 +184,13 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return an explanaion of how the energy adjustment is calculated.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return an explanation of how the energy adjustment is calculated.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> eV)&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> eV)&quot;</span>
 
 <div class="viewcode-block" id="ConstantEnergyAdjustment.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ConstantEnergyAdjustment.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factor</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Normalize energy adjustment (in place), dividing value/uncertainty by a</span>
 <span class="sd">        factor.</span>
 <span class="sd">        :param factor: factor to divide by</span>
@@ -200,12 +200,12 @@
 
 
 <div class="viewcode-block" id="ManualEnergyAdjustment"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ManualEnergyAdjustment">[docs]</a><span class="k">class</span> <span class="nc">ManualEnergyAdjustment</span><span class="p">(</span><span class="n">ConstantEnergyAdjustment</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A manual energy adjustment applied to a ComputedEntry.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            value: float, value of the energy adjustment in eV</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -215,7 +215,7 @@
 
 
 <div class="viewcode-block" id="CompositionEnergyAdjustment"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.CompositionEnergyAdjustment">[docs]</a><span class="k">class</span> <span class="nc">CompositionEnergyAdjustment</span><span class="p">(</span><span class="n">EnergyAdjustment</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An energy adjustment applied to a ComputedEntry based on the atomic composition.</span>
 <span class="sd">    Used in various DFT energy correction schemes.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -229,7 +229,7 @@
         <span class="bp">cls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Composition-based energy adjustment&quot;</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            adj_per_atom: float, energy adjustment to apply per atom, in eV/atom</span>
 <span class="sd">            n_atoms: float or int, number of atoms.</span>
@@ -244,33 +244,33 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_adj_per_atom</span> <span class="o">=</span> <span class="n">adj_per_atom</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">uncertainty_per_atom</span> <span class="o">=</span> <span class="n">uncertainty_per_atom</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span> <span class="o">=</span> <span class="n">n_atoms</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">cls</span> <span class="o">=</span> <span class="bp">cls</span> <span class="k">if</span> <span class="bp">cls</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cls</span> <span class="o">=</span> <span class="bp">cls</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the value of the energy adjustment in eV.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_adj_per_atom</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">uncertainty</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the value of the energy adjustment in eV.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">uncertainty_per_atom</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return an explanaion of how the energy adjustment is calculated.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return an explanation of how the energy adjustment is calculated.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_adj_per_atom</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> eV/atom x </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="si">}</span><span class="s2"> atoms)&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_adj_per_atom</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> eV/atom x </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="si">}</span><span class="s2"> atoms)&quot;</span>
 
 <div class="viewcode-block" id="CompositionEnergyAdjustment.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.CompositionEnergyAdjustment.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factor</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Normalize energy adjustment (in place), dividing value/uncertainty by a</span>
 <span class="sd">        factor.</span>
 <span class="sd">        :param factor: factor to divide by</span>
@@ -279,7 +279,7 @@
 
 
 <div class="viewcode-block" id="TemperatureEnergyAdjustment"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.TemperatureEnergyAdjustment">[docs]</a><span class="k">class</span> <span class="nc">TemperatureEnergyAdjustment</span><span class="p">(</span><span class="n">EnergyAdjustment</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An energy adjustment applied to a ComputedEntry based on the temperature.</span>
 <span class="sd">    Used, for example, to add entropy to DFT energies.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -294,7 +294,7 @@
         <span class="bp">cls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Temperature-based energy adjustment&quot;</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            adj_per_deg: float, energy adjustment to apply per degree K, in eV/atom</span>
 <span class="sd">            temp: float, temperature in Kelvin</span>
@@ -312,34 +312,32 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">=</span> <span class="n">temp</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span> <span class="o">=</span> <span class="n">n_atoms</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">cls</span> <span class="o">=</span> <span class="bp">cls</span> <span class="k">if</span> <span class="bp">cls</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cls</span> <span class="o">=</span> <span class="bp">cls</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the value of the energy correction in eV.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_adj_per_deg</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">uncertainty</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the value of the energy adjustment in eV.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">uncertainty_per_deg</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">explain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return an explanaion of how the energy adjustment is calculated.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return an explanation of how the energy adjustment is calculated.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">+</span> <span class="s2">&quot; (</span><span class="si">{:.4f}</span><span class="s2"> eV/K/atom x </span><span class="si">{}</span><span class="s2"> K x </span><span class="si">{}</span><span class="s2"> atoms)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_adj_per_deg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span>
-        <span class="p">)</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_adj_per_deg</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> eV/K/atom x </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="si">}</span><span class="s2"> K x </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="si">}</span><span class="s2"> atoms)&quot;</span>
 
 <div class="viewcode-block" id="TemperatureEnergyAdjustment.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.TemperatureEnergyAdjustment.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factor</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Normalize energy adjustment (in place), dividing value/uncertainty by a</span>
 <span class="sd">        factor.</span>
 <span class="sd">        :param factor: factor to divide by</span>
@@ -348,7 +346,7 @@
 
 
 <div class="viewcode-block" id="ComputedEntry"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedEntry">[docs]</a><span class="k">class</span> <span class="nc">ComputedEntry</span><span class="p">(</span><span class="n">Entry</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Lightweight Entry object for computed data. Contains facilities</span>
 <span class="sd">    for applying corrections to the energy attribute and for storing</span>
 <span class="sd">    calculation parameters.</span>
@@ -359,12 +357,12 @@
         <span class="n">composition</span><span class="p">:</span> <span class="n">Composition</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
         <span class="n">energy</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">correction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">energy_adjustments</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">entry_id</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">energy_adjustments</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">entry_id</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initializes a ComputedEntry.</span>
 
 <span class="sd">        Args:</span>
@@ -386,26 +384,26 @@
 <span class="sd">            entry_id: An optional id to uniquely identify the entry.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">composition</span><span class="p">,</span> <span class="n">energy</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">energy_adjustments</span> <span class="o">=</span> <span class="n">energy_adjustments</span> <span class="k">if</span> <span class="n">energy_adjustments</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">energy_adjustments</span> <span class="o">=</span> <span class="n">energy_adjustments</span> <span class="ow">or</span> <span class="p">[]</span>
 
         <span class="k">if</span> <span class="n">correction</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">energy_adjustments</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Argument conflict! Setting correction = </span><span class="si">{:.3f}</span><span class="s2"> conflicts &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Argument conflict! Setting correction = </span><span class="si">{</span><span class="n">correction</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> conflicts &quot;</span>
                     <span class="s2">&quot;with setting energy_adjustments. Specify one or the &quot;</span>
-                    <span class="s2">&quot;other.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">correction</span><span class="p">)</span>
+                    <span class="s2">&quot;other.&quot;</span>
                 <span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">correction</span> <span class="o">=</span> <span class="n">correction</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="n">parameters</span> <span class="k">if</span> <span class="n">parameters</span> <span class="k">else</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span> <span class="k">if</span> <span class="n">data</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="n">parameters</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span> <span class="o">=</span> <span class="n">entry_id</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">uncorrected_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            float: the *uncorrected* energy of the entry</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -413,14 +411,14 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">energy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :return: the *corrected* energy of the entry.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">uncorrected_energy</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">correction</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">uncorrected_energy_per_atom</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            float: the *uncorrected* energy of the entry, normalized by atoms</span>
 <span class="sd">                (units of eV/atom)</span>
@@ -429,7 +427,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">correction</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            float: the total energy correction / adjustment applied to the entry,</span>
 <span class="sd">                in eV.</span>
@@ -445,7 +443,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">correction_per_atom</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            float: the total energy correction / adjustment applied to the entry,</span>
 <span class="sd">                normalized by atoms (units of eV/atom)</span>
@@ -454,7 +452,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">correction_uncertainty</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            float: the uncertainty of the energy adjustments applied to the entry, in eV</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -471,7 +469,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">correction_uncertainty_per_atom</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            float: the uncertainty of the energy adjustments applied to the entry,</span>
 <span class="sd">                normalized by atoms (units of eV/atom)</span>
@@ -479,14 +477,13 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">correction_uncertainty</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">num_atoms</span>
 
 <div class="viewcode-block" id="ComputedEntry.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedEntry.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;formula_unit&quot;</span><span class="p">,</span> <span class="s2">&quot;atom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;formula_unit&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComputedEntry</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Normalize the entry&#39;s composition and energy.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            mode (&quot;formula_unit&quot; | &quot;atom&quot;): &quot;formula_unit&quot; (the default) normalizes to composition.reduced_formula.</span>
 <span class="sd">                &quot;atom&quot; normalizes such that the composition amounts sum to 1.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="n">factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalization_factor</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span>
         <span class="n">new_composition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_composition</span> <span class="o">/</span> <span class="n">factor</span>
         <span class="n">new_energy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_energy</span> <span class="o">/</span> <span class="n">factor</span>
@@ -506,16 +503,10 @@
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">n_atoms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">num_atoms</span>
         <span class="n">output</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> </span><span class="si">{:&lt;10}</span><span class="s2"> - </span><span class="si">{:&lt;12}</span><span class="s2"> (</span><span class="si">{}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="p">,</span>
-                <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span><span class="p">,</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;</span><span class="si">{:&lt;24}</span><span class="s2"> = </span><span class="si">{:&lt;9.4f}</span><span class="s2"> eV (</span><span class="si">{:&lt;8.4f}</span><span class="s2"> eV/atom)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="s2">&quot;Energy (Uncorrected)&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_energy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_energy</span> <span class="o">/</span> <span class="n">n_atoms</span>
-            <span class="p">),</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;Correction&#39;</span><span class="si">:</span><span class="s2">&lt;24</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">correction</span><span class="si">:</span><span class="s2">&lt;9.4f</span><span class="si">}</span><span class="s2"> eV (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">correction</span> <span class="o">/</span> <span class="n">n_atoms</span><span class="si">:</span><span class="s2">&lt;8.4f</span><span class="si">}</span><span class="s2"> eV/atom)&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">:</span><span class="s2">&lt;10</span><span class="si">}</span><span class="s2"> &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;- </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">formula</span><span class="si">:</span><span class="s2">&lt;12</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;Energy (Uncorrected)&#39;</span><span class="si">:</span><span class="s2">&lt;24</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_energy</span><span class="si">:</span><span class="s2">&lt;9.4f</span><span class="si">}</span><span class="s2"> eV (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_energy</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">n_atoms</span><span class="si">:</span><span class="s2">&lt;8.4f</span><span class="si">}</span><span class="s2"> eV/atom)&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;Correction&#39;</span><span class="si">:</span><span class="s2">&lt;24</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">correction</span><span class="si">:</span><span class="s2">&lt;9.4f</span><span class="si">}</span><span class="s2"> eV (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">correction</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">n_atoms</span><span class="si">:</span><span class="s2">&lt;8.4f</span><span class="si">}</span><span class="s2"> eV/atom)&quot;</span><span class="p">,</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;Energy (Final)&#39;</span><span class="si">:</span><span class="s2">&lt;24</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">energy</span><span class="si">:</span><span class="s2">&lt;9.4f</span><span class="si">}</span><span class="s2"> eV (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_per_atom</span><span class="si">:</span><span class="s2">&lt;8.4f</span><span class="si">}</span><span class="s2"> eV/atom)&quot;</span><span class="p">,</span>
             <span class="s2">&quot;Energy Adjustments:&quot;</span><span class="p">,</span>
         <span class="p">]</span>
@@ -523,7 +514,7 @@
             <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;  None&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_adjustments</span><span class="p">:</span>
-                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;23</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">value</span><span class="si">:</span><span class="s2">&lt;9.4f</span><span class="si">}</span><span class="s2"> eV (</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">value</span> <span class="o">/</span> <span class="n">n_atoms</span><span class="si">:</span><span class="s2">&lt;8.4f</span><span class="si">}</span><span class="s2"> eV/atom)&quot;</span><span class="p">)</span>
+                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;23</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">value</span><span class="si">:</span><span class="s2">&lt;9.4f</span><span class="si">}</span><span class="s2"> eV (</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">n_atoms</span><span class="si">:</span><span class="s2">&lt;8.4f</span><span class="si">}</span><span class="s2"> eV/atom)&quot;</span><span class="p">)</span>
         <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Parameters:&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">:</span><span class="s2">&lt;22</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -535,32 +526,41 @@
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__repr__</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="c1"># NOTE: Scaled duplicates i.e. physically equivalent materials</span>
         <span class="c1"># are not equal unless normalized separately.</span>
         <span class="k">if</span> <span class="bp">self</span> <span class="ow">is</span> <span class="n">other</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
 
-        <span class="c1"># Equality is defined based on composition and energy</span>
+        <span class="n">needed_attrs</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;composition&quot;</span><span class="p">,</span> <span class="s2">&quot;energy&quot;</span><span class="p">,</span> <span class="s2">&quot;entry_id&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">hasattr</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">attr</span><span class="p">)</span> <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">needed_attrs</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+        <span class="n">other</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">ComputedEntry</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+        <span class="c1"># Equality is defined based on composition and energy.</span>
         <span class="c1"># If structures are involved, it is assumed that a {composition, energy} is</span>
-        <span class="c1"># vanishingly unlikely to be the same if the structures are different</span>
-        <span class="c1"># if entry_ids are equivalent, skip the more expensive composition check</span>
+        <span class="c1"># vanishingly unlikely to be the same if the structures are different.</span>
+        <span class="c1"># If entry_ids are different, assume that the entries are different.</span>
+        <span class="c1"># However, if entry_id is same, they may have different corrections (e.g., due</span>
+        <span class="c1"># to mixing scheme used) and thus should be compared on corrected energy.</span>
 
         <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;entry_id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="s2">&quot;entry_id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">entry_id</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">entry_id</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">energy</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">energy</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">False</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">composition</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
 
-        <span class="c1"># assumes that data, parameters, corrections are equivalent</span>
+        <span class="c1"># assumes that data, parameters are equivalent</span>
         <span class="k">return</span> <span class="kc">True</span>
 
 <div class="viewcode-block" id="ComputedEntry.from_dict"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedEntry.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComputedEntry</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param d: Dict representation.</span>
 <span class="sd">        :return: ComputedEntry</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -590,7 +590,7 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="ComputedEntry.as_dict"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedEntry.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :return: MSONable dict.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">return_dict</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
@@ -611,11 +611,24 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__hash__</span><span class="p">()</span></div>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__hash__</span><span class="p">()</span>
+
+<div class="viewcode-block" id="ComputedEntry.copy"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedEntry.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComputedEntry</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a copy of the ComputedEntry.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ComputedEntry</span><span class="p">(</span>
+            <span class="n">composition</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="p">,</span>
+            <span class="n">energy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">uncorrected_energy</span><span class="p">,</span>
+            <span class="n">energy_adjustments</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_adjustments</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">entry_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="p">,</span>
+        <span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="ComputedStructureEntry"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedStructureEntry">[docs]</a><span class="k">class</span> <span class="nc">ComputedStructureEntry</span><span class="p">(</span><span class="n">ComputedEntry</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A heavier version of ComputedEntry which contains a structure as well. The</span>
 <span class="sd">    structure is needed for some analyses.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -626,32 +639,33 @@
         <span class="n">energy</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">correction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
         <span class="n">composition</span><span class="p">:</span> <span class="n">Composition</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">energy_adjustments</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">entry_id</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+        <span class="n">energy_adjustments</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">entry_id</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initializes a ComputedStructureEntry.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            structure (Structure): The actual structure of an entry.</span>
 <span class="sd">            energy (float): Energy of the entry. Usually the final calculated</span>
 <span class="sd">                energy from VASP or other electronic structure codes.</span>
-<span class="sd">            energy_adjustments: An optional list of EnergyAdjustment to</span>
-<span class="sd">                be applied to the energy. This is used to modify the energy for</span>
-<span class="sd">                certain analyses. Defaults to None.</span>
+<span class="sd">            correction (float, optional): A correction to the energy. This is mutually exclusive with</span>
+<span class="sd">                energy_adjustments, i.e. pass either or neither but not both. Defaults to 0.</span>
 <span class="sd">            composition (Composition): Composition of the entry. For</span>
 <span class="sd">                flexibility, this can take the form of all the typical input</span>
 <span class="sd">                taken by a Composition, including a {symbol: amt} dict,</span>
 <span class="sd">                a string formula, and others.</span>
+<span class="sd">            energy_adjustments: An optional list of EnergyAdjustment to</span>
+<span class="sd">                be applied to the energy. This is used to modify the energy for</span>
+<span class="sd">                certain analyses. Defaults to None.</span>
 <span class="sd">            parameters: An optional dict of parameters associated with</span>
 <span class="sd">                the entry. Defaults to None.</span>
 <span class="sd">            data: An optional dict of any additional data associated</span>
 <span class="sd">                with the entry. Defaults to None.</span>
 <span class="sd">            entry_id: An optional id to uniquely identify the entry.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="k">if</span> <span class="n">composition</span><span class="p">:</span>
             <span class="n">composition</span> <span class="o">=</span> <span class="n">Composition</span><span class="p">(</span><span class="n">composition</span><span class="p">)</span>
             <span class="k">if</span> <span class="p">(</span>
@@ -675,13 +689,13 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">structure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :return: the structure of the entry.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_structure</span>
 
 <div class="viewcode-block" id="ComputedStructureEntry.as_dict"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedStructureEntry.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :return: MSONAble dict.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">d</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
@@ -690,7 +704,7 @@
 
 <div class="viewcode-block" id="ComputedStructureEntry.from_dict"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedStructureEntry.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComputedStructureEntry</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param d: Dict representation.</span>
 <span class="sd">        :return: ComputedStructureEntry</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -722,9 +736,9 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="ComputedStructureEntry.normalize"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedStructureEntry.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;formula_unit&quot;</span><span class="p">,</span> <span class="s2">&quot;atom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;formula_unit&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComputedStructureEntry</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Normalize the entry&#39;s composition and energy. The structure remains</span>
-<span class="sd">        unchanged.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Normalize the entry&#39;s composition and energy. The structure remains unchanged.</span>
+
 <span class="sd">        Args:</span>
 <span class="sd">            mode (&quot;formula_unit&quot; | &quot;atom&quot;): &quot;formula_unit&quot; (the default) normalizes to composition.reduced_formula.</span>
 <span class="sd">                &quot;atom&quot; normalizes such that the composition amounts sum to 1.</span>
@@ -742,11 +756,25 @@
         <span class="n">d</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
         <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
         <span class="n">entry</span><span class="o">.</span><span class="n">_composition</span> <span class="o">/=</span> <span class="n">factor</span>  <span class="c1"># pylint: disable=E1101</span>
-        <span class="k">return</span> <span class="n">entry</span></div></div>
+        <span class="k">return</span> <span class="n">entry</span></div>
+
+<div class="viewcode-block" id="ComputedStructureEntry.copy"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.ComputedStructureEntry.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ComputedStructureEntry</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a copy of the ComputedStructureEntry.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ComputedStructureEntry</span><span class="p">(</span>
+            <span class="n">structure</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+            <span class="n">energy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">uncorrected_energy</span><span class="p">,</span>
+            <span class="n">composition</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="p">,</span>
+            <span class="n">energy_adjustments</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_adjustments</span><span class="p">,</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">entry_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="p">,</span>
+        <span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="GibbsComputedStructureEntry"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.GibbsComputedStructureEntry">[docs]</a><span class="k">class</span> <span class="nc">GibbsComputedStructureEntry</span><span class="p">(</span><span class="n">ComputedStructureEntry</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An extension to ComputedStructureEntry which includes the estimated Gibbs</span>
 <span class="sd">    free energy of formation via a machine-learned model.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -757,14 +785,14 @@
         <span class="n">formation_enthalpy_per_atom</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">temp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
         <span class="n">gibbs_model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;SISSO&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;SISSO&quot;</span><span class="p">,</span>
-        <span class="n">composition</span><span class="p">:</span> <span class="n">Composition</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">composition</span><span class="p">:</span> <span class="n">Composition</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">correction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">energy_adjustments</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">entry_id</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">energy_adjustments</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">entry_id</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            structure (Structure): The pymatgen Structure object of an entry.</span>
 <span class="sd">            formation_enthalpy_per_atom (float): Formation enthalpy of the entry;</span>
@@ -789,7 +817,7 @@
         <span class="n">integer_formula</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">get_integer_formula_and_factor</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">experimental</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="n">integer_formula</span> <span class="ow">in</span> <span class="n">G_GASES</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">integer_formula</span> <span class="ow">in</span> <span class="n">G_GASES</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">experimental</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">if</span> <span class="s2">&quot;Experimental&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">entry_id</span><span class="p">):</span>
                 <span class="n">entry_id</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">entry_id</span><span class="si">}</span><span class="s2"> (Experimental)&quot;</span>
@@ -821,7 +849,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_energy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gibbs_fn</span><span class="p">()</span>
 
 <div class="viewcode-block" id="GibbsComputedStructureEntry.gf_sisso"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.GibbsComputedStructureEntry.gf_sisso">[docs]</a>    <span class="k">def</span> <span class="nf">gf_sisso</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Gibbs Free Energy of formation as calculated by SISSO descriptor from Bartel</span>
 <span class="sd">        et al. (2018). Units: eV (not normalized)</span>
 
@@ -851,7 +879,7 @@
             <span class="n">data</span> <span class="o">=</span> <span class="n">G_GASES</span><span class="p">[</span><span class="n">integer_formula</span><span class="p">]</span>
 
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">interpolated</span><span class="p">:</span>
-                <span class="n">g_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">()],</span> <span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+                <span class="n">g_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">data</span><span class="p">],</span> <span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
                 <span class="n">energy</span> <span class="o">=</span> <span class="n">g_interp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">energy</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="p">)]</span>
@@ -871,7 +899,7 @@
         <span class="k">return</span> <span class="n">gibbs_energy</span></div>
 
     <span class="k">def</span> <span class="nf">_sum_g_i</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Sum of the stoichiometrically weighted chemical potentials of the elements</span>
 <span class="sd">        at specified temperature, as acquired from &quot;g_els.json&quot;.</span>
 
@@ -884,7 +912,7 @@
             <span class="n">sum_g_i</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="k">for</span> <span class="n">elem</span><span class="p">,</span> <span class="n">amt</span> <span class="ow">in</span> <span class="n">elems</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="n">g_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span>
-                    <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">G_ELEMS</span><span class="o">.</span><span class="n">keys</span><span class="p">()],</span>
+                    <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">G_ELEMS</span><span class="p">],</span>
                     <span class="p">[</span><span class="n">g_dict</span><span class="p">[</span><span class="n">elem</span><span class="p">]</span> <span class="k">for</span> <span class="n">g_dict</span> <span class="ow">in</span> <span class="n">G_ELEMS</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span>
                 <span class="p">)</span>
                 <span class="n">sum_g_i</span> <span class="o">+=</span> <span class="n">amt</span> <span class="o">*</span> <span class="n">g_interp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="p">)</span>
@@ -895,7 +923,7 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_reduced_mass</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Reduced mass as calculated via Eq. 6 in Bartel et al. (2018)</span>
 
 <span class="sd">        Args:</span>
@@ -927,7 +955,7 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_g_delta_sisso</span><span class="p">(</span><span class="n">vol_per_atom</span><span class="p">,</span> <span class="n">reduced_mass</span><span class="p">,</span> <span class="n">temp</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        G^delta as predicted by SISSO-learned descriptor from Eq. (4) in</span>
 <span class="sd">        Bartel et al. (2018).</span>
 
@@ -940,7 +968,6 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            float: G^delta [eV/atom]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="k">return</span> <span class="p">(</span>
             <span class="p">(</span><span class="o">-</span><span class="mf">2.48e-4</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">vol_per_atom</span><span class="p">)</span> <span class="o">-</span> <span class="mf">8.94e-5</span> <span class="o">*</span> <span class="n">reduced_mass</span> <span class="o">/</span> <span class="n">vol_per_atom</span><span class="p">)</span> <span class="o">*</span> <span class="n">temp</span>
             <span class="o">+</span> <span class="mf">0.181</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
@@ -949,7 +976,7 @@
 
 <div class="viewcode-block" id="GibbsComputedStructureEntry.from_pd"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.GibbsComputedStructureEntry.from_pd">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_pd</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">pd</span><span class="p">,</span> <span class="n">temp</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">gibbs_model</span><span class="o">=</span><span class="s2">&quot;SISSO&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">GibbsComputedStructureEntry</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Constructor method for initializing a list of GibbsComputedStructureEntry</span>
 <span class="sd">        objects from an existing T = 0 K phase diagram composed of</span>
 <span class="sd">        ComputedStructureEntry objects, as acquired from a thermochemical database;</span>
@@ -984,7 +1011,7 @@
 
 <div class="viewcode-block" id="GibbsComputedStructureEntry.from_entries"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.GibbsComputedStructureEntry.from_entries">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_entries</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">entries</span><span class="p">,</span> <span class="n">temp</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">gibbs_model</span><span class="o">=</span><span class="s2">&quot;SISSO&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">GibbsComputedStructureEntry</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Constructor method for initializing GibbsComputedStructureEntry objects from</span>
 <span class="sd">        T = 0 K ComputedStructureEntry objects, as acquired from a thermochemical</span>
 <span class="sd">        database e.g. The Materials Project.</span>
@@ -1006,7 +1033,7 @@
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_pd</span><span class="p">(</span><span class="n">pd</span><span class="p">,</span> <span class="n">temp</span><span class="p">,</span> <span class="n">gibbs_model</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="GibbsComputedStructureEntry.as_dict"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.GibbsComputedStructureEntry.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :return: MSONAble dict.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">d</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
@@ -1018,7 +1045,7 @@
 
 <div class="viewcode-block" id="GibbsComputedStructureEntry.from_dict"><a class="viewcode-back" href="../../../pymatgen.entries.computed_entries.html#pymatgen.entries.computed_entries.GibbsComputedStructureEntry.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GibbsComputedStructureEntry</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param d: Dict representation.</span>
 <span class="sd">        :return: GibbsComputedStructureEntry</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -1058,7 +1085,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.26 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="../entries.html" >pymatgen.entries</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.entries.computed_entries</a></li> 
@@ -1067,7 +1094,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

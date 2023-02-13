@@ -1,17 +1,16 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.util.testing &#8212; pymatgen 2022.4.26 documentation</title>
+    <title>pymatgen.util.testing &#8212; pymatgen 2023.1.30 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-    <script src="../../../_static/jquery.js"></script>
-    <script src="../../../_static/underscore.js"></script>
     <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
  
@@ -31,7 +30,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.26 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.util.testing</a></li> 
       </ul>
@@ -53,6 +52,8 @@
 <span class="sd">right away.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
@@ -63,12 +64,12 @@
 <span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MontyDecoder</span><span class="p">,</span> <span class="n">MSONable</span>
 <span class="kn">from</span> <span class="nn">monty.serialization</span> <span class="kn">import</span> <span class="n">loadfn</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">SETTINGS</span>
-<span class="kn">from</span> <span class="nn">pymatgen.ext.matproj</span> <span class="kn">import</span> <span class="n">MPRester</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">SETTINGS</span><span class="p">,</span> <span class="n">Structure</span>
+<span class="kn">from</span> <span class="nn">pymatgen.ext.matproj</span> <span class="kn">import</span> <span class="n">_MPResterLegacy</span> <span class="k">as</span> <span class="n">MPRester</span>
 
 
 <div class="viewcode-block" id="PymatgenTest"><a class="viewcode-back" href="../../../pymatgen.util.testing.html#pymatgen.util.testing.PymatgenTest">[docs]</a><span class="k">class</span> <span class="nc">PymatgenTest</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Extends unittest.TestCase with functions (taken from numpy.testing.utils)</span>
 <span class="sd">    that support the comparison of arrays.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -86,16 +87,14 @@
             <span class="s2">&quot;Now using a fallback location based on relative path from this module.&quot;</span>
         <span class="p">)</span>
         <span class="n">TEST_FILES_DIR</span> <span class="o">=</span> <span class="n">MODULE_DIR</span> <span class="o">/</span> <span class="s2">&quot;..&quot;</span> <span class="o">/</span> <span class="s2">&quot;..&quot;</span> <span class="o">/</span> <span class="s2">&quot;test_files&quot;</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Dict for test structures to aid testing.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">TEST_STRUCTURES</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">TEST_STRUCTURES</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Dict for test structures to aid testing.</span>
     <span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">STRUCTURES_DIR</span><span class="o">.</span><span class="n">iterdir</span><span class="p">():</span>
         <span class="n">TEST_STRUCTURES</span><span class="p">[</span><span class="n">fn</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">loadfn</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">fn</span><span class="p">))</span>
 
 <div class="viewcode-block" id="PymatgenTest.get_structure"><a class="viewcode-back" href="../../../pymatgen.util.testing.html#pymatgen.util.testing.PymatgenTest.get_structure">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">get_structure</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">get_structure</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get a structure from the template directories.</span>
 
 <span class="sd">        :param name: Name of a structure.</span>
@@ -105,8 +104,8 @@
 
 <div class="viewcode-block" id="PymatgenTest.get_mp_structure"><a class="viewcode-back" href="../../../pymatgen.util.testing.html#pymatgen.util.testing.PymatgenTest.get_mp_structure">[docs]</a>    <span class="nd">@classmethod</span>
     <span class="nd">@requires</span><span class="p">(</span><span class="n">SETTINGS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;PMG_MAPI_KEY&quot;</span><span class="p">),</span> <span class="s2">&quot;PMG_MAPI_KEY needs to be set.&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">get_mp_structure</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">mpid</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">get_mp_structure</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">mpid</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get a structure from MP.</span>
 
 <span class="sd">        :param mpid: Materials Project id.</span>
@@ -117,19 +116,18 @@
 
 <div class="viewcode-block" id="PymatgenTest.assertArrayAlmostEqual"><a class="viewcode-back" href="../../../pymatgen.util.testing.html#pymatgen.util.testing.PymatgenTest.assertArrayAlmostEqual">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">assertArrayAlmostEqual</span><span class="p">(</span><span class="n">actual</span><span class="p">,</span> <span class="n">desired</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">err_msg</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Tests if two arrays are almost equal to a tolerance. The CamelCase</span>
 <span class="sd">        naming is so that it is consistent with standard unittest methods.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">nptu</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span><span class="n">actual</span><span class="p">,</span> <span class="n">desired</span><span class="p">,</span> <span class="n">decimal</span><span class="p">,</span> <span class="n">err_msg</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="PymatgenTest.assertDictsAlmostEqual"><a class="viewcode-back" href="../../../pymatgen.util.testing.html#pymatgen.util.testing.PymatgenTest.assertDictsAlmostEqual">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">assertDictsAlmostEqual</span><span class="p">(</span><span class="n">actual</span><span class="p">,</span> <span class="n">desired</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">err_msg</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">assertDictsAlmostEqual</span><span class="p">(</span><span class="n">actual</span><span class="p">,</span> <span class="n">desired</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">err_msg</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Tests if two arrays are almost equal to a tolerance. The CamelCase</span>
 <span class="sd">        naming is so that it is consistent with standard unittest methods.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">actual</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">desired</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">False</span>
@@ -141,9 +139,8 @@
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">pass_test</span><span class="p">:</span>
                     <span class="k">return</span> <span class="kc">False</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
-                <span class="n">pass_test</span> <span class="o">=</span> <span class="n">nptu</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">decimal</span><span class="p">,</span> <span class="n">err_msg</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">pass_test</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="kc">False</span>
+                <span class="n">nptu</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">decimal</span><span class="p">,</span> <span class="n">err_msg</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">True</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
                 <span class="n">PymatgenTest</span><span class="p">()</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span>  <span class="c1"># pylint: disable=E1120</span>
             <span class="k">else</span><span class="p">:</span>
@@ -152,7 +149,7 @@
 
 <div class="viewcode-block" id="PymatgenTest.assertArrayEqual"><a class="viewcode-back" href="../../../pymatgen.util.testing.html#pymatgen.util.testing.PymatgenTest.assertArrayEqual">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">assertArrayEqual</span><span class="p">(</span><span class="n">actual</span><span class="p">,</span> <span class="n">desired</span><span class="p">,</span> <span class="n">err_msg</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Tests if two arrays are equal. The CamelCase naming is so that it is</span>
 <span class="sd">         consistent with standard unittest methods.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -160,9 +157,8 @@
 
 <div class="viewcode-block" id="PymatgenTest.assertStrContentEqual"><a class="viewcode-back" href="../../../pymatgen.util.testing.html#pymatgen.util.testing.PymatgenTest.assertStrContentEqual">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">assertStrContentEqual</span><span class="p">(</span><span class="n">actual</span><span class="p">,</span> <span class="n">desired</span><span class="p">,</span> <span class="n">err_msg</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Tests if two strings are equal, ignoring things like trailing spaces,</span>
-<span class="sd">        etc.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Tests if two strings are equal, ignoring things like trailing spaces, etc.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">lines1</span> <span class="o">=</span> <span class="n">actual</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">lines2</span> <span class="o">=</span> <span class="n">desired</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -175,12 +171,12 @@
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">failed</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span></div>
 
 <div class="viewcode-block" id="PymatgenTest.serialize_with_pickle"><a class="viewcode-back" href="../../../pymatgen.util.testing.html#pymatgen.util.testing.PymatgenTest.serialize_with_pickle">[docs]</a>    <span class="k">def</span> <span class="nf">serialize_with_pickle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objects</span><span class="p">,</span> <span class="n">protocols</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">test_eq</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Test whether the object(s) can be serialized and deserialized with</span>
 <span class="sd">        pickle. This method tries to serialize the objects with pickle and the</span>
 <span class="sd">        protocols specified in input. Then it deserializes the pickle format</span>
 <span class="sd">        and compares the two objects with the __eq__ operator if</span>
-<span class="sd">        test_eq == True.</span>
+<span class="sd">        test_eq is True.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            objects: Object or list of objects.</span>
@@ -193,8 +189,6 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Use the python version so that we get the traceback in case of errors</span>
         <span class="kn">import</span> <span class="nn">pickle</span>
-
-        <span class="kn">from</span> <span class="nn">pymatgen.util.serialization</span> <span class="kn">import</span> <span class="n">pmg_pickle_dump</span><span class="p">,</span> <span class="n">pmg_pickle_load</span>
 
         <span class="c1"># Build a list even when we receive a single object.</span>
         <span class="n">got_single_object</span> <span class="o">=</span> <span class="kc">False</span>
@@ -216,14 +210,14 @@
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">tmpfile</span><span class="p">,</span> <span class="n">mode</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
-                    <span class="n">pmg_pickle_dump</span><span class="p">(</span><span class="n">objects</span><span class="p">,</span> <span class="n">fh</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">)</span>
+                    <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">objects</span><span class="p">,</span> <span class="n">fh</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
                 <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;pickle.dump with protocol </span><span class="si">{</span><span class="n">protocol</span><span class="si">}</span><span class="s2"> raised:</span><span class="se">\n</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">continue</span>
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">tmpfile</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
-                    <span class="n">new_objects</span> <span class="o">=</span> <span class="n">pmg_pickle_load</span><span class="p">(</span><span class="n">fh</span><span class="p">)</span>
+                    <span class="n">new_objects</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fh</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
                 <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;pickle.load with protocol </span><span class="si">{</span><span class="n">protocol</span><span class="si">}</span><span class="s2"> raised:</span><span class="se">\n</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">continue</span>
@@ -231,7 +225,7 @@
             <span class="c1"># Test for equality</span>
             <span class="k">if</span> <span class="n">test_eq</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">old_obj</span><span class="p">,</span> <span class="n">new_obj</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">objects</span><span class="p">,</span> <span class="n">new_objects</span><span class="p">):</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">old_obj</span><span class="p">,</span> <span class="n">new_obj</span><span class="p">)</span>
+                    <span class="k">assert</span> <span class="n">old_obj</span> <span class="o">==</span> <span class="n">new_obj</span>
 
             <span class="c1"># Save the deserialized objects and test for equality.</span>
             <span class="n">objects_by_protocol</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_objects</span><span class="p">)</span>
@@ -245,7 +239,7 @@
         <span class="k">return</span> <span class="n">objects_by_protocol</span></div>
 
 <div class="viewcode-block" id="PymatgenTest.assertMSONable"><a class="viewcode-back" href="../../../pymatgen.util.testing.html#pymatgen.util.testing.PymatgenTest.assertMSONable">[docs]</a>    <span class="k">def</span> <span class="nf">assertMSONable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">test_if_subclass</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Tests if obj is MSONable and tries to verify whether the contract is</span>
 <span class="sd">        fulfilled.</span>
 
@@ -253,8 +247,8 @@
 <span class="sd">        This check can be deactivated by setting test_if_subclass to False.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">test_if_subclass</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MSONable</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertDictEqual</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span> <span class="n">obj</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">MSONable</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">obj</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span> <span class="o">==</span> <span class="n">obj</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
         <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="bp">cls</span><span class="o">=</span><span class="n">MontyDecoder</span><span class="p">)</span></div></div>
 </pre></div>
 
@@ -272,7 +266,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2022.4.26 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.util.testing</a></li> 
       </ul>
@@ -280,7 +274,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking

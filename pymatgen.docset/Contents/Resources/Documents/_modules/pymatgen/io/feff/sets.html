@@ -1,17 +1,16 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.feff.sets &#8212; pymatgen 2022.4.26 documentation</title>
+    <title>pymatgen.io.feff.sets &#8212; pymatgen 2023.1.30 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
     <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-    <script src="../../../../_static/jquery.js"></script>
-    <script src="../../../../_static/underscore.js"></script>
     <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
  
@@ -31,7 +30,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.26 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.feff.sets</a></li> 
       </ul>
@@ -53,10 +52,13 @@
 <span class="sd">runs.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span> <span class="nn">abc</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -64,6 +66,7 @@
 <span class="kn">from</span> <span class="nn">monty.os.path</span> <span class="kn">import</span> <span class="n">zpath</span>
 <span class="kn">from</span> <span class="nn">monty.serialization</span> <span class="kn">import</span> <span class="n">loadfn</span>
 
+<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Molecule</span><span class="p">,</span> <span class="n">Structure</span>
 <span class="kn">from</span> <span class="nn">pymatgen.io.feff.inputs</span> <span class="kn">import</span> <span class="n">Atoms</span><span class="p">,</span> <span class="n">Header</span><span class="p">,</span> <span class="n">Potential</span><span class="p">,</span> <span class="n">Tags</span>
 
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Kiran Mathew&quot;</span>
@@ -84,7 +87,7 @@
 
 
 <div class="viewcode-block" id="AbstractFeffInputSet"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.AbstractFeffInputSet">[docs]</a><span class="k">class</span> <span class="nc">AbstractFeffInputSet</span><span class="p">(</span><span class="n">MSONable</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abstract base class representing a set of Feff input parameters.</span>
 <span class="sd">    The idea is that using a FeffInputSet, a complete set of input files</span>
 <span class="sd">    (feffPOT, feffXANES, feffEXAFS, ATOMS, feff.inp)set_</span>
@@ -93,14 +96,14 @@
 
 <div class="viewcode-block" id="AbstractFeffInputSet.header"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.AbstractFeffInputSet.header">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span> <span class="nf">header</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns header to be used in feff.inp file from a pymatgen structure</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
     <span class="nd">@property</span>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span> <span class="nf">atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns Atoms string from a structure that goes in feff.inp file.</span>
 
 <span class="sd">        Returns:</span>
@@ -110,7 +113,7 @@
     <span class="nd">@property</span>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span> <span class="nf">tags</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns standard calculation parameters.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span>
@@ -118,12 +121,12 @@
     <span class="nd">@property</span>
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
     <span class="k">def</span> <span class="nf">potential</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns POTENTIAL section used in feff.inp from a structure.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="AbstractFeffInputSet.all_input"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.AbstractFeffInputSet.all_input">[docs]</a>    <span class="k">def</span> <span class="nf">all_input</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns all input files as a dict of {filename: feffio object}</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">d</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;HEADER&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">(),</span> <span class="s2">&quot;PARAMETERS&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">}</span>
@@ -134,7 +137,7 @@
         <span class="k">return</span> <span class="n">d</span></div>
 
 <div class="viewcode-block" id="AbstractFeffInputSet.write_input"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.AbstractFeffInputSet.write_input">[docs]</a>    <span class="k">def</span> <span class="nf">write_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">make_dir_if_not_present</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Writes a set of FEFF input to a directory.</span>
 
 <span class="sd">        Args:</span>
@@ -162,27 +165,29 @@
 
 
 <div class="viewcode-block" id="FEFFDictSet"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.FEFFDictSet">[docs]</a><span class="k">class</span> <span class="nc">FEFFDictSet</span><span class="p">(</span><span class="n">AbstractFeffInputSet</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Standard implementation of FeffInputSet, which can be extended by specific</span>
 <span class="sd">    implementations.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">absorbing_atom</span><span class="p">,</span>
-        <span class="n">structure</span><span class="p">,</span>
-        <span class="n">radius</span><span class="p">,</span>
-        <span class="n">config_dict</span><span class="p">,</span>
-        <span class="n">edge</span><span class="o">=</span><span class="s2">&quot;K&quot;</span><span class="p">,</span>
-        <span class="n">spectrum</span><span class="o">=</span><span class="s2">&quot;EXAFS&quot;</span><span class="p">,</span>
+        <span class="n">absorbing_atom</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
+        <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">config_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">edge</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;K&quot;</span><span class="p">,</span>
+        <span class="n">spectrum</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;EXAFS&quot;</span><span class="p">,</span>
         <span class="n">nkpts</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-        <span class="n">user_tag_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">user_tag_settings</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spacegroup_analyzer_settings</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            absorbing_atom (str/int): absorbing atom symbol or site index</span>
-<span class="sd">            structure (Structure): input structure</span>
+<span class="sd">            structure: Structure or Molecule object. If a Structure, SpaceGroupAnalyzer is used to</span>
+<span class="sd">                determine symmetrically-equivalent sites. If a Molecule, there is no symmetry</span>
+<span class="sd">                checking.</span>
 <span class="sd">            radius (float): cluster radius</span>
 <span class="sd">            config_dict (dict): control tag settings dict</span>
 <span class="sd">            edge (str): absorption edge</span>
@@ -194,15 +199,59 @@
 <span class="sd">            user_tag_settings (dict): override default tag settings. To delete</span>
 <span class="sd">                tags, set the key &#39;_del&#39; in the user_tag_settings.</span>
 <span class="sd">                eg: user_tag_settings={&quot;_del&quot;: [&quot;COREHOLE&quot;, &quot;EXCHANGE&quot;]}</span>
+<span class="sd">                To specify a net charge on the structure, pass an &quot;IONS&quot; tag containing a list</span>
+<span class="sd">                    of tuples where the first element is the unique potential value (ipot value)</span>
+<span class="sd">                    and the second element is the charge to be applied to atoms associated</span>
+<span class="sd">                    with that potential, e.g. {&quot;IONS&quot;: [(0, 0.1), (1, 0.1), (2, 0.1)]}</span>
+<span class="sd">                    will result in</span>
+
+<span class="sd">                    ION 0 0.1</span>
+<span class="sd">                    ION 1 0.1</span>
+<span class="sd">                    ION 2 0.1</span>
+
+<span class="sd">                    being written to the input file.</span>
+<span class="sd">            spacegroup_analyzer_settings (dict): parameters passed to SpacegroupAnalyzer.</span>
+<span class="sd">                E.g., {&quot;symprec&quot;: 0.01, &quot;angle_tolerance&quot;: 4}</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">absorbing_atom</span> <span class="o">=</span> <span class="n">absorbing_atom</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">user_tag_settings</span> <span class="o">=</span> <span class="n">user_tag_settings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="c1"># make sure there are no partial occupancies</span>
+        <span class="k">if</span> <span class="n">structure</span><span class="o">.</span><span class="n">is_ordered</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">Structure</span><span class="p">):</span>
+                <span class="c1"># charged structures should never be supported b/c periodic boundaries</span>
+                <span class="c1"># cause problems</span>
+                <span class="k">if</span> <span class="n">structure</span><span class="o">.</span><span class="n">charge</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Structure objects with a net charge are not supported!&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">):</span>
+                <span class="c1"># charged Molecules should eventually be supported. According to Joshua Kas (FEFF expert),</span>
+                <span class="c1"># the correct approach is to divide the total charge on the Molecule equally among</span>
+                <span class="c1"># all atoms. Then, add one ION card with that charge for each atom type (i.e., each</span>
+                <span class="c1"># unique ipot value)</span>
+                <span class="c1"># for example, for a cluster with a +1 charge and 10 atoms and 3 unique potentials, you</span>
+                <span class="c1"># would add</span>
+                <span class="c1"># ION 0 0.1</span>
+                <span class="c1"># ION 1 0.1</span>
+                <span class="c1"># ION 2 0.1</span>
+                <span class="c1"># This is also most appropriate for self-consistent calculations like XANES.</span>
+                <span class="c1"># For non-self-consistent calc types, the manual says its best to check results</span>
+                <span class="c1"># with and without a net charge b/c it&#39;s often better not to use charge</span>
+                <span class="k">if</span> <span class="n">structure</span><span class="o">.</span><span class="n">charge</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_tag_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;IONS&quot;</span><span class="p">):</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="s2">&quot;For Molecule objects with a net charge it is recommended to set one or more&quot;</span>
+                        <span class="s2">&quot; ION tags in the input file by modifying user_tag_settings.&quot;</span>
+                        <span class="s2">&quot; Consult the FEFFDictSet docstring and the FEFF10 User Guide for more information.&quot;</span><span class="p">,</span>
+                        <span class="ne">UserWarning</span><span class="p">,</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;structure&#39; argument must be a Structure or Molecule!&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Structure with partial occupancies cannot be converted into atomic coordinates!&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="n">structure</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">=</span> <span class="n">radius</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">config_dict</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">config_dict</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">edge</span> <span class="o">=</span> <span class="n">edge</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">spectrum</span> <span class="o">=</span> <span class="n">spectrum</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">nkpts</span> <span class="o">=</span> <span class="n">nkpts</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">user_tag_settings</span> <span class="o">=</span> <span class="n">user_tag_settings</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">config_dict</span><span class="p">[</span><span class="s2">&quot;EDGE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">edge</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">config_dict</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">user_tag_settings</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;_del&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_tag_settings</span><span class="p">:</span>
@@ -213,9 +262,10 @@
         <span class="c1"># k-space feff only for small systems. The hardcoded system size in</span>
         <span class="c1"># feff is around 14 atoms.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">small_system</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">14</span> <span class="ow">and</span> <span class="s2">&quot;EXAFS&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config_dict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spacegroup_analyzer_settings</span> <span class="o">=</span> <span class="n">spacegroup_analyzer_settings</span> <span class="ow">or</span> <span class="p">{}</span>
 
-<div class="viewcode-block" id="FEFFDictSet.header"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.FEFFDictSet.header">[docs]</a>    <span class="k">def</span> <span class="nf">header</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">comment</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="FEFFDictSet.header"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.FEFFDictSet.header">[docs]</a>    <span class="k">def</span> <span class="nf">header</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">comment</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Creates header string from structure object</span>
 
 <span class="sd">        Args:</span>
@@ -227,11 +277,11 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            Header</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Header</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">comment</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Header</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">comment</span><span class="p">,</span> <span class="n">spacegroup_analyzer_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">spacegroup_analyzer_settings</span><span class="p">)</span></div>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">tags</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">tags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tags</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        FEFF job parameters.</span>
 
 <span class="sd">        Returns:</span>
@@ -239,7 +289,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="s2">&quot;RECIPROCAL&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config_dict</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">small_system</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">config_dict</span><span class="p">[</span><span class="s2">&quot;CIF&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">formula</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">.cif&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">config_dict</span><span class="p">[</span><span class="s2">&quot;CIF&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">formula</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">.cif&quot;</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">config_dict</span><span class="p">[</span><span class="s2">&quot;TARGET&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">atoms</span><span class="o">.</span><span class="n">center_index</span> <span class="o">+</span> <span class="mi">1</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">config_dict</span><span class="p">[</span><span class="s2">&quot;COREHOLE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;RPA&quot;</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Setting COREHOLE = RPA for K-space calculation&quot;</span><span class="p">)</span>
@@ -261,8 +311,8 @@
         <span class="k">return</span> <span class="n">Tags</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config_dict</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">potential</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">potential</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Potential</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        FEFF potential</span>
 
 <span class="sd">        Returns:</span>
@@ -271,8 +321,8 @@
         <span class="k">return</span> <span class="n">Potential</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">absorbing_atom</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Atoms</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        absorber + the rest</span>
 
 <span class="sd">        Returns:</span>
@@ -288,7 +338,7 @@
 
 <div class="viewcode-block" id="FEFFDictSet.from_directory"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.FEFFDictSet.from_directory">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">from_directory</span><span class="p">(</span><span class="n">input_dir</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Read in a set of FEFF input files from a directory, which is</span>
 <span class="sd">        useful when existing FEFF input needs some adjustment.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -361,7 +411,7 @@
 
 
 <div class="viewcode-block" id="MPXANESSet"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.MPXANESSet">[docs]</a><span class="k">class</span> <span class="nc">MPXANESSet</span><span class="p">(</span><span class="n">FEFFDictSet</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    FeffDictSet for XANES spectroscopy.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -371,12 +421,13 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">absorbing_atom</span><span class="p">,</span>
         <span class="n">structure</span><span class="p">,</span>
-        <span class="n">edge</span><span class="o">=</span><span class="s2">&quot;K&quot;</span><span class="p">,</span>
-        <span class="n">radius</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
-        <span class="n">nkpts</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-        <span class="n">user_tag_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">edge</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;K&quot;</span><span class="p">,</span>
+        <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+        <span class="n">nkpts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="n">user_tag_settings</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            absorbing_atom (str/int): absorbing atom symbol or site index</span>
 <span class="sd">            structure (Structure): input</span>
@@ -385,6 +436,7 @@
 <span class="sd">            nkpts (int): Total number of kpoints in the brillouin zone. Used</span>
 <span class="sd">                only when feff is run in the reciprocal space mode.</span>
 <span class="sd">            user_tag_settings (dict): override default tag settings</span>
+<span class="sd">            **kwargs: Passthrough to FEFFDictSet</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">absorbing_atom</span><span class="p">,</span>
@@ -395,11 +447,12 @@
             <span class="n">spectrum</span><span class="o">=</span><span class="s2">&quot;XANES&quot;</span><span class="p">,</span>
             <span class="n">nkpts</span><span class="o">=</span><span class="n">nkpts</span><span class="p">,</span>
             <span class="n">user_tag_settings</span><span class="o">=</span><span class="n">user_tag_settings</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="MPEXAFSSet"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.MPEXAFSSet">[docs]</a><span class="k">class</span> <span class="nc">MPEXAFSSet</span><span class="p">(</span><span class="n">FEFFDictSet</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    FeffDictSet for EXAFS spectroscopy.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -409,12 +462,13 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">absorbing_atom</span><span class="p">,</span>
         <span class="n">structure</span><span class="p">,</span>
-        <span class="n">edge</span><span class="o">=</span><span class="s2">&quot;K&quot;</span><span class="p">,</span>
-        <span class="n">radius</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
-        <span class="n">nkpts</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-        <span class="n">user_tag_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">edge</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;K&quot;</span><span class="p">,</span>
+        <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+        <span class="n">nkpts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="n">user_tag_settings</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            absorbing_atom (str/int): absorbing atom symbol or site index</span>
 <span class="sd">            structure (Structure): input structure</span>
@@ -423,6 +477,7 @@
 <span class="sd">            nkpts (int): Total number of kpoints in the brillouin zone. Used</span>
 <span class="sd">                only when feff is run in the reciprocal space mode.</span>
 <span class="sd">            user_tag_settings (dict): override default tag settings</span>
+<span class="sd">            **kwargs: Passthrough to FEFFDictSet</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">absorbing_atom</span><span class="p">,</span>
@@ -433,11 +488,12 @@
             <span class="n">spectrum</span><span class="o">=</span><span class="s2">&quot;EXAFS&quot;</span><span class="p">,</span>
             <span class="n">nkpts</span><span class="o">=</span><span class="n">nkpts</span><span class="p">,</span>
             <span class="n">user_tag_settings</span><span class="o">=</span><span class="n">user_tag_settings</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="MPEELSDictSet"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.MPEELSDictSet">[docs]</a><span class="k">class</span> <span class="nc">MPEELSDictSet</span><span class="p">(</span><span class="n">FEFFDictSet</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    FeffDictSet for ELNES spectroscopy.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -454,10 +510,11 @@
         <span class="n">convergence_angle</span><span class="p">,</span>
         <span class="n">config_dict</span><span class="p">,</span>
         <span class="n">user_eels_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">nkpts</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-        <span class="n">user_tag_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">nkpts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="n">user_tag_settings</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            absorbing_atom (str/int): absorbing atom symbol or site index</span>
 <span class="sd">            structure (Structure): input structure</span>
@@ -474,6 +531,7 @@
 <span class="sd">            nkpts (int): Total number of kpoints in the brillouin zone. Used</span>
 <span class="sd">                only when feff is run in the reciprocal space mode.</span>
 <span class="sd">            user_tag_settings (dict): override default tag settings</span>
+<span class="sd">            **kwargs: Passthrough to FEFFDictSet</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">beam_energy</span> <span class="o">=</span> <span class="n">beam_energy</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">beam_direction</span> <span class="o">=</span> <span class="n">beam_direction</span>
@@ -503,11 +561,12 @@
             <span class="n">spectrum</span><span class="o">=</span><span class="n">spectrum</span><span class="p">,</span>
             <span class="n">nkpts</span><span class="o">=</span><span class="n">nkpts</span><span class="p">,</span>
             <span class="n">user_tag_settings</span><span class="o">=</span><span class="n">user_tag_settings</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="MPELNESSet"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.MPELNESSet">[docs]</a><span class="k">class</span> <span class="nc">MPELNESSet</span><span class="p">(</span><span class="n">MPEELSDictSet</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    FeffDictSet for ELNES spectroscopy.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -517,17 +576,18 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">absorbing_atom</span><span class="p">,</span>
         <span class="n">structure</span><span class="p">,</span>
-        <span class="n">edge</span><span class="o">=</span><span class="s2">&quot;K&quot;</span><span class="p">,</span>
-        <span class="n">radius</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
-        <span class="n">beam_energy</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+        <span class="n">edge</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;K&quot;</span><span class="p">,</span>
+        <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+        <span class="n">beam_energy</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
         <span class="n">beam_direction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">collection_angle</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-        <span class="n">convergence_angle</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">collection_angle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">convergence_angle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">user_eels_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">nkpts</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-        <span class="n">user_tag_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">nkpts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="n">user_tag_settings</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            absorbing_atom (str/int): absorbing atom symbol or site index</span>
 <span class="sd">            structure (Structure): input structure</span>
@@ -543,8 +603,8 @@
 <span class="sd">            nkpts (int): Total number of kpoints in the brillouin zone. Used</span>
 <span class="sd">                only when feff is run in the reciprocal space mode.</span>
 <span class="sd">            user_tag_settings (dict): override default tag settings</span>
+<span class="sd">            **kwargs: Passthrough to FEFFDictSet</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">absorbing_atom</span><span class="p">,</span>
             <span class="n">structure</span><span class="p">,</span>
@@ -559,11 +619,12 @@
             <span class="n">user_eels_settings</span><span class="o">=</span><span class="n">user_eels_settings</span><span class="p">,</span>
             <span class="n">nkpts</span><span class="o">=</span><span class="n">nkpts</span><span class="p">,</span>
             <span class="n">user_tag_settings</span><span class="o">=</span><span class="n">user_tag_settings</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="MPEXELFSSet"><a class="viewcode-back" href="../../../../pymatgen.io.feff.sets.html#pymatgen.io.feff.sets.MPEXELFSSet">[docs]</a><span class="k">class</span> <span class="nc">MPEXELFSSet</span><span class="p">(</span><span class="n">MPEELSDictSet</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    FeffDictSet for EXELFS spectroscopy.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -574,16 +635,17 @@
         <span class="n">absorbing_atom</span><span class="p">,</span>
         <span class="n">structure</span><span class="p">,</span>
         <span class="n">edge</span><span class="o">=</span><span class="s2">&quot;K&quot;</span><span class="p">,</span>
-        <span class="n">radius</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
-        <span class="n">beam_energy</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+        <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+        <span class="n">beam_energy</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
         <span class="n">beam_direction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">collection_angle</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-        <span class="n">convergence_angle</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">collection_angle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">convergence_angle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">user_eels_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">nkpts</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-        <span class="n">user_tag_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">nkpts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="n">user_tag_settings</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            absorbing_atom (str/int): absorbing atom symbol or site index</span>
 <span class="sd">            structure (Structure): input structure</span>
@@ -599,8 +661,8 @@
 <span class="sd">            nkpts (int): Total number of kpoints in the brillouin zone. Used</span>
 <span class="sd">                only when feff is run in the reciprocal space mode.</span>
 <span class="sd">            user_tag_settings (dict): override default tag settings</span>
+<span class="sd">            **kwargs: Passthrough to FEFFDictSet</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">absorbing_atom</span><span class="p">,</span>
             <span class="n">structure</span><span class="p">,</span>
@@ -615,6 +677,7 @@
             <span class="n">user_eels_settings</span><span class="o">=</span><span class="n">user_eels_settings</span><span class="p">,</span>
             <span class="n">nkpts</span><span class="o">=</span><span class="n">nkpts</span><span class="p">,</span>
             <span class="n">user_tag_settings</span><span class="o">=</span><span class="n">user_tag_settings</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
         <span class="p">)</span></div>
 </pre></div>
 
@@ -632,7 +695,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2022.4.26 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.feff.sets</a></li> 
       </ul>
@@ -640,7 +703,7 @@
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking
