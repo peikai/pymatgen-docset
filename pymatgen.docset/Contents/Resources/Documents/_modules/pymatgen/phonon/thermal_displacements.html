@@ -1,0 +1,645 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.phonon.thermal_displacements &#8212; pymatgen 2023.1.30 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+ 
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-33990148-1']);
+  _gaq.push(['_trackPageview']);
+</script>
+
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.phonon.thermal_displacements</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.phonon.thermal_displacements</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
+<span class="c1"># Distributed under the terms of the MIT License.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module provides classes to handle thermal displacement matrices (anisotropic displacement parameters).</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
+
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.structure_matcher</span> <span class="kn">import</span> <span class="n">StructureMatcher</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
+<span class="kn">from</span> <span class="nn">pymatgen.io.cif</span> <span class="kn">import</span> <span class="n">CifFile</span><span class="p">,</span> <span class="n">CifParser</span><span class="p">,</span> <span class="n">CifWriter</span><span class="p">,</span> <span class="n">str2float</span>
+<span class="kn">from</span> <span class="nn">pymatgen.symmetry.groups</span> <span class="kn">import</span> <span class="n">SYMM_DATA</span>
+
+<span class="n">sub_spgrp</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;[\s_]&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+<span class="n">space_groups</span> <span class="o">=</span> <span class="p">{</span><span class="n">sub_spgrp</span><span class="p">(</span><span class="n">k</span><span class="p">):</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">SYMM_DATA</span><span class="p">[</span><span class="s2">&quot;space_group_encoding&quot;</span><span class="p">]}</span>  <span class="c1"># type: ignore</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">phonopy</span>
+<span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
+    <span class="n">phonopy</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;J. George&quot;</span>
+<span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2022, The Materials Project&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.1&quot;</span>
+<span class="n">__maintainer__</span> <span class="o">=</span> <span class="s2">&quot;J. George&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;janine.george@bam.de&quot;</span>
+<span class="n">__status__</span> <span class="o">=</span> <span class="s2">&quot;Testing&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;August 09, 2022&quot;</span>
+
+
+<div class="viewcode-block" id="ThermalDisplacementMatrices"><a class="viewcode-back" href="../../../pymatgen.phonon.thermal_displacements.html#pymatgen.phonon.thermal_displacements.ThermalDisplacementMatrices">[docs]</a><span class="k">class</span> <span class="nc">ThermalDisplacementMatrices</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class to handle thermal displacement matrices</span>
+<span class="sd">    This class stores thermal displacement matrices in Ucart format</span>
+
+<span class="sd">    An earlier implementation based on Matlab can be found here:</span>
+<span class="sd">    https://github.com/JaGeo/MolecularToolbox</span>
+<span class="sd">    ( J. George, A. Wang, V. L. Deringer, R. Wang, R. Dronskowski, U. Englert, CrystEngComm, 2015, 17, 7414–7422.)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">thermal_displacement_matrix_cart</span><span class="p">,</span> <span class="n">structure</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="n">thermal_displacement_matrix_cif</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            thermal_displacement_matrix: 2D numpy array including the thermal_displacement matrix Ucart</span>
+<span class="sd">                1st dimension atom types, then compressed thermal displacement matrix will follow</span>
+<span class="sd">                 U11, U22, U33, U23, U13, U12 (xx, yy, zz, yz, xz, xy)</span>
+<span class="sd">                 convention similar to &quot;thermal_displacement_matrices.yaml&quot; in phonopy</span>
+<span class="sd">            structure: A pymatgen Structure object</span>
+<span class="sd">            temperature: temperature at which thermal displacement matrix was determined</span>
+<span class="sd">            thermal_displacement_matrix: 2D numpy array including the thermal_displacement matrix Ucif format</span>
+<span class="sd">                1st dimension atom types, then compressed thermal displacement matrix will follow</span>
+<span class="sd">                 U11, U22, U33, U23, U13, U12 (xx, yy, zz, yz, xz, xy)</span>
+<span class="sd">                 convention similar to &quot;thermal_displacement_matrices.yaml&quot; in phonopy</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cart</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">thermal_displacement_matrix_cart</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="n">structure</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span> <span class="o">=</span> <span class="n">temperature</span>
+        <span class="k">if</span> <span class="n">thermal_displacement_matrix_cif</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cif</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">thermal_displacement_matrix_cif</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cif</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># convert to matrix form easier handling of the data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cart_matrixform</span> <span class="o">=</span> <span class="n">ThermalDisplacementMatrices</span><span class="o">.</span><span class="n">get_full_matrix</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cart</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cif</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cif_matrixform</span> <span class="o">=</span> <span class="n">ThermalDisplacementMatrices</span><span class="o">.</span><span class="n">get_full_matrix</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cif</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="ThermalDisplacementMatrices.get_full_matrix"><a class="viewcode-back" href="../../../pymatgen.phonon.thermal_displacements.html#pymatgen.phonon.thermal_displacements.ThermalDisplacementMatrices.get_full_matrix">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_full_matrix</span><span class="p">(</span><span class="n">thermal_displacement</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Transfers the reduced matrix to the full matrix (order of reduced matrix U11, U22, U33, U23, U13, U12)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            thermal_displacement: 2d numpy array, first dimension are the atoms</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            3d numpy array including thermal displacements, first dimensions are the atoms</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">matrixform</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">thermal_displacement</span><span class="p">),</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">imat</span><span class="p">,</span> <span class="n">mat</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">thermal_displacement</span><span class="p">):</span>
+            <span class="c1"># xx, yy, zz, yz, xz, xy</span>
+            <span class="n">matrixform</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">matrixform</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">matrixform</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">2</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">matrixform</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+            <span class="n">matrixform</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">2</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+            <span class="n">matrixform</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+            <span class="n">matrixform</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+            <span class="n">matrixform</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+            <span class="n">matrixform</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">matrixform</span></div>
+
+<div class="viewcode-block" id="ThermalDisplacementMatrices.get_reduced_matrix"><a class="viewcode-back" href="../../../pymatgen.phonon.thermal_displacements.html#pymatgen.phonon.thermal_displacements.ThermalDisplacementMatrices.get_reduced_matrix">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_reduced_matrix</span><span class="p">(</span><span class="n">thermal_displacement</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Transfers the full matrix to reduced matrix (order of reduced matrix U11, U22, U33, U23, U13, U12)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            thermal_displacement: 2d numpy array, first dimension are the atoms</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            3d numpy array including thermal displacements, first dimensions are the atoms</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">reduced_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">thermal_displacement</span><span class="p">),</span> <span class="mi">6</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">imat</span><span class="p">,</span> <span class="n">mat</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">thermal_displacement</span><span class="p">):</span>
+            <span class="c1"># xx, yy, zz, yz, xz, xy</span>
+            <span class="n">reduced_matrix</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">reduced_matrix</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">reduced_matrix</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">reduced_matrix</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">reduced_matrix</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">reduced_matrix</span><span class="p">[</span><span class="n">imat</span><span class="p">][</span><span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">reduced_matrix</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Ustar</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computation as described in R. W. Grosse-Kunstleve, P. D. Adams, J Appl Cryst 2002, 35, 477–480.</span>
+<span class="sd">        Returns: Ustar as a numpy array, first dimension are the atoms in the structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">Ainv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+        <span class="n">Ustar</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">mat</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cart_matrixform</span><span class="p">:</span>
+            <span class="n">mat_ustar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Ainv</span><span class="p">,</span> <span class="n">mat</span><span class="p">),</span> <span class="n">Ainv</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">Ustar</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mat_ustar</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Ustar</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">Ucif</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computation as described in R. W. Grosse-Kunstleve, P. D. Adams, J Appl Cryst 2002, 35, 477–480.</span>
+<span class="sd">        Returns: Ucif as a numpy array, first dimension are the atoms in the structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cif</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># computation as described in R. W. Grosse-Kunstleve, P. D. Adams, J Appl Cryst 2002, 35, 477–480.</span>
+            <span class="c1"># will compute Ucif based on Ustar for each atom in the structure</span>
+
+            <span class="n">A</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># check this again?</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">A</span><span class="p">)])</span>
+            <span class="n">Ninv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+            <span class="n">Ucif</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">Ustar</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ustar</span>
+            <span class="k">for</span> <span class="n">mat</span> <span class="ow">in</span> <span class="n">Ustar</span><span class="p">:</span>
+                <span class="n">mat_cif</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Ninv</span><span class="p">,</span> <span class="n">mat</span><span class="p">),</span> <span class="n">Ninv</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+                <span class="n">Ucif</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mat_cif</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Ucif</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cif_matrixform</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">B</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computation as described in R. W. Grosse-Kunstleve, P. D. Adams, J Appl Cryst 2002, 35, 477–480.</span>
+<span class="sd">        Returns: B as a numpy array, first dimension are the atoms in the structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">mat</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ucif</span><span class="p">:</span>
+            <span class="n">mat_B</span> <span class="o">=</span> <span class="n">mat</span> <span class="o">*</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">B</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mat_B</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">beta</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computation as described in R. W. Grosse-Kunstleve, P. D. Adams, J Appl Cryst 2002, 35, 477–480.</span>
+<span class="sd">        Returns: beta as a numpy array, first dimension are the atoms in the structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># will compute beta based on Ustar</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">mat</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ustar</span><span class="p">:</span>
+            <span class="n">mat_beta</span> <span class="o">=</span> <span class="n">mat</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">beta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mat_beta</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">beta</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">U1U2U3</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computation as described in R. W. Grosse-Kunstleve, P. D. Adams, J Appl Cryst 2002, 35, 477–480.</span>
+<span class="sd">        Returns: numpy array of eigenvalues of Ucart,  first dimension are the atoms in the structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">U1U2U3</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">mat</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cart_matrixform</span><span class="p">:</span>
+            <span class="n">U1U2U3</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">mat</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">U1U2U3</span>
+
+<div class="viewcode-block" id="ThermalDisplacementMatrices.write_cif"><a class="viewcode-back" href="../../../pymatgen.phonon.thermal_displacements.html#pymatgen.phonon.thermal_displacements.ThermalDisplacementMatrices.write_cif">[docs]</a>    <span class="k">def</span> <span class="nf">write_cif</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Writes a cif including thermal displacements</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename: name of the cif file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">CifWriter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
+        <span class="n">w</span><span class="o">.</span><span class="n">write_file</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="c1"># This will simply append the thermal displacement part to the cif from the CifWriter</span>
+        <span class="c1"># In the long run, CifWriter could be extended to handle thermal displacement matrices</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;loop_ </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;_atom_site_aniso_label</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;_atom_site_aniso_U_11</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;_atom_site_aniso_U_22</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;_atom_site_aniso_U_33</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;_atom_site_aniso_U_23</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;_atom_site_aniso_U_13</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;_atom_site_aniso_U_12</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;# Additional Data for U_Aniso: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">site</span><span class="p">,</span> <span class="n">matrix</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ucif</span><span class="p">):</span>
+                <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">symbol</span><span class="si">}{</span><span class="n">count</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">matrix</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">matrix</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">matrix</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_angle_dot</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="n">dot_product</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="n">prod_of_norms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="n">divided</span> <span class="o">=</span> <span class="n">dot_product</span> <span class="o">/</span> <span class="n">prod_of_norms</span>
+        <span class="n">angle_rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arccos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">divided</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+        <span class="n">angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">angle_rad</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">angle</span>
+
+<div class="viewcode-block" id="ThermalDisplacementMatrices.compute_directionality_quality_criterion"><a class="viewcode-back" href="../../../pymatgen.phonon.thermal_displacements.html#pymatgen.phonon.thermal_displacements.ThermalDisplacementMatrices.compute_directionality_quality_criterion">[docs]</a>    <span class="k">def</span> <span class="nf">compute_directionality_quality_criterion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Will compute directionality of prolate displacement ellipsoids as described in</span>
+<span class="sd">        https://doi.org/10.1039/C9CE00794F with the earlier implementation: https://github.com/damMroz/Angle/</span>
+<span class="sd">        Args:</span>
+<span class="sd">            other: ThermalDisplacementMatrix</span>
+<span class="sd">            please make sure that the order of the atoms in both objects that are compared</span>
+<span class="sd">            is the same. Otherwise, this analysis will deliver wrong results</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            will return a list including dicts for each atom that include &quot;vector0&quot;</span>
+<span class="sd">            (largest principal axes of self object),</span>
+<span class="sd">             &quot;vector1&quot; (largest principal axes of the other object), &quot;angle&quot; between both axes,</span>
+<span class="sd">              These vectors can then, for example, be drawn into the structure with VESTA.</span>
+<span class="sd">              Vectors are given in Cartesian coordinates</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># compare the atoms string at least</span>
+        <span class="k">for</span> <span class="n">spec1</span><span class="p">,</span> <span class="n">spec2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">species</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">species</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">spec1</span> <span class="o">!=</span> <span class="n">spec2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Species in both structures are not the same! &quot;</span>
+                    <span class="s2">&quot;Please use structures that are similar to each other&quot;</span>
+                <span class="p">)</span>
+        <span class="c1"># check if structures match</span>
+        <span class="n">structure_match</span> <span class="o">=</span> <span class="n">StructureMatcher</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">structure_match</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">struct1</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">,</span> <span class="n">struct2</span><span class="o">=</span><span class="n">other</span><span class="o">.</span><span class="n">structure</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Structures have to be similar&quot;</span><span class="p">)</span>
+
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">self_Ucart</span><span class="p">,</span> <span class="n">other_Ucart</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cart_matrixform</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cart_matrixform</span>
+        <span class="p">):</span>
+            <span class="n">result_dict</span> <span class="o">=</span> <span class="p">{}</span>
+
+            <span class="c1"># determine eigenvalues and vectors for inverted Ucart</span>
+            <span class="n">invUcart_eig_self</span><span class="p">,</span> <span class="n">invUcart_eigv_self</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">self_Ucart</span><span class="p">))</span>
+            <span class="n">invUcart_eig_other</span><span class="p">,</span> <span class="n">invUcart_eigv_other</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">other_Ucart</span><span class="p">))</span>
+
+            <span class="n">argmin_self</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">invUcart_eig_self</span><span class="p">)</span>
+            <span class="n">vec_self</span> <span class="o">=</span> <span class="n">invUcart_eigv_self</span><span class="o">.</span><span class="n">transpose</span><span class="p">()[</span><span class="n">argmin_self</span><span class="p">]</span>
+            <span class="n">argmin_other</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">invUcart_eig_other</span><span class="p">)</span>
+            <span class="n">vec_other</span> <span class="o">=</span> <span class="n">invUcart_eigv_other</span><span class="o">.</span><span class="n">transpose</span><span class="p">()[</span><span class="n">argmin_other</span><span class="p">]</span>
+            <span class="c1"># vector direction does not matter here, smallest angle should be given</span>
+            <span class="n">result_dict</span><span class="p">[</span><span class="s2">&quot;angle&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_angle_dot</span><span class="p">(</span><span class="n">vec_self</span><span class="p">,</span> <span class="n">vec_other</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_angle_dot</span><span class="p">(</span><span class="n">vec_self</span><span class="p">,</span> <span class="n">vec_other</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span><span class="p">)]</span>
+            <span class="p">)</span>
+            <span class="n">result_dict</span><span class="p">[</span><span class="s2">&quot;vector0&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">vec_self</span>
+            <span class="n">result_dict</span><span class="p">[</span><span class="s2">&quot;vector1&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">vec_other</span>
+
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result_dict</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">results</span></div>
+
+<div class="viewcode-block" id="ThermalDisplacementMatrices.visualize_directionality_quality_criterion"><a class="viewcode-back" href="../../../pymatgen.phonon.thermal_displacements.html#pymatgen.phonon.thermal_displacements.ThermalDisplacementMatrices.visualize_directionality_quality_criterion">[docs]</a>    <span class="k">def</span> <span class="nf">visualize_directionality_quality_criterion</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;visualization.vesta&quot;</span><span class="p">,</span> <span class="n">which_structure</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Will create a VESTA file for visualization of the directionality criterion.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            other: ThermalDisplacementMatrices</span>
+<span class="sd">            filename:           Filename of the VESTA file</span>
+<span class="sd">            which_structure:    0 means structure of the self object will be used, 1 means structure of the other</span>
+<span class="sd">                                object will be used</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># will return a VESTA file including vectors to visualize the quality criterion</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_directionality_quality_criterion</span><span class="p">(</span><span class="n">other</span><span class="o">=</span><span class="n">other</span><span class="p">)</span>
+        <span class="n">matrix_cif</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cif</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cif</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_reduced_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Ucif</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">which_structure</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">structure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span>
+        <span class="k">elif</span> <span class="n">which_structure</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">structure</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">structure</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="c1">#</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;#VESTA_FORMAT_VERSION 3.5.4</span><span class="se">\n</span><span class="s2"> </span><span class="se">\n</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;CRYSTAL</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;TITLE</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Directionality Criterion</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;GROUP</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;1 1 P 1</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;CELLP</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">a</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">b</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">c</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">alpha</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">beta</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">gamma</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;  0.000000   0.000000   0.000000   0.000000   0.000000   0.000000</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># error on parameters</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;STRUC</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">isite</span><span class="p">,</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">structure</span><span class="p">):</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">isite</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">site</span><span class="o">.</span><span class="n">species_string</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">site</span><span class="o">.</span><span class="n">species_string</span><span class="si">}{</span><span class="n">isite</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2"> 1.0000 </span><span class="si">{</span><span class="n">site</span><span class="o">.</span><span class="n">frac_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">site</span><span class="o">.</span><span class="n">frac_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">site</span><span class="o">.</span><span class="n">frac_coords</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2"> 1a 1</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; 0.000000 0.000000 0.000000 0.00</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># error on positions - zero here</span>
+
+            <span class="c1"># now we iterate over the whole structure and write down the frational coordinates (with errors)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;  0 0 0 0 0 0 0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;THERT 0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;THERM</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># print all U11s (make sure they are in the correct order)</span>
+            <span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="c1"># VESTA order: _U_12    _U_13    _atom_site_aniso_U_23</span>
+            <span class="k">for</span> <span class="n">atom_therm</span><span class="p">,</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">matrix_cif</span><span class="p">,</span> <span class="n">structure</span><span class="p">):</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">counter</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">site</span><span class="o">.</span><span class="n">species_string</span><span class="si">}{</span><span class="n">counter</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">atom_therm</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">atom_therm</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">atom_therm</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">atom_therm</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">atom_therm</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">atom_therm</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;  0 0 0 0 0 0 0 0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;VECTR</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">vectorcounter</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">sitecounter</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">for</span> <span class="n">vectors</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
+                <span class="n">vector0_x</span> <span class="o">=</span> <span class="n">vectors</span><span class="p">[</span><span class="s2">&quot;vector0&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">vector0_y</span> <span class="o">=</span> <span class="n">vectors</span><span class="p">[</span><span class="s2">&quot;vector0&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">vector0_z</span> <span class="o">=</span> <span class="n">vectors</span><span class="p">[</span><span class="s2">&quot;vector0&quot;</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+                <span class="n">vector1_x</span> <span class="o">=</span> <span class="n">vectors</span><span class="p">[</span><span class="s2">&quot;vector1&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">vector1_y</span> <span class="o">=</span> <span class="n">vectors</span><span class="p">[</span><span class="s2">&quot;vector1&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">vector1_z</span> <span class="o">=</span> <span class="n">vectors</span><span class="p">[</span><span class="s2">&quot;vector1&quot;</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="n">vectorcounter</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">vector0_x</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">vector0_y</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">vector0_z</span><span class="si">}</span><span class="s2"> 0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="n">sitecounter</span><span class="si">}</span><span class="s2"> 0 0 0 0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; 0 0 0 0 0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">vectorcounter</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="n">vectorcounter</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">vector1_x</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">vector1_y</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">vector1_z</span><span class="si">}</span><span class="s2"> 0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="n">sitecounter</span><span class="si">}</span><span class="s2"> 0 0 0 0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">vectorcounter</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">sitecounter</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; 0 0 0 0 0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; 0 0 0 0 0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;VECTT</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="c1"># two vectors per atom</span>
+            <span class="k">for</span> <span class="n">_i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)):</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">counter</span><span class="si">}</span><span class="s2"> 0.2 255 0 0 1</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">counter</span><span class="si">}</span><span class="s2"> 0.2 0 0 255 1</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot; 0 0 0 0 0</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ratio_prolate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This will compute ratio between largest eigenvalue of Ucart and smallest one</span>
+<span class="sd">        Returns:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ratios</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">us</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">U1U2U3</span><span class="p">:</span>
+            <span class="n">ratios</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">us</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">us</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ratios</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ThermalDisplacementMatrices.from_Ucif"><a class="viewcode-back" href="../../../pymatgen.phonon.thermal_displacements.html#pymatgen.phonon.thermal_displacements.ThermalDisplacementMatrices.from_Ucif">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_Ucif</span><span class="p">(</span><span class="n">thermal_displacement_matrix_cif</span><span class="p">,</span> <span class="n">structure</span><span class="p">,</span> <span class="n">temperature</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Starting from a numpy array, it will convert Ucif values into Ucart values and initialize the class</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            thermal_displacement_matrix_cif: np.array,</span>
+<span class="sd">                first dimension are the atoms,</span>
+<span class="sd">                then reduced form of thermal displacement matrix will follow</span>
+<span class="sd">                Order as above: U11, U22, U33, U23, U13, U12</span>
+<span class="sd">            structure: Structure object</span>
+<span class="sd">            temperature: float</span>
+<span class="sd">                Corresponding temperature</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ThermalDisplacementMatrices</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># get matrix form</span>
+        <span class="n">thermal_displacement_matrix_cif_matrix_form</span> <span class="o">=</span> <span class="n">ThermalDisplacementMatrices</span><span class="o">.</span><span class="n">get_full_matrix</span><span class="p">(</span>
+            <span class="n">thermal_displacement_matrix_cif</span>
+        <span class="p">)</span>
+
+        <span class="c1"># convert the parameters for each atom</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">A</span><span class="p">)])</span>
+        <span class="n">Ucart</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">mat</span> <span class="ow">in</span> <span class="n">thermal_displacement_matrix_cif_matrix_form</span><span class="p">:</span>
+            <span class="n">mat_ustar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">mat</span><span class="p">),</span> <span class="n">N</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">mat_ucart</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">mat_ustar</span><span class="p">),</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">Ucart</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mat_ucart</span><span class="p">)</span>
+
+        <span class="n">thermal_displacement_matrix_cart</span> <span class="o">=</span> <span class="n">ThermalDisplacementMatrices</span><span class="o">.</span><span class="n">get_reduced_matrix</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Ucart</span><span class="p">))</span>
+
+        <span class="c1"># get ThermalDisplacementMatrices Object</span>
+
+        <span class="k">return</span> <span class="n">ThermalDisplacementMatrices</span><span class="p">(</span>
+            <span class="n">thermal_displacement_matrix_cart</span><span class="o">=</span><span class="n">thermal_displacement_matrix_cart</span><span class="p">,</span>
+            <span class="n">thermal_displacement_matrix_cif</span><span class="o">=</span><span class="n">thermal_displacement_matrix_cif</span><span class="p">,</span>
+            <span class="n">structure</span><span class="o">=</span><span class="n">structure</span><span class="p">,</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ThermalDisplacementMatrices.to_structure_with_site_properties_Ucif"><a class="viewcode-back" href="../../../pymatgen.phonon.thermal_displacements.html#pymatgen.phonon.thermal_displacements.ThermalDisplacementMatrices.to_structure_with_site_properties_Ucif">[docs]</a>    <span class="k">def</span> <span class="nf">to_structure_with_site_properties_Ucif</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Transfers this object into a structure with site properties (Ucif).</span>
+<span class="sd">        This is useful for sorting the atoms in the structure including site properties.</span>
+<span class="sd">        E.g., with code like this:</span>
+<span class="sd">        def sort_order(site):</span>
+<span class="sd">            return [site.specie.X, site.frac_coords[0], site.frac_coords[1], site.frac_coords[2]]</span>
+<span class="sd">        new_structure0 = Structure.from_sites(sorted(structure0, key=sort_order))</span>
+
+<span class="sd">        Returns: Structure object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">site_properties</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;U11_cif&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;U22_cif&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;U33_cif&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;U23_cif&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;U13_cif&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;U12_cif&quot;</span><span class="p">:</span> <span class="p">[]}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cif</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cif_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_reduced_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Ucif</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cif_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_displacement_matrix_cif</span>
+        <span class="k">for</span> <span class="n">atom_ucif</span> <span class="ow">in</span> <span class="n">cif_matrix</span><span class="p">:</span>
+            <span class="c1"># U11, U22, U33, U23, U13, U12</span>
+            <span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;U11_cif&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atom_ucif</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;U22_cif&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atom_ucif</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;U33_cif&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atom_ucif</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;U23_cif&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atom_ucif</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+            <span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;U13_cif&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atom_ucif</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+            <span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;U12_cif&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atom_ucif</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">site_properties</span><span class="o">=</span><span class="n">site_properties</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ThermalDisplacementMatrices.from_structure_with_site_properties_Ucif"><a class="viewcode-back" href="../../../pymatgen.phonon.thermal_displacements.html#pymatgen.phonon.thermal_displacements.ThermalDisplacementMatrices.from_structure_with_site_properties_Ucif">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_structure_with_site_properties_Ucif</span><span class="p">(</span><span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Will create this object with the help of a structure with site properties.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure: Structure object including U11_cif, U22_cif, U33_cif, U23_cif, U13_cif, U12_cif as site</span>
+<span class="sd">            properties</span>
+<span class="sd">            temperature: temperature for Ucif data</span>
+
+<span class="sd">        Returns: ThermalDisplacementMatrices Object.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">Ucif_matrix</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># U11, U22, U33, U23, U13, U12</span>
+        <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="n">structure</span><span class="p">:</span>
+            <span class="n">Ucif_matrix</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">site</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;U11_cif&quot;</span><span class="p">],</span>
+                    <span class="n">site</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;U22_cif&quot;</span><span class="p">],</span>
+                    <span class="n">site</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;U33_cif&quot;</span><span class="p">],</span>
+                    <span class="n">site</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;U23_cif&quot;</span><span class="p">],</span>
+                    <span class="n">site</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;U13_cif&quot;</span><span class="p">],</span>
+                    <span class="n">site</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;U12_cif&quot;</span><span class="p">],</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ThermalDisplacementMatrices</span><span class="o">.</span><span class="n">from_Ucif</span><span class="p">(</span><span class="n">Ucif_matrix</span><span class="p">,</span> <span class="n">structure</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ThermalDisplacementMatrices.from_cif_P1"><a class="viewcode-back" href="../../../pymatgen.phonon.thermal_displacements.html#pymatgen.phonon.thermal_displacements.ThermalDisplacementMatrices.from_cif_P1">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_cif_P1</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reads a cif with P1 symmetry including positions and ADPs.</span>
+<span class="sd">        Currently, no check of symmetry is performed as CifParser methods cannot be easily reused</span>
+<span class="sd">        Args:</span>
+<span class="sd">            filename: Filename of the cif</span>
+
+<span class="sd">        Returns: ThermalDisplacementMatrices Object.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># This code is adapted from the CifParser</span>
+        <span class="c1"># to reuse more code from there, the CifParser would need a major refactoring</span>
+        <span class="c1"># Future plans: add this part to CifParser (i.e., include handling of symmetry for ADPs)</span>
+
+        <span class="n">cif</span> <span class="o">=</span> <span class="n">CifFile</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="n">thermals</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">cif</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="c1"># can only handle P1 symmetry for now</span>
+
+            <span class="n">lattice</span> <span class="o">=</span> <span class="n">CifParser</span><span class="o">.</span><span class="n">get_lattice_no_exception</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+            <span class="n">allcoords</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">allspecies</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_label&quot;</span><span class="p">])):</span>
+
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c1"># If site type symbol exists, use it. Otherwise, we use the</span>
+                    <span class="c1"># label.</span>
+                    <span class="n">symbol</span> <span class="o">=</span> <span class="n">CifParser</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">_parse_symbol</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_type_symbol&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="n">symbol</span> <span class="o">=</span> <span class="n">CifParser</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">_parse_symbol</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_label&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">symbol</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="n">allspecies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">symbol</span><span class="p">)</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">str2float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_fract_x&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">y</span> <span class="o">=</span> <span class="n">str2float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_fract_y&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">z</span> <span class="o">=</span> <span class="n">str2float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_fract_z&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+
+                <span class="n">allcoords</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">])</span>
+
+            <span class="n">thermals_Ucif</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="c1"># U11, U22, U33, U23, U13, U12</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_aniso_label&quot;</span><span class="p">])):</span>
+                <span class="n">thermals_Ucif</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">str2float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_aniso_U_11&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]),</span>
+                        <span class="n">str2float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_aniso_U_22&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]),</span>
+                        <span class="n">str2float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_aniso_U_33&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]),</span>
+                        <span class="n">str2float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_aniso_U_23&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]),</span>
+                        <span class="n">str2float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_aniso_U_13&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]),</span>
+                        <span class="n">str2float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;_atom_site_aniso_U_12&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]),</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+            <span class="n">struct</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">(</span><span class="n">lattice</span><span class="p">,</span> <span class="n">allspecies</span><span class="p">,</span> <span class="n">allcoords</span><span class="p">)</span>
+
+            <span class="n">thermal</span> <span class="o">=</span> <span class="n">ThermalDisplacementMatrices</span><span class="o">.</span><span class="n">from_Ucif</span><span class="p">(</span>
+                <span class="n">thermal_displacement_matrix_cif</span><span class="o">=</span><span class="n">thermals_Ucif</span><span class="p">,</span> <span class="n">structure</span><span class="o">=</span><span class="n">struct</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="n">thermals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">thermal</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">thermals</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.phonon.thermal_displacements</a></li> 
+      </ul>
+    </div>
+
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+<div class="footer">This page uses <a href="http://analytics.google.com/">
+Google Analytics</a> to collect statistics. You can disable it by blocking
+the JavaScript coming from www.google-analytics.com.
+<script type="text/javascript">
+  (function() {
+    var ga = document.createElement('script');
+    ga.src = ('https:' == document.location.protocol ?
+              'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    ga.setAttribute('async', 'true');
+    document.documentElement.firstChild.appendChild(ga);
+  })();
+</script>
+</div>
+
+  </body>
+</html>

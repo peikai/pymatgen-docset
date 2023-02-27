@@ -1,19 +1,16 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>pymatgen.analysis.chemenv.utils.scripts_utils &#8212; pymatgen 2020.7.3 documentation</title>
-    <link rel="stylesheet" href="../../../../../_static/basic.css" type="text/css" />
-    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
-    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
-    <script src="../../../../../_static/jquery.js"></script>
-    <script src="../../../../../_static/underscore.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.analysis.chemenv.utils.scripts_utils &#8212; pymatgen 2023.1.30 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/basic.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
     <script src="../../../../../_static/doctools.js"></script>
-    <script src="../../../../../_static/language_data.js"></script>
-    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script src="../../../../../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../search.html" />
  
@@ -33,9 +30,8 @@
         <li class="right" >
           <a href="../../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../../index.html">pymatgen 2020.7.3 documentation</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="../../../../index.html" >Module code</a> &#187;</li>
-          <li class="nav-item nav-item-2"><a href="../../../../pymatgen.html" accesskey="U">pymatgen</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.chemenv.utils.scripts_utils</a></li> 
       </ul>
     </div>  
@@ -45,39 +41,47 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.analysis.chemenv.utils.scripts_utils</h1><div class="highlight"><pre>
-<span></span><span class="c1"># coding: utf-8</span>
-<span class="c1"># Copyright (c) Pymatgen Development Team.</span>
+<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
 <span class="c1"># Distributed under the terms of the MIT License.</span>
 
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module contains some script utils that are used in the chemenv package.</span>
+<span class="sd">&quot;&quot;&quot;</span>
 
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">re</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.chemenv_strategies</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SimplestChemenvStrategy</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.coordination_geometries</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">UNCLEAR_ENVIRONMENT_SYMBOL</span><span class="p">,</span>
+    <span class="n">AllCoordinationGeometries</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.coordination_geometry_finder</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AbstractGeometry</span><span class="p">,</span>
+    <span class="n">LocalGeometryFinder</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.utils.chemenv_errors</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">NeighborsNotComputedChemenvError</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.utils.coordination_geometry_utils</span> <span class="kn">import</span> <span class="n">rotateCoords</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.sites</span> <span class="kn">import</span> <span class="n">PeriodicSite</span>
+<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Molecule</span>
 <span class="kn">from</span> <span class="nn">pymatgen.ext.matproj</span> <span class="kn">import</span> <span class="n">MPRester</span>
 <span class="kn">from</span> <span class="nn">pymatgen.io.cif</span> <span class="kn">import</span> <span class="n">CifParser</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">pymatgen.vis.structure_vtk</span> <span class="kn">import</span> <span class="n">StructureVis</span>
+
     <span class="n">no_vis</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="n">StructureVis</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore</span>
     <span class="n">no_vis</span> <span class="o">=</span> <span class="kc">True</span>
-
-
-<span class="kn">from</span> <span class="nn">pymatgen.core.sites</span> <span class="kn">import</span> <span class="n">PeriodicSite</span>
-<span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.coordination_geometries</span> <span class="kn">import</span> <span class="n">AllCoordinationGeometries</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.coordination_geometries</span> <span class="kn">import</span> <span class="n">UNCLEAR_ENVIRONMENT_SYMBOL</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.coordination_geometry_finder</span> <span class="kn">import</span> <span class="n">LocalGeometryFinder</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.utils.chemenv_errors</span> <span class="kn">import</span> <span class="n">NeighborsNotComputedChemenvError</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.coordination_geometry_finder</span> <span class="kn">import</span> <span class="n">AbstractGeometry</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.utils.coordination_geometry_utils</span> <span class="kn">import</span> <span class="n">rotateCoords</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.utils.defs_utils</span> <span class="kn">import</span> <span class="n">chemenv_citations</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.chemenv.coordination_environments.chemenv_strategies</span> <span class="kn">import</span> <span class="n">SimplestChemenvStrategy</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Molecule</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-
-<span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">This module contains some utils for the main script of the chemenv package.</span>
-<span class="sd">&quot;&quot;&quot;</span>
 
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;David Waroquiers&quot;</span>
 <span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2012, The Materials Project&quot;</span>
@@ -87,20 +91,48 @@
 <span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;david.waroquiers@gmail.com&quot;</span>
 <span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;Feb 20, 2016&quot;</span>
 
-<span class="n">strategies_class_lookup</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>  <span class="c1"># type: dict</span>
-<span class="n">strategies_class_lookup</span><span class="p">[</span><span class="s1">&#39;SimplestChemenvStrategy&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">SimplestChemenvStrategy</span>
+<span class="n">strategies_class_lookup</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">strategies_class_lookup</span><span class="p">[</span><span class="s2">&quot;SimplestChemenvStrategy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">SimplestChemenvStrategy</span>
 
 
 <span class="c1"># strategies_class_lookup[&#39;SimpleAbundanceChemenvStrategy&#39;] = SimpleAbundanceChemenvStrategy</span>
 <span class="c1"># strategies_class_lookup[&#39;TargettedPenaltiedAbundanceChemenvStrategy&#39;] = TargettedPenaltiedAbundanceChemenvStrategy</span>
 
 
-<div class="viewcode-block" id="draw_cg"><a class="viewcode-back" href="../../../../../pymatgen.analysis.chemenv.utils.scripts_utils.html#pymatgen.analysis.chemenv.utils.scripts_utils.draw_cg">[docs]</a><span class="k">def</span> <span class="nf">draw_cg</span><span class="p">(</span><span class="n">vis</span><span class="p">,</span> <span class="n">site</span><span class="p">,</span> <span class="n">neighbors</span><span class="p">,</span> <span class="n">cg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">perm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">perfect2local_map</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-            <span class="n">show_perfect</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">csm_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetry_measure_type</span><span class="o">=</span><span class="s1">&#39;csm_wcs_ctwcc&#39;</span><span class="p">,</span> <span class="n">perfect_radius</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
-            <span class="n">show_distorted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">faces_color_override</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="draw_cg"><a class="viewcode-back" href="../../../../../pymatgen.analysis.chemenv.utils.scripts_utils.html#pymatgen.analysis.chemenv.utils.scripts_utils.draw_cg">[docs]</a><span class="k">def</span> <span class="nf">draw_cg</span><span class="p">(</span>
+    <span class="n">vis</span><span class="p">,</span>
+    <span class="n">site</span><span class="p">,</span>
+    <span class="n">neighbors</span><span class="p">,</span>
+    <span class="n">cg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">perm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">perfect2local_map</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">show_perfect</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">csm_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">symmetry_measure_type</span><span class="o">=</span><span class="s2">&quot;csm_wcs_ctwcc&quot;</span><span class="p">,</span>
+    <span class="n">perfect_radius</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">show_distorted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">faces_color_override</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Draw cg.</span>
+
+<span class="sd">    :param vis:</span>
+<span class="sd">    :param site:</span>
+<span class="sd">    :param neighbors:</span>
+<span class="sd">    :param cg:</span>
+<span class="sd">    :param perm:</span>
+<span class="sd">    :param perfect2local_map:</span>
+<span class="sd">    :param show_perfect:</span>
+<span class="sd">    :param csm_info:</span>
+<span class="sd">    :param symmetry_measure_type:</span>
+<span class="sd">    :param perfect_radius:</span>
+<span class="sd">    :param show_distorted:</span>
+<span class="sd">    :param faces_color_override:</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">show_perfect</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">csm_info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Not possible to show perfect environment without csm_info&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not possible to show perfect environment without csm_info&quot;</span><span class="p">)</span>
         <span class="n">csm_suffix</span> <span class="o">=</span> <span class="n">symmetry_measure_type</span><span class="p">[</span><span class="mi">4</span><span class="p">:]</span>
         <span class="n">perf_radius</span> <span class="o">=</span> <span class="p">(</span><span class="n">perfect_radius</span> <span class="o">-</span> <span class="mf">0.2</span><span class="p">)</span> <span class="o">/</span> <span class="mf">0.002</span>
     <span class="k">if</span> <span class="n">perm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">perfect2local_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -115,21 +147,27 @@
         <span class="k">if</span> <span class="n">show_perfect</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">neighbors</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="n">perfect_geometry</span> <span class="o">=</span> <span class="n">AbstractGeometry</span><span class="o">.</span><span class="n">from_cg</span><span class="p">(</span><span class="n">cg</span><span class="p">)</span>
-                <span class="n">trans</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s1">&#39;other_symmetry_measures&#39;</span><span class="p">][</span><span class="s1">&#39;translation_vector_</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">csm_suffix</span><span class="p">)]</span>
-                <span class="n">rot</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s1">&#39;other_symmetry_measures&#39;</span><span class="p">][</span><span class="s1">&#39;rotation_matrix_</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">csm_suffix</span><span class="p">)]</span>
-                <span class="n">scale</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s1">&#39;other_symmetry_measures&#39;</span><span class="p">][</span><span class="s1">&#39;scaling_factor_</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">csm_suffix</span><span class="p">)]</span>
+                <span class="n">trans</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s2">&quot;other_symmetry_measures&quot;</span><span class="p">][</span><span class="sa">f</span><span class="s2">&quot;translation_vector_</span><span class="si">{</span><span class="n">csm_suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+                <span class="n">rot</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s2">&quot;other_symmetry_measures&quot;</span><span class="p">][</span><span class="sa">f</span><span class="s2">&quot;rotation_matrix_</span><span class="si">{</span><span class="n">csm_suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+                <span class="n">scale</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s2">&quot;other_symmetry_measures&quot;</span><span class="p">][</span><span class="sa">f</span><span class="s2">&quot;scaling_factor_</span><span class="si">{</span><span class="n">csm_suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
                 <span class="n">points</span> <span class="o">=</span> <span class="n">perfect_geometry</span><span class="o">.</span><span class="n">points_wcs_ctwcc</span><span class="p">()</span>
                 <span class="n">rotated_points</span> <span class="o">=</span> <span class="n">rotateCoords</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">rot</span><span class="p">)</span>
                 <span class="n">points</span> <span class="o">=</span> <span class="p">[</span><span class="n">scale</span> <span class="o">*</span> <span class="n">pp</span> <span class="o">+</span> <span class="n">trans</span> <span class="k">for</span> <span class="n">pp</span> <span class="ow">in</span> <span class="n">rotated_points</span><span class="p">]</span>
-                <span class="k">if</span> <span class="s1">&#39;wcs&#39;</span> <span class="ow">in</span> <span class="n">csm_suffix</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s2">&quot;wcs&quot;</span> <span class="ow">in</span> <span class="n">csm_suffix</span><span class="p">:</span>
                     <span class="n">ef_points</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">ef_points</span> <span class="o">=</span> <span class="n">points</span>
-                <span class="n">edges</span> <span class="o">=</span> <span class="n">cg</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">ef_points</span><span class="p">,</span> <span class="nb">input</span><span class="o">=</span><span class="s1">&#39;coords&#39;</span><span class="p">)</span>
+                <span class="n">edges</span> <span class="o">=</span> <span class="n">cg</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">ef_points</span><span class="p">,</span> <span class="nb">input</span><span class="o">=</span><span class="s2">&quot;coords&quot;</span><span class="p">)</span>
                 <span class="n">vis</span><span class="o">.</span><span class="n">add_edges</span><span class="p">(</span><span class="n">edges</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
                 <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
-                    <span class="n">vis</span><span class="o">.</span><span class="n">add_partial_sphere</span><span class="p">(</span><span class="n">coords</span><span class="o">=</span><span class="n">point</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">perf_radius</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
-                                           <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="mi">360</span><span class="p">,</span> <span class="n">opacity</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="n">vis</span><span class="o">.</span><span class="n">add_partial_sphere</span><span class="p">(</span>
+                        <span class="n">coords</span><span class="o">=</span><span class="n">point</span><span class="p">,</span>
+                        <span class="n">radius</span><span class="o">=</span><span class="n">perf_radius</span><span class="p">,</span>
+                        <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+                        <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                        <span class="n">end</span><span class="o">=</span><span class="mi">360</span><span class="p">,</span>
+                        <span class="n">opacity</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                    <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">show_distorted</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">perm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -141,7 +179,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">faces</span> <span class="o">=</span> <span class="n">cg</span><span class="o">.</span><span class="n">faces</span><span class="p">(</span><span class="n">neighbors</span><span class="p">)</span>
                 <span class="n">edges</span> <span class="o">=</span> <span class="n">cg</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">neighbors</span><span class="p">)</span>
-            <span class="n">symbol</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">site</span><span class="o">.</span><span class="n">species</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">symbol</span>
+            <span class="n">symbol</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">site</span><span class="o">.</span><span class="n">species</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">symbol</span>
             <span class="k">if</span> <span class="n">faces_color_override</span><span class="p">:</span>
                 <span class="n">mycolor</span> <span class="o">=</span> <span class="n">faces_color_override</span>
             <span class="k">else</span><span class="p">:</span>
@@ -150,30 +188,45 @@
             <span class="n">vis</span><span class="o">.</span><span class="n">add_edges</span><span class="p">(</span><span class="n">edges</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">show_perfect</span><span class="p">:</span>
             <span class="n">perfect_geometry</span> <span class="o">=</span> <span class="n">AbstractGeometry</span><span class="o">.</span><span class="n">from_cg</span><span class="p">(</span><span class="n">cg</span><span class="p">)</span>
-            <span class="n">trans</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s1">&#39;other_symmetry_measures&#39;</span><span class="p">][</span><span class="s1">&#39;translation_vector_</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">csm_suffix</span><span class="p">)]</span>
-            <span class="n">rot</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s1">&#39;other_symmetry_measures&#39;</span><span class="p">][</span><span class="s1">&#39;rotation_matrix_</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">csm_suffix</span><span class="p">)]</span>
-            <span class="n">scale</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s1">&#39;other_symmetry_measures&#39;</span><span class="p">][</span><span class="s1">&#39;scaling_factor_</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">csm_suffix</span><span class="p">)]</span>
+            <span class="n">trans</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s2">&quot;other_symmetry_measures&quot;</span><span class="p">][</span><span class="sa">f</span><span class="s2">&quot;translation_vector_</span><span class="si">{</span><span class="n">csm_suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+            <span class="n">rot</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s2">&quot;other_symmetry_measures&quot;</span><span class="p">][</span><span class="sa">f</span><span class="s2">&quot;rotation_matrix_</span><span class="si">{</span><span class="n">csm_suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="n">csm_info</span><span class="p">[</span><span class="s2">&quot;other_symmetry_measures&quot;</span><span class="p">][</span><span class="sa">f</span><span class="s2">&quot;scaling_factor_</span><span class="si">{</span><span class="n">csm_suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
             <span class="n">points</span> <span class="o">=</span> <span class="n">perfect_geometry</span><span class="o">.</span><span class="n">points_wcs_ctwcc</span><span class="p">()</span>
             <span class="n">rotated_points</span> <span class="o">=</span> <span class="n">rotateCoords</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">rot</span><span class="p">)</span>
             <span class="n">points</span> <span class="o">=</span> <span class="p">[</span><span class="n">scale</span> <span class="o">*</span> <span class="n">pp</span> <span class="o">+</span> <span class="n">trans</span> <span class="k">for</span> <span class="n">pp</span> <span class="ow">in</span> <span class="n">rotated_points</span><span class="p">]</span>
-            <span class="k">if</span> <span class="s1">&#39;wcs&#39;</span> <span class="ow">in</span> <span class="n">csm_suffix</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;wcs&quot;</span> <span class="ow">in</span> <span class="n">csm_suffix</span><span class="p">:</span>
                 <span class="n">ef_points</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">ef_points</span> <span class="o">=</span> <span class="n">points</span>
-            <span class="n">edges</span> <span class="o">=</span> <span class="n">cg</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">ef_points</span><span class="p">,</span> <span class="nb">input</span><span class="o">=</span><span class="s1">&#39;coords&#39;</span><span class="p">)</span>
+            <span class="n">edges</span> <span class="o">=</span> <span class="n">cg</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">ef_points</span><span class="p">,</span> <span class="nb">input</span><span class="o">=</span><span class="s2">&quot;coords&quot;</span><span class="p">)</span>
             <span class="n">vis</span><span class="o">.</span><span class="n">add_edges</span><span class="p">(</span><span class="n">edges</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
             <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
-                <span class="n">vis</span><span class="o">.</span><span class="n">add_partial_sphere</span><span class="p">(</span><span class="n">coords</span><span class="o">=</span><span class="n">point</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">perf_radius</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
-                                       <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="mi">360</span><span class="p">,</span> <span class="n">opacity</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+                <span class="n">vis</span><span class="o">.</span><span class="n">add_partial_sphere</span><span class="p">(</span>
+                    <span class="n">coords</span><span class="o">=</span><span class="n">point</span><span class="p">,</span>
+                    <span class="n">radius</span><span class="o">=</span><span class="n">perf_radius</span><span class="p">,</span>
+                    <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+                    <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">end</span><span class="o">=</span><span class="mi">360</span><span class="p">,</span>
+                    <span class="n">opacity</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="p">)</span></div>
 
 
-<span class="c1"># Visualizing a coordination geometry</span>
 <div class="viewcode-block" id="visualize"><a class="viewcode-back" href="../../../../../pymatgen.analysis.chemenv.utils.scripts_utils.html#pymatgen.analysis.chemenv.utils.scripts_utils.visualize">[docs]</a><span class="k">def</span> <span class="nf">visualize</span><span class="p">(</span><span class="n">cg</span><span class="p">,</span> <span class="n">zoom</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">myfactor</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">view_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">faces_color_override</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Visualizing a coordination geometry</span>
+<span class="sd">    :param cg:</span>
+<span class="sd">    :param zoom:</span>
+<span class="sd">    :param vis:</span>
+<span class="sd">    :param myfactor:</span>
+<span class="sd">    :param view_index:</span>
+<span class="sd">    :param faces_color_override:</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">vis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">vis</span> <span class="o">=</span> <span class="n">StructureVis</span><span class="p">(</span><span class="n">show_polyhedron</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">show_unit_cell</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">myspecies</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;O&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">cg</span><span class="o">.</span><span class="n">coordination_number</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">myspecies</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Cu&quot;</span>
-    <span class="n">coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)</span> <span class="o">+</span> <span class="n">cg</span><span class="o">.</span><span class="n">central_site</span><span class="p">]</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float_</span><span class="p">)</span> <span class="o">+</span> <span class="n">cg</span><span class="o">.</span><span class="n">central_site</span><span class="p">]</span>
 
     <span class="k">for</span> <span class="n">pp</span> <span class="ow">in</span> <span class="n">cg</span><span class="o">.</span><span class="n">points</span><span class="p">:</span>
         <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pp</span><span class="p">)</span> <span class="o">+</span> <span class="n">cg</span><span class="o">.</span><span class="n">central_site</span><span class="p">)</span>
@@ -181,57 +234,59 @@
     <span class="n">structure</span> <span class="o">=</span> <span class="n">Molecule</span><span class="p">(</span><span class="n">species</span><span class="o">=</span><span class="n">myspecies</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">)</span>
     <span class="n">vis</span><span class="o">.</span><span class="n">set_structure</span><span class="p">(</span><span class="n">structure</span><span class="o">=</span><span class="n">structure</span><span class="p">,</span> <span class="n">reset_camera</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="c1"># neighbors_list = coords[1:]</span>
-    <span class="n">draw_cg</span><span class="p">(</span><span class="n">vis</span><span class="p">,</span> <span class="n">site</span><span class="o">=</span><span class="n">structure</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">neighbors</span><span class="o">=</span><span class="n">structure</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">cg</span><span class="o">=</span><span class="n">cg</span><span class="p">,</span> <span class="n">faces_color_override</span><span class="o">=</span><span class="n">faces_color_override</span><span class="p">)</span>
+    <span class="n">draw_cg</span><span class="p">(</span>
+        <span class="n">vis</span><span class="p">,</span>
+        <span class="n">site</span><span class="o">=</span><span class="n">structure</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">neighbors</span><span class="o">=</span><span class="n">structure</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span>
+        <span class="n">cg</span><span class="o">=</span><span class="n">cg</span><span class="p">,</span>
+        <span class="n">faces_color_override</span><span class="o">=</span><span class="n">faces_color_override</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="k">if</span> <span class="n">view_index</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">ineighbor</span><span class="p">,</span> <span class="n">neighbor</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">structure</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
-            <span class="n">vis</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="n">neighbor</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ineighbor</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="n">vis</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="n">neighbor</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ineighbor</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
     <span class="k">if</span> <span class="n">zoom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">vis</span><span class="o">.</span><span class="n">zoom</span><span class="p">(</span><span class="n">zoom</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">vis</span></div>
 
 
-<div class="viewcode-block" id="welcome"><a class="viewcode-back" href="../../../../../pymatgen.analysis.chemenv.utils.scripts_utils.html#pymatgen.analysis.chemenv.utils.scripts_utils.welcome">[docs]</a><span class="k">def</span> <span class="nf">welcome</span><span class="p">(</span><span class="n">chemenv_config</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Chemical Environment package (ChemEnv)&#39;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">chemenv_citations</span><span class="p">())</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">chemenv_config</span><span class="o">.</span><span class="n">package_options_description</span><span class="p">())</span></div>
-
-
-<div class="viewcode-block" id="thankyou"><a class="viewcode-back" href="../../../../../pymatgen.analysis.chemenv.utils.scripts_utils.html#pymatgen.analysis.chemenv.utils.scripts_utils.thankyou">[docs]</a><span class="k">def</span> <span class="nf">thankyou</span><span class="p">():</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Thank you for using the ChemEnv package&#39;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">chemenv_citations</span><span class="p">())</span></div>
-
-
 <div class="viewcode-block" id="compute_environments"><a class="viewcode-back" href="../../../../../pymatgen.analysis.chemenv.utils.scripts_utils.html#pymatgen.analysis.chemenv.utils.scripts_utils.compute_environments">[docs]</a><span class="k">def</span> <span class="nf">compute_environments</span><span class="p">(</span><span class="n">chemenv_configuration</span><span class="p">):</span>
-    <span class="n">string_sources</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;cif&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;string&#39;</span><span class="p">:</span> <span class="s1">&#39;a Cif file&#39;</span><span class="p">,</span> <span class="s1">&#39;regexp&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;.*\.cif$&#39;</span><span class="p">},</span>
-                      <span class="s1">&#39;mp&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;string&#39;</span><span class="p">:</span> <span class="s1">&#39;the Materials Project database&#39;</span><span class="p">,</span>
-                             <span class="s1">&#39;regexp&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;mp-[0-9]+$&#39;</span><span class="p">}}</span>
-    <span class="n">questions</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="s1">&#39;cif&#39;</span><span class="p">}</span>
-    <span class="n">questions</span><span class="p">[</span><span class="s1">&#39;m&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;mp&#39;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the environments.</span>
+
+<span class="sd">    :param chemenv_configuration:</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">string_sources</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;cif&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;string&quot;</span><span class="p">:</span> <span class="s2">&quot;a Cif file&quot;</span><span class="p">,</span> <span class="s2">&quot;regexp&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;.*\.cif$&quot;</span><span class="p">},</span>
+        <span class="s2">&quot;mp&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;string&quot;</span><span class="p">:</span> <span class="s2">&quot;the Materials Project database&quot;</span><span class="p">,</span> <span class="s2">&quot;regexp&quot;</span><span class="p">:</span> <span class="sa">r</span><span class="s2">&quot;mp-[0-9]+$&quot;</span><span class="p">},</span>
+    <span class="p">}</span>
+    <span class="n">questions</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;c&quot;</span><span class="p">:</span> <span class="s2">&quot;cif&quot;</span><span class="p">}</span>
+    <span class="n">questions</span><span class="p">[</span><span class="s2">&quot;m&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mp&quot;</span>
     <span class="n">lgf</span> <span class="o">=</span> <span class="n">LocalGeometryFinder</span><span class="p">()</span>
     <span class="n">lgf</span><span class="o">.</span><span class="n">setup_parameters</span><span class="p">()</span>
     <span class="n">allcg</span> <span class="o">=</span> <span class="n">AllCoordinationGeometries</span><span class="p">()</span>
-    <span class="n">strategy_class</span> <span class="o">=</span> <span class="n">strategies_class_lookup</span><span class="p">[</span><span class="n">chemenv_configuration</span><span class="o">.</span><span class="n">package_options</span><span class="p">[</span><span class="s1">&#39;default_strategy&#39;</span><span class="p">][</span><span class="s1">&#39;strategy&#39;</span><span class="p">]]</span>
+    <span class="n">strategy_class</span> <span class="o">=</span> <span class="n">strategies_class_lookup</span><span class="p">[</span><span class="n">chemenv_configuration</span><span class="o">.</span><span class="n">package_options</span><span class="p">[</span><span class="s2">&quot;default_strategy&quot;</span><span class="p">][</span><span class="s2">&quot;strategy&quot;</span><span class="p">]]</span>
     <span class="c1"># TODO: Add the possibility to change the parameters and save them in the chemenv_configuration</span>
     <span class="n">default_strategy</span> <span class="o">=</span> <span class="n">strategy_class</span><span class="p">()</span>
-    <span class="n">default_strategy</span><span class="o">.</span><span class="n">setup_options</span><span class="p">(</span><span class="n">chemenv_configuration</span><span class="o">.</span><span class="n">package_options</span><span class="p">[</span><span class="s1">&#39;default_strategy&#39;</span><span class="p">][</span><span class="s1">&#39;strategy_options&#39;</span><span class="p">])</span>
-    <span class="n">max_dist_factor</span> <span class="o">=</span> <span class="n">chemenv_configuration</span><span class="o">.</span><span class="n">package_options</span><span class="p">[</span><span class="s1">&#39;default_max_distance_factor&#39;</span><span class="p">]</span>
+    <span class="n">default_strategy</span><span class="o">.</span><span class="n">setup_options</span><span class="p">(</span><span class="n">chemenv_configuration</span><span class="o">.</span><span class="n">package_options</span><span class="p">[</span><span class="s2">&quot;default_strategy&quot;</span><span class="p">][</span><span class="s2">&quot;strategy_options&quot;</span><span class="p">])</span>
+    <span class="n">max_dist_factor</span> <span class="o">=</span> <span class="n">chemenv_configuration</span><span class="o">.</span><span class="n">package_options</span><span class="p">[</span><span class="s2">&quot;default_max_distance_factor&quot;</span><span class="p">]</span>
     <span class="n">firsttime</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">questions</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">found</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Enter the source from which the structure is coming or &lt;q&gt; to quit :&#39;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Enter the source from which the structure is coming or &lt;q&gt; to quit :&quot;</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">key_character</span><span class="p">,</span> <span class="n">qq</span> <span class="ow">in</span> <span class="n">questions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39; - &lt;</span><span class="si">{}</span><span class="s1">&gt; for a structure from </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key_character</span><span class="p">,</span> <span class="n">string_sources</span><span class="p">[</span><span class="n">qq</span><span class="p">][</span><span class="s1">&#39;string&#39;</span><span class="p">]))</span>
-            <span class="n">test</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s1">&#39; ... &#39;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s1">&#39;q&#39;</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - &lt;</span><span class="si">{</span><span class="n">key_character</span><span class="si">}</span><span class="s2">&gt; for a structure from </span><span class="si">{</span><span class="n">string_sources</span><span class="p">[</span><span class="n">qq</span><span class="p">][</span><span class="s1">&#39;string&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">test</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot; ... &quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;q&quot;</span><span class="p">:</span>
                 <span class="k">break</span>
-            <span class="k">if</span> <span class="n">test</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">questions</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
-                <span class="k">for</span> <span class="n">key_character</span><span class="p">,</span> <span class="n">qq</span> <span class="ow">in</span> <span class="n">questions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">string_sources</span><span class="p">[</span><span class="n">qq</span><span class="p">][</span><span class="s1">&#39;regexp&#39;</span><span class="p">],</span> <span class="nb">str</span><span class="p">(</span><span class="n">test</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">test</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">questions</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">qq</span> <span class="ow">in</span> <span class="n">questions</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">string_sources</span><span class="p">[</span><span class="n">qq</span><span class="p">][</span><span class="s2">&quot;regexp&quot;</span><span class="p">],</span> <span class="nb">str</span><span class="p">(</span><span class="n">test</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                         <span class="n">found</span> <span class="o">=</span> <span class="kc">True</span>
                         <span class="n">source_type</span> <span class="o">=</span> <span class="n">qq</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Wrong key, try again ...&#39;</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Wrong key, try again ...&quot;</span><span class="p">)</span>
                     <span class="k">continue</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">source_type</span> <span class="o">=</span> <span class="n">questions</span><span class="p">[</span><span class="n">test</span><span class="p">]</span>
@@ -240,25 +295,27 @@
             <span class="n">source_type</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">questions</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">found</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">questions</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">input_source</span> <span class="o">=</span> <span class="n">test</span>
-        <span class="k">if</span> <span class="n">source_type</span> <span class="o">==</span> <span class="s1">&#39;cif&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">source_type</span> <span class="o">==</span> <span class="s2">&quot;cif&quot;</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span>
-                <span class="n">input_source</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s1">&#39;Enter path to cif file : &#39;</span><span class="p">)</span>
+                <span class="n">input_source</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Enter path to cif file : &quot;</span><span class="p">)</span>
             <span class="n">cp</span> <span class="o">=</span> <span class="n">CifParser</span><span class="p">(</span><span class="n">input_source</span><span class="p">)</span>
             <span class="n">structure</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">get_structures</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">elif</span> <span class="n">source_type</span> <span class="o">==</span> <span class="s1">&#39;mp&#39;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">source_type</span> <span class="o">==</span> <span class="s2">&quot;mp&quot;</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span>
                 <span class="n">input_source</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s1">&#39;Enter materials project id (e.g. &quot;mp-1902&quot;) : &#39;</span><span class="p">)</span>
             <span class="n">a</span> <span class="o">=</span> <span class="n">MPRester</span><span class="p">()</span>
             <span class="n">structure</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">get_structure_by_material_id</span><span class="p">(</span><span class="n">input_source</span><span class="p">)</span>
         <span class="n">lgf</span><span class="o">.</span><span class="n">setup_structure</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Computing environments for </span><span class="si">{}</span><span class="s1"> ... &#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Computing environments for </span><span class="si">{</span><span class="n">structure</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">reduced_formula</span><span class="si">}</span><span class="s2"> ... &quot;</span><span class="p">)</span>
         <span class="n">se</span> <span class="o">=</span> <span class="n">lgf</span><span class="o">.</span><span class="n">compute_structure_environments</span><span class="p">(</span><span class="n">maximum_distance_factor</span><span class="o">=</span><span class="n">max_dist_factor</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Computing environments finished&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Computing environments finished&quot;</span><span class="p">)</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-            <span class="n">test</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s1">&#39;See list of environments determined for each (unequivalent) site ? &#39;</span>
-                         <span class="s1">&#39;(&quot;y&quot; or &quot;n&quot;, &quot;d&quot; with details, &quot;g&quot; to see the grid) : &#39;</span><span class="p">)</span>
+            <span class="n">test</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span>
+                <span class="s2">&quot;See list of environments determined for each (unequivalent) site ? &quot;</span>
+                <span class="s1">&#39;(&quot;y&quot; or &quot;n&quot;, &quot;d&quot; with details, &quot;g&quot; to see the grid) : &#39;</span>
+            <span class="p">)</span>
             <span class="n">strategy</span> <span class="o">=</span> <span class="n">default_strategy</span>
-            <span class="k">if</span> <span class="n">test</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">test</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;d&quot;</span><span class="p">,</span> <span class="s2">&quot;g&quot;</span><span class="p">]:</span>
                 <span class="n">strategy</span><span class="o">.</span><span class="n">set_structure_environments</span><span class="p">(</span><span class="n">se</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">eqslist</span> <span class="ow">in</span> <span class="n">se</span><span class="o">.</span><span class="n">equivalent_sites</span><span class="p">:</span>
                     <span class="n">site</span> <span class="o">=</span> <span class="n">eqslist</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -281,74 +338,75 @@
                         <span class="k">if</span> <span class="n">ce</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                             <span class="k">continue</span>
                         <span class="n">thecg</span> <span class="o">=</span> <span class="n">allcg</span><span class="o">.</span><span class="n">get_geometry_from_mp_symbol</span><span class="p">(</span><span class="n">ce</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-                        <span class="n">mystring</span> <span class="o">=</span> <span class="s1">&#39;Environment for site #</span><span class="si">{}</span><span class="s1"> </span><span class="si">{}</span><span class="s1"> (</span><span class="si">{}</span><span class="s1">) : </span><span class="si">{}</span><span class="s1"> (</span><span class="si">{}</span><span class="s1">)</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                            <span class="nb">str</span><span class="p">(</span><span class="n">isite</span><span class="p">),</span> <span class="n">comp</span><span class="o">.</span><span class="n">get_reduced_formula_and_factor</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
-                            <span class="nb">str</span><span class="p">(</span><span class="n">comp</span><span class="p">),</span> <span class="n">thecg</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">ce</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                        <span class="n">mystring</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Environment for site #</span><span class="si">{</span><span class="n">isite</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">comp</span><span class="o">.</span><span class="n">get_reduced_formula_and_factor</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2">) : </span><span class="si">{</span><span class="n">thecg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">ce</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
-                        <span class="n">mystring</span> <span class="o">=</span> <span class="s1">&#39;Environments for site #</span><span class="si">{}</span><span class="s1"> </span><span class="si">{}</span><span class="s1"> (</span><span class="si">{}</span><span class="s1">) : </span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                            <span class="nb">str</span><span class="p">(</span><span class="n">isite</span><span class="p">),</span> <span class="n">comp</span><span class="o">.</span><span class="n">get_reduced_formula_and_factor</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">str</span><span class="p">(</span><span class="n">comp</span><span class="p">))</span>
+                        <span class="n">mystring</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Environments for site #</span><span class="si">{</span><span class="n">isite</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">comp</span><span class="o">.</span><span class="n">get_reduced_formula_and_factor</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2">) : </span><span class="se">\n</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
                         <span class="k">for</span> <span class="n">ce</span> <span class="ow">in</span> <span class="n">ces</span><span class="p">:</span>
                             <span class="n">cg</span> <span class="o">=</span> <span class="n">allcg</span><span class="o">.</span><span class="n">get_geometry_from_mp_symbol</span><span class="p">(</span><span class="n">ce</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-                            <span class="n">csm</span> <span class="o">=</span> <span class="n">ce</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;other_symmetry_measures&#39;</span><span class="p">][</span><span class="s1">&#39;csm_wcs_ctwcc&#39;</span><span class="p">]</span>
-                            <span class="n">mystring</span> <span class="o">+=</span> <span class="s1">&#39; - </span><span class="si">{}</span><span class="s1"> (</span><span class="si">{}</span><span class="s1">): </span><span class="si">{:.2f}</span><span class="s1"> % (csm : </span><span class="si">{:2f}</span><span class="s1">)</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cg</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">cg</span><span class="o">.</span><span class="n">mp_symbol</span><span class="p">,</span>
-                                                                                      <span class="mf">100.0</span> <span class="o">*</span> <span class="n">ce</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
-                                                                                      <span class="n">csm</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">test</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;g&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">strategy</span><span class="o">.</span><span class="n">uniquely_determines_coordination_environments</span><span class="p">:</span>
+                            <span class="n">csm</span> <span class="o">=</span> <span class="n">ce</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">&quot;other_symmetry_measures&quot;</span><span class="p">][</span><span class="s2">&quot;csm_wcs_ctwcc&quot;</span><span class="p">]</span>
+                            <span class="n">mystring</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; - </span><span class="si">{</span><span class="n">cg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">cg</span><span class="o">.</span><span class="n">mp_symbol</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">ce</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2"> (csm : </span><span class="si">{</span><span class="n">csm</span><span class="si">:</span><span class="s2">2f</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="k">if</span> <span class="n">test</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;d&quot;</span><span class="p">,</span> <span class="s2">&quot;g&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">strategy</span><span class="o">.</span><span class="n">uniquely_determines_coordination_environments</span><span class="p">:</span>
                         <span class="k">if</span> <span class="n">thecg</span><span class="o">.</span><span class="n">mp_symbol</span> <span class="o">!=</span> <span class="n">UNCLEAR_ENVIRONMENT_SYMBOL</span><span class="p">:</span>
-                            <span class="n">mystring</span> <span class="o">+=</span> <span class="s1">&#39;  &lt;Continuous symmetry measures&gt;  &#39;</span>
+                            <span class="n">mystring</span> <span class="o">+=</span> <span class="s2">&quot;  &lt;Continuous symmetry measures&gt;  &quot;</span>
                             <span class="n">mingeoms</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">ce_list</span><span class="p">[</span><span class="n">isite</span><span class="p">][</span><span class="n">thecg</span><span class="o">.</span><span class="n">coordination_number</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">minimum_geometries</span><span class="p">()</span>
                             <span class="k">for</span> <span class="n">mingeom</span> <span class="ow">in</span> <span class="n">mingeoms</span><span class="p">:</span>
-                                <span class="n">csm</span> <span class="o">=</span> <span class="n">mingeom</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;other_symmetry_measures&#39;</span><span class="p">][</span><span class="s1">&#39;csm_wcs_ctwcc&#39;</span><span class="p">]</span>
-                                <span class="n">mystring</span> <span class="o">+=</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1"> : </span><span class="si">{:.2f}</span><span class="s1">       &#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mingeom</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">csm</span><span class="p">)</span>
+                                <span class="n">csm</span> <span class="o">=</span> <span class="n">mingeom</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">&quot;other_symmetry_measures&quot;</span><span class="p">][</span><span class="s2">&quot;csm_wcs_ctwcc&quot;</span><span class="p">]</span>
+                                <span class="n">mystring</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">mingeom</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="n">csm</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">       &quot;</span>
                     <span class="nb">print</span><span class="p">(</span><span class="n">mystring</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s1">&#39;g&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;g&quot;</span><span class="p">:</span>
                 <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
                     <span class="n">test</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span>
-                        <span class="s1">&#39;Enter index of site(s) (e.g. 0 1 2, separated by spaces) for which you want to see the grid &#39;</span>
-                        <span class="s1">&#39;of parameters : &#39;</span><span class="p">)</span>
+                        <span class="s2">&quot;Enter index of site(s) (e.g. 0 1 2, separated by spaces) for which you want to see the grid &quot;</span>
+                        <span class="s2">&quot;of parameters : &quot;</span>
+                    <span class="p">)</span>
                     <span class="k">try</span><span class="p">:</span>
                         <span class="n">indices</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">test</span><span class="o">.</span><span class="n">split</span><span class="p">()]</span>
                         <span class="nb">print</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">indices</span><span class="p">))</span>
                         <span class="k">for</span> <span class="n">isite</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">:</span>
                             <span class="k">if</span> <span class="n">isite</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
                                 <span class="k">raise</span> <span class="ne">IndexError</span>
-                            <span class="n">se</span><span class="o">.</span><span class="n">plot_environments</span><span class="p">(</span><span class="n">isite</span><span class="p">,</span> <span class="n">additional_condition</span><span class="o">=</span><span class="n">se</span><span class="o">.</span><span class="n">AC</span><span class="o">.</span><span class="n">ONLY_ACB</span><span class="p">)</span>
+                            <span class="n">se</span><span class="o">.</span><span class="n">plot_environments</span><span class="p">(</span><span class="n">isite</span><span class="p">)</span>
                         <span class="k">break</span>
                     <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;This is not a valid site&#39;</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This is not a valid site&quot;</span><span class="p">)</span>
                     <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;This site is out of the site range&#39;</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This site is out of the site range&quot;</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">no_vis</span><span class="p">:</span>
                 <span class="n">test</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s1">&#39;Go to next structure ? (&quot;y&quot; to do so)&#39;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
                     <span class="k">break</span>
                 <span class="k">continue</span>
             <span class="n">test</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s1">&#39;View structure with environments ? (&quot;y&quot; for the unit cell or &quot;m&quot; for a supercell or &quot;n&quot;) : &#39;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">test</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;m&#39;</span><span class="p">]:</span>
-                <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s1">&#39;m&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">test</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;m&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;m&quot;</span><span class="p">:</span>
                     <span class="n">mydeltas</span> <span class="o">=</span> <span class="p">[]</span>
                     <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
                         <span class="k">try</span><span class="p">:</span>
-                            <span class="n">test</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s1">&#39;Enter multiplicity (e.g. 3 2 2) : &#39;</span><span class="p">)</span>
+                            <span class="n">test</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Enter multiplicity (e.g. 3 2 2) : &quot;</span><span class="p">)</span>
                             <span class="n">nns</span> <span class="o">=</span> <span class="n">test</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
                             <span class="k">for</span> <span class="n">i0</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">nns</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
                                 <span class="k">for</span> <span class="n">i1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">nns</span><span class="p">[</span><span class="mi">1</span><span class="p">])):</span>
                                     <span class="k">for</span> <span class="n">i2</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">nns</span><span class="p">[</span><span class="mi">2</span><span class="p">])):</span>
-                                        <span class="n">mydeltas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">i0</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="n">i1</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="n">i2</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">))</span>
+                                        <span class="n">mydeltas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">i0</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="n">i1</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="n">i2</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float_</span><span class="p">))</span>
                             <span class="k">break</span>
 
                         <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
-                            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Not a valid multiplicity&#39;</span><span class="p">)</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Not a valid multiplicity&quot;</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">mydeltas</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)]</span>
+                    <span class="n">mydeltas</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float_</span><span class="p">)]</span>
                 <span class="k">if</span> <span class="n">firsttime</span><span class="p">:</span>
                     <span class="n">vis</span> <span class="o">=</span> <span class="n">StructureVis</span><span class="p">(</span><span class="n">show_polyhedron</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">show_unit_cell</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                     <span class="n">vis</span><span class="o">.</span><span class="n">show_help</span> <span class="o">=</span> <span class="kc">False</span>
                     <span class="n">firsttime</span> <span class="o">=</span> <span class="kc">False</span>
                 <span class="n">vis</span><span class="o">.</span><span class="n">set_structure</span><span class="p">(</span><span class="n">se</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
                 <span class="n">strategy</span><span class="o">.</span><span class="n">set_structure_environments</span><span class="p">(</span><span class="n">se</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">isite</span><span class="p">,</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">se</span><span class="o">.</span><span class="n">structure</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="n">se</span><span class="o">.</span><span class="n">structure</span><span class="p">:</span>
                     <span class="k">try</span><span class="p">:</span>
                         <span class="n">ces</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">get_site_coordination_environments</span><span class="p">(</span><span class="n">site</span><span class="p">)</span>
                     <span class="k">except</span> <span class="n">NeighborsNotComputedChemenvError</span><span class="p">:</span>
@@ -358,17 +416,26 @@
                     <span class="n">ce</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">get_site_coordination_environment</span><span class="p">(</span><span class="n">site</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">ce</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">ce</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">UNCLEAR_ENVIRONMENT_SYMBOL</span><span class="p">:</span>
                         <span class="k">for</span> <span class="n">mydelta</span> <span class="ow">in</span> <span class="n">mydeltas</span><span class="p">:</span>
-                            <span class="n">psite</span> <span class="o">=</span> <span class="n">PeriodicSite</span><span class="p">(</span><span class="n">site</span><span class="o">.</span><span class="n">species</span><span class="p">,</span> <span class="n">site</span><span class="o">.</span><span class="n">frac_coords</span> <span class="o">+</span> <span class="n">mydelta</span><span class="p">,</span> <span class="n">site</span><span class="o">.</span><span class="n">lattice</span><span class="p">,</span>
-                                                 <span class="n">properties</span><span class="o">=</span><span class="n">site</span><span class="o">.</span><span class="n">properties</span><span class="p">)</span>
+                            <span class="n">psite</span> <span class="o">=</span> <span class="n">PeriodicSite</span><span class="p">(</span>
+                                <span class="n">site</span><span class="o">.</span><span class="n">species</span><span class="p">,</span>
+                                <span class="n">site</span><span class="o">.</span><span class="n">frac_coords</span> <span class="o">+</span> <span class="n">mydelta</span><span class="p">,</span>
+                                <span class="n">site</span><span class="o">.</span><span class="n">lattice</span><span class="p">,</span>
+                                <span class="n">properties</span><span class="o">=</span><span class="n">site</span><span class="o">.</span><span class="n">properties</span><span class="p">,</span>
+                            <span class="p">)</span>
                             <span class="n">vis</span><span class="o">.</span><span class="n">add_site</span><span class="p">(</span><span class="n">psite</span><span class="p">)</span>
                             <span class="n">neighbors</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">get_site_neighbors</span><span class="p">(</span><span class="n">psite</span><span class="p">)</span>
-                            <span class="n">draw_cg</span><span class="p">(</span><span class="n">vis</span><span class="p">,</span> <span class="n">psite</span><span class="p">,</span> <span class="n">neighbors</span><span class="p">,</span> <span class="n">cg</span><span class="o">=</span><span class="n">lgf</span><span class="o">.</span><span class="n">allcg</span><span class="o">.</span><span class="n">get_geometry_from_mp_symbol</span><span class="p">(</span><span class="n">ce</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
-                                    <span class="n">perm</span><span class="o">=</span><span class="n">ce</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;permutation&#39;</span><span class="p">])</span>
+                            <span class="n">draw_cg</span><span class="p">(</span>
+                                <span class="n">vis</span><span class="p">,</span>
+                                <span class="n">psite</span><span class="p">,</span>
+                                <span class="n">neighbors</span><span class="p">,</span>
+                                <span class="n">cg</span><span class="o">=</span><span class="n">lgf</span><span class="o">.</span><span class="n">allcg</span><span class="o">.</span><span class="n">get_geometry_from_mp_symbol</span><span class="p">(</span><span class="n">ce</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                                <span class="n">perm</span><span class="o">=</span><span class="n">ce</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">&quot;permutation&quot;</span><span class="p">],</span>
+                            <span class="p">)</span>
                 <span class="n">vis</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
             <span class="n">test</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s1">&#39;Go to next structure ? (&quot;y&quot; to do so) : &#39;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
                 <span class="k">break</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span></div>
+        <span class="nb">print</span><span class="p">()</span></div>
 </pre></div>
 
             <div class="clearer"></div>
@@ -385,16 +452,15 @@
         <li class="right" >
           <a href="../../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../../index.html">pymatgen 2020.7.3 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../../index.html" >Module code</a> &#187;</li>
-          <li class="nav-item nav-item-2"><a href="../../../../pymatgen.html" >pymatgen</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.chemenv.utils.scripts_utils</a></li> 
       </ul>
     </div>
 
     <div class="footer" role="contentinfo">
         &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.1.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking
