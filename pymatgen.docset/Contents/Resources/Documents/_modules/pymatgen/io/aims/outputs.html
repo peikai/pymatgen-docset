@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.aims.outputs &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.aims.outputs</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.io.aims.outputs</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;A representation of FHI-aims output (based on ASE output parser).&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.json</span><span class="w"> </span><span class="kn">import</span> <span class="n">MontyDecoder</span><span class="p">,</span> <span class="n">MSONable</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.aims.parsers</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">read_aims_header_info</span><span class="p">,</span>
+    <span class="n">read_aims_header_info_from_content</span><span class="p">,</span>
+    <span class="n">read_aims_output</span><span class="p">,</span>
+    <span class="n">read_aims_output_from_content</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Molecule</span><span class="p">,</span> <span class="n">Structure</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Matrix3D</span><span class="p">,</span> <span class="n">Vector3D</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Andrey Sobolev and Thomas A. R. Purcell&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;1.0&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;andrey.n.sobolev@gmail.com and purcellt@arizona.edu&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;November 2023&quot;</span>
+
+
+<div class="viewcode-block" id="AimsOutput">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.outputs.AimsOutput">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AimsOutput</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The main output file for FHI-aims.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">results</span><span class="p">:</span> <span class="n">Molecule</span> <span class="o">|</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Molecule</span> <span class="o">|</span> <span class="n">Structure</span><span class="p">],</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">structure_summary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            results (Molecule or Structure or Sequence[Molecule or Structure]):  A list</span>
+<span class="sd">                of all images in an output file</span>
+<span class="sd">            metadata (Dict[str, Any]): The metadata of the executable used to perform</span>
+<span class="sd">                the calculation</span>
+<span class="sd">            structure_summary (Dict[str, Any]): The summary of the starting</span>
+<span class="sd">                atomic structure.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_results</span> <span class="o">=</span> <span class="n">results</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_structure_summary</span> <span class="o">=</span> <span class="n">structure_summary</span>
+
+<div class="viewcode-block" id="AimsOutput.as_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.outputs.AimsOutput.as_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a dict representation of the outputs for MSONable.&quot;&quot;&quot;</span>
+        <span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;results&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_results</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;metadata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;structure_summary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_structure_summary</span>
+        <span class="k">return</span> <span class="n">dct</span></div>
+
+
+<div class="viewcode-block" id="AimsOutput.from_outfile">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.outputs.AimsOutput.from_outfile">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_outfile</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">outfile</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct an AimsOutput from an output file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            outfile: str | Path: The aims.out file to parse</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The AimsOutput object for the output file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">metadata</span><span class="p">,</span> <span class="n">structure_summary</span> <span class="o">=</span> <span class="n">read_aims_header_info</span><span class="p">(</span><span class="n">outfile</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">read_aims_output</span><span class="p">(</span><span class="n">outfile</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="nb">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">structure_summary</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsOutput.from_str">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.outputs.AimsOutput.from_str">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_str</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct an AimsOutput from an output file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            content (str): The content of the aims.out file</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The AimsOutput for the output file content</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">metadata</span><span class="p">,</span> <span class="n">structure_summary</span> <span class="o">=</span> <span class="n">read_aims_header_info_from_content</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">read_aims_output_from_content</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="nb">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">structure_summary</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsOutput.from_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.outputs.AimsOutput.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct an AimsOutput from a dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dct (dict[str, Any]): The dictionary used to create AimsOutput</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            AimsOutput</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">decoded</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">MontyDecoder</span><span class="p">()</span><span class="o">.</span><span class="n">process_decoded</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">dct</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)}</span>
+        <span class="k">for</span> <span class="n">struct</span> <span class="ow">in</span> <span class="n">decoded</span><span class="p">[</span><span class="s2">&quot;results&quot;</span><span class="p">]:</span>
+            <span class="n">struct</span><span class="o">.</span><span class="n">properties</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">MontyDecoder</span><span class="p">()</span><span class="o">.</span><span class="n">process_decoded</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">struct</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">decoded</span><span class="p">[</span><span class="s2">&quot;results&quot;</span><span class="p">],</span>
+            <span class="n">decoded</span><span class="p">[</span><span class="s2">&quot;metadata&quot;</span><span class="p">],</span>
+            <span class="n">decoded</span><span class="p">[</span><span class="s2">&quot;structure_summary&quot;</span><span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsOutput.get_results_for_image">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.outputs.AimsOutput.get_results_for_image">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_results_for_image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the results dictionary for a particular image or slice of images.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            image_ind (int): The index of the image to get the results for</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The results of the image with index images_ind</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_results</span><span class="p">[</span><span class="n">image_ind</span><span class="p">]</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">structure_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The summary of the material/molecule that the calculations represent.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_structure_summary</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The system metadata.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_images</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of images in results.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_results</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The initial structure for the calculations.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_structure_summary</span><span class="p">[</span><span class="s2">&quot;initial_structure&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">final_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The final structure for the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_results</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">structures</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;All images in the output file.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_results</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fermi_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The Fermi energy for the final structure in the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_results_for_image</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;fermi_energy&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">vbm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The HOMO level for the final structure in the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_results_for_image</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;vbm&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cbm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The LUMO level for the final structure in the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_results_for_image</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;cbm&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">band_gap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The band gap for the final structure in the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_results_for_image</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;gap&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">direct_band_gap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The direct band gap for the final structure in the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_results_for_image</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;direct_gap&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">final_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The total energy for the final structure in the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_results_for_image</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;energy&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">completed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Did the calculation complete.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_results</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">aims_version</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The version of FHI-aims used for the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="p">[</span><span class="s2">&quot;version_number&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Vector3D</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The forces for the final image of the calculation.&quot;&quot;&quot;</span>
+        <span class="n">force_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_results_for_image</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">site_properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;force&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">force_array</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">force_array</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">force_array</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stress</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Matrix3D</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The stress for the final image of the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_results_for_image</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;stress&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stresses</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Matrix3D</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The atomic virial stresses for the final image of the calculation.&quot;&quot;&quot;</span>
+        <span class="n">stresses_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_results_for_image</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">site_properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;atomic_virial_stress&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stresses_array</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">stresses_array</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">stresses_array</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">all_forces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Vector3D</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The forces for all images in the calculation.&quot;&quot;&quot;</span>
+        <span class="n">all_forces_array</span> <span class="o">=</span> <span class="p">[</span><span class="n">res</span><span class="o">.</span><span class="n">site_properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;force&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_results</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">af</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">af</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span> <span class="n">af</span> <span class="k">for</span> <span class="n">af</span> <span class="ow">in</span> <span class="n">all_forces_array</span><span class="p">]</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.aims.outputs</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.aims.sets.core &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.aims.sets.core</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.io.aims.sets.core</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Module defining core FHI-aims input set generators.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Structure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.aims.sets.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">AimsInputGenerator</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Molecule</span>
+
+
+<span class="n">_valid_dynamics</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;nve&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;4th_order&quot;</span><span class="p">,</span> <span class="s2">&quot;damped&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;nvt&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;andersen&quot;</span><span class="p">,</span> <span class="s2">&quot;berendsen&quot;</span><span class="p">,</span> <span class="s2">&quot;parrinello&quot;</span><span class="p">,</span> <span class="s2">&quot;nose-hoover&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;gle&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;thermostat&quot;</span><span class="p">,),</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="StaticSetGenerator">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.core.StaticSetGenerator">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">StaticSetGenerator</span><span class="p">(</span><span class="n">AimsInputGenerator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Common class for ground-state generators.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        calc_type (str): The type of calculation</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">calc_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;static&quot;</span>
+
+<div class="viewcode-block" id="StaticSetGenerator.get_parameter_updates">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.core.StaticSetGenerator.get_parameter_updates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_parameter_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span> <span class="n">prev_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the parameter updates for the calculation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure or Molecule): The structure to calculate the bands for</span>
+<span class="sd">            prev_parameters (Dict[str, Any]): The previous parameters</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: The updated for the parameters for the output section of FHI-aims</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">prev_parameters</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="RelaxSetGenerator">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.core.RelaxSetGenerator">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RelaxSetGenerator</span><span class="p">(</span><span class="n">AimsInputGenerator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate FHI-aims relax sets for optimizing internal coordinates and lattice params.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        calc_type (str): The type of calculation</span>
+<span class="sd">        relax_cell (bool): If True then relax the unit cell from the structure</span>
+<span class="sd">        max_force (float): Maximum allowed force in the calculation</span>
+<span class="sd">        method (str): Method used for the geometry optimization</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">calc_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;relaxation&quot;</span>
+    <span class="n">relax_cell</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">max_force</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-3</span>
+    <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;trm&quot;</span>
+
+<div class="viewcode-block" id="RelaxSetGenerator.get_parameter_updates">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.core.RelaxSetGenerator.get_parameter_updates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_parameter_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span> <span class="n">prev_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the parameter updates for the calculation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure or Molecule): The structure to calculate the bands for</span>
+<span class="sd">        prev_parameters (Dict[str, Any]): The previous parameters</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: The updated for the parameters for the output section of FHI-aims</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">updates</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;relax_geometry&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_force</span><span class="si">:</span><span class="s2">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">Structure</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">relax_cell</span><span class="p">:</span>
+            <span class="n">updates</span><span class="p">[</span><span class="s2">&quot;relax_unit_cell&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;full&quot;</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">Structure</span><span class="p">):</span>
+            <span class="n">updates</span><span class="p">[</span><span class="s2">&quot;relax_unit_cell&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
+
+        <span class="n">prev_parameters</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">updates</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">prev_parameters</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SocketIOSetGenerator">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.core.SocketIOSetGenerator">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SocketIOSetGenerator</span><span class="p">(</span><span class="n">AimsInputGenerator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate FHI-aims input sets for running with the socket.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        calc_type (str): The type of calculation</span>
+<span class="sd">        host (str): The hostname for the server the socket is on</span>
+<span class="sd">        port (int): The port the socket server is listening on</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">calc_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;multi_scf&quot;</span>
+    <span class="n">host</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;localhost&quot;</span>
+    <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12345</span>
+
+<div class="viewcode-block" id="SocketIOSetGenerator.get_parameter_updates">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.core.SocketIOSetGenerator.get_parameter_updates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_parameter_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span> <span class="n">prev_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the parameter updates for the calculation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure or Molecule): The structure to calculate the bands for</span>
+<span class="sd">            prev_parameters (Dict[str, Any]): The previous parameters</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: The updated for the parameters for the output section of FHI-aims</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;use_pimd_wrapper&quot;</span><span class="p">:</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">)}</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="MDSetGenerator">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.core.MDSetGenerator">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MDSetGenerator</span><span class="p">(</span><span class="n">AimsInputGenerator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A class for generating FHI-aims input sets for molecular dynamics calculations.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ensemble</span>
+<span class="sd">        Molecular dynamics ensemble to run. Options include `nvt`, `nve`, and `gle`.</span>
+<span class="sd">        Default: `nve`</span>
+<span class="sd">    ensemble_specs</span>
+<span class="sd">        A dictionary containing the specifications of the molecular dynamics ensemble.</span>
+<span class="sd">        Valid keys are `type` (the ensemble type, valid types are defined in</span>
+<span class="sd">        `_valid_dynamics` dict), and `parameter` - the control parameter for the thermostat</span>
+<span class="sd">        (not used for `nve` and `nve_4th_order`).</span>
+<span class="sd">    temp</span>
+<span class="sd">        Thermostat temperature. Default: None</span>
+<span class="sd">    time</span>
+<span class="sd">        Simulation time (in picoseconds). Negative value stands for indefinite run.</span>
+<span class="sd">        Default: 5 ps</span>
+<span class="sd">    time_step</span>
+<span class="sd">        The time step (in picoseconds) for the simulation. default: 1 fs</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">        Other keyword arguments that will be passed to :obj:`AimsInputGenerator`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">calc_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;md&quot;</span>
+    <span class="n">ensemble</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;nve&quot;</span>
+    <span class="n">ensemble_specs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">temp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span>
+    <span class="n">time_step</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.001</span>
+    <span class="n">init_velocities</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="MDSetGenerator.get_parameter_updates">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.core.MDSetGenerator.get_parameter_updates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_parameter_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span> <span class="n">prev_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the parameter updates for the calculation.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        structure (Structure or Molecule):</span>
+<span class="sd">            The structure to calculate the bands for</span>
+<span class="sd">        prev_parameters (Dict[str, Any]):</span>
+<span class="sd">            The previous parameters</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict</span>
+<span class="sd">            A dictionary of updates to apply.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">updates</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;MD_run&quot;</span><span class="p">:</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">],</span>
+            <span class="s2">&quot;MD_time_step&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_step</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="c1"># check for ensemble type validity</span>
+        <span class="n">default_ensemble_types</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;nve&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;nvt&quot;</span><span class="p">:</span> <span class="s2">&quot;parrinello&quot;</span><span class="p">,</span> <span class="s2">&quot;gle&quot;</span><span class="p">:</span> <span class="s2">&quot;thermostat&quot;</span><span class="p">}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_valid_dynamics</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Ensemble </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble</span><span class="si">}</span><span class="s2"> not valid&quot;</span><span class="p">)</span>
+        <span class="n">ensemble_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_specs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="n">default_ensemble_types</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">ensemble_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_valid_dynamics</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">ensemble_type</span><span class="si">}</span><span class="s2"> is not valid for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble</span><span class="si">}</span><span class="s2"> ensemble. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Valid types are: </span><span class="si">{</span><span class="s1">&#39; ,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_valid_dynamics</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="n">ensemble_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ensemble</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">ensemble_type</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">ensemble_type</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="n">updates</span><span class="p">[</span><span class="s2">&quot;MD_run&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ensemble_name</span><span class="p">)</span>
+
+        <span class="c1"># add temperature</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble</span> <span class="o">==</span> <span class="s2">&quot;nve&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_velocities</span> <span class="ow">and</span> <span class="s2">&quot;velocity&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Velocities must be initialized for NVE ensemble&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Temperature must be set for </span><span class="si">{</span><span class="n">ensemble_name</span><span class="si">}</span><span class="s2"> ensemble&quot;</span><span class="p">)</span>
+            <span class="n">updates</span><span class="p">[</span><span class="s2">&quot;MD_run&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="p">)</span>
+
+        <span class="c1"># check for ensemble control parameter</span>
+        <span class="n">ensemble_parameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ensemble_specs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;parameter&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ensemble_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;NVE&quot;</span><span class="p">,</span> <span class="s2">&quot;NVE_4th_order&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">ensemble_parameter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Ensemble </span><span class="si">{</span><span class="n">ensemble_name</span><span class="si">}</span><span class="s2"> parameter is not defined&quot;</span><span class="p">)</span>
+            <span class="n">updates</span><span class="p">[</span><span class="s2">&quot;MD_run&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ensemble_parameter</span><span class="p">)</span>
+
+        <span class="c1"># ...and put everything in the string</span>
+        <span class="n">updates</span><span class="p">[</span><span class="s2">&quot;MD_run&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">updates</span><span class="p">[</span><span class="s2">&quot;MD_run&quot;</span><span class="p">]))</span>
+
+        <span class="c1"># initialize velocities</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_velocities</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Temperature must be set for velocity initialisation&quot;</span><span class="p">)</span>
+            <span class="n">updates</span><span class="p">[</span><span class="s2">&quot;MD_MB_init&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span>
+
+        <span class="k">return</span> <span class="n">updates</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.aims.sets.core</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

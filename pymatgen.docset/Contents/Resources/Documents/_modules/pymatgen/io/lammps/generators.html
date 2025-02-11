@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.lammps.generators &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.lammps.generators</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.io.lammps.generators</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Input set generators for LAMMPS.</span>
+<span class="sd">This InputSet and InputGenerator implementation is based on templates and is not intended to be very flexible.</span>
+<span class="sd">For instance, pymatgen will not detect whether a given variable should be adapted based on others</span>
+<span class="sd">(e.g., the number of steps from the temperature), it will not check for convergence nor will it actually run LAMMPS.</span>
+<span class="sd">For additional flexibility and automation, use the atomate2-lammps implementation</span>
+<span class="sd">(https://github.com/Matgenix/atomate2-lammps).</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">string</span><span class="w"> </span><span class="kn">import</span> <span class="n">Template</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">zopen</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Structure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputGenerator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.lammps.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">CombinedData</span><span class="p">,</span> <span class="n">LammpsData</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.lammps.inputs</span><span class="w"> </span><span class="kn">import</span> <span class="n">LammpsInputFile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.lammps.sets</span><span class="w"> </span><span class="kn">import</span> <span class="n">LammpsInputSet</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Ryan Kingsbury, Guillaume Brunin (Matgenix)&quot;</span>
+<span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2021, The Materials Project&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.2&quot;</span>
+
+<span class="n">MODULE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+<span class="n">TEMPLATE_DIR</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">MODULE_DIR</span><span class="si">}</span><span class="s2">/templates&quot;</span>
+
+
+<div class="viewcode-block" id="BaseLammpsGenerator">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.generators.BaseLammpsGenerator">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">BaseLammpsGenerator</span><span class="p">(</span><span class="n">InputGenerator</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class to generate LAMMPS input sets.</span>
+<span class="sd">    Uses template files for the input. The variables that can be changed</span>
+<span class="sd">    in the input template file are those starting with a $ sign, e.g. $nsteps.</span>
+<span class="sd">    This generic class is specialized for each template in subclasses, e.g. LammpsMinimization.</span>
+<span class="sd">    You can create a template for your own task following those present in pymatgen/io/lammps/templates.</span>
+<span class="sd">    The parameters are then replaced based on the values found</span>
+<span class="sd">    in the settings dictionary that you provide, e.g. `{&quot;nsteps&quot;: 1000}`.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        template: Path (string) to the template file used to create the InputFile for LAMMPS.</span>
+<span class="sd">        calc_type: Human-readable string used to briefly describe the type of computations performed by LAMMPS.</span>
+<span class="sd">        settings: Dictionary containing the values of the parameters to replace in the template.</span>
+<span class="sd">        keep_stages: If True, the string is formatted in a block structure with stage names</span>
+<span class="sd">        and newlines that differentiate commands in the respective stages of the InputFile.</span>
+<span class="sd">        If False, stage names are not printed and all commands appear in a single block.</span>
+
+<span class="sd">    /!\ This InputSet and InputGenerator implementation is based on templates and is not intended to be very flexible.</span>
+<span class="sd">    For instance, pymatgen will not detect whether a given variable should be adapted based on others</span>
+<span class="sd">    (e.g., the number of steps from the temperature), it will not check for convergence nor will it actually run LAMMPS.</span>
+<span class="sd">    For additional flexibility and automation, use the atomate2-lammps implementation</span>
+<span class="sd">    (https://github.com/Matgenix/atomate2-lammps).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">inputfile</span><span class="p">:</span> <span class="n">LammpsInputFile</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">template</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">LammpsData</span> <span class="o">|</span> <span class="n">CombinedData</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">settings</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">calc_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s2">&quot;lammps&quot;</span><span class="p">)</span>
+    <span class="n">keep_stages</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BaseLammpsGenerator.get_input_set">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.generators.BaseLammpsGenerator.get_input_set">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_input_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">LammpsData</span> <span class="o">|</span> <span class="n">CombinedData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LammpsInputSet</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate a LammpsInputSet from the structure/data, tailored to the template file.&quot;&quot;&quot;</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">LammpsData</span> <span class="o">=</span> <span class="n">LammpsData</span><span class="o">.</span><span class="n">from_structure</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">Structure</span><span class="p">)</span> <span class="k">else</span> <span class="n">structure</span>
+
+        <span class="c1"># Load the template</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">template</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">template_str</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+        <span class="c1"># Replace all variables</span>
+        <span class="n">input_str</span> <span class="o">=</span> <span class="n">Template</span><span class="p">(</span><span class="n">template_str</span><span class="p">)</span><span class="o">.</span><span class="n">safe_substitute</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">)</span>
+        <span class="c1"># Get LammpsInputFile</span>
+        <span class="n">input_file</span> <span class="o">=</span> <span class="n">LammpsInputFile</span><span class="o">.</span><span class="n">from_str</span><span class="p">(</span><span class="n">input_str</span><span class="p">,</span> <span class="n">keep_stages</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">keep_stages</span><span class="p">)</span>
+
+        <span class="c1"># Get the LammpsInputSet from the InputFile and data</span>
+        <span class="k">return</span> <span class="n">LammpsInputSet</span><span class="p">(</span>
+            <span class="n">inputfile</span><span class="o">=</span><span class="n">input_file</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">calc_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">calc_type</span><span class="p">,</span>
+            <span class="n">template_file</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">template</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="LammpsMinimization">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.generators.LammpsMinimization">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LammpsMinimization</span><span class="p">(</span><span class="n">BaseLammpsGenerator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generator that yields a LammpsInputSet tailored for minimizing the energy of a system by iteratively</span>
+<span class="sd">    adjusting atom coordinates.</span>
+<span class="sd">    Example usage:</span>
+<span class="sd">    ```</span>
+<span class="sd">    structure = Structure.from_file(&quot;mp-149.cif&quot;)</span>
+<span class="sd">    lmp_minimization = LammpsMinimization(units=&quot;atomic&quot;).get_input_set(structure)</span>
+<span class="sd">    ```.</span>
+
+<span class="sd">    Do not forget to specify the force field, otherwise LAMMPS will not be able to run!</span>
+
+<span class="sd">    This InputSet and InputGenerator implementation is based on templates and is not intended to be very flexible.</span>
+<span class="sd">    For instance, pymatgen will not detect whether a given variable should be adapted based on others</span>
+<span class="sd">    (e.g., the number of steps from the temperature), it will not check for convergence nor will it actually run LAMMPS.</span>
+<span class="sd">    For additional flexibility and automation, use the atomate2-lammps implementation</span>
+<span class="sd">    (https://github.com/Matgenix/atomate2-lammps).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">template</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">units</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;metal&quot;</span><span class="p">,</span>
+        <span class="n">atom_style</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;full&quot;</span><span class="p">,</span>
+        <span class="n">dimension</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="n">boundary</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;p p p&quot;</span><span class="p">,</span>
+        <span class="n">read_data</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;system.data&quot;</span><span class="p">,</span>
+        <span class="n">force_field</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Unspecified force field!&quot;</span><span class="p">,</span>
+        <span class="n">keep_stages</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            template: Path (string) to the template file used to create the InputFile for LAMMPS.</span>
+<span class="sd">            units: units to be used for the LAMMPS calculation (see LAMMPS docs).</span>
+<span class="sd">            atom_style: atom_style to be used for the LAMMPS calculation (see LAMMPS docs).</span>
+<span class="sd">            dimension: dimension to be used for the LAMMPS calculation (see LAMMPS docs).</span>
+<span class="sd">            boundary: boundary to be used for the LAMMPS calculation (see LAMMPS docs).</span>
+<span class="sd">            read_data: read_data to be used for the LAMMPS calculation (see LAMMPS docs).</span>
+<span class="sd">            force_field: force field to be used for the LAMMPS calculation (see LAMMPS docs).</span>
+<span class="sd">                Note that you should provide all the required information as a single string.</span>
+<span class="sd">                In case of multiple lines expected in the input file,</span>
+<span class="sd">                separate them with &#39;\n&#39; in force_field.</span>
+<span class="sd">            keep_stages: If True, the string is formatted in a block structure with stage names</span>
+<span class="sd">                and newlines that differentiate commands in the respective stages of the InputFile.</span>
+<span class="sd">                If False, stage names are not printed and all commands appear in a single block.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">template</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">template</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">TEMPLATE_DIR</span><span class="si">}</span><span class="s2">/minimization.template&quot;</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;units&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">,</span>
+            <span class="s2">&quot;atom_style&quot;</span><span class="p">:</span> <span class="n">atom_style</span><span class="p">,</span>
+            <span class="s2">&quot;dimension&quot;</span><span class="p">:</span> <span class="n">dimension</span><span class="p">,</span>
+            <span class="s2">&quot;boundary&quot;</span><span class="p">:</span> <span class="n">boundary</span><span class="p">,</span>
+            <span class="s2">&quot;read_data&quot;</span><span class="p">:</span> <span class="n">read_data</span><span class="p">,</span>
+            <span class="s2">&quot;force_field&quot;</span><span class="p">:</span> <span class="n">force_field</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">template</span><span class="o">=</span><span class="n">template</span><span class="p">,</span>
+            <span class="n">settings</span><span class="o">=</span><span class="n">settings</span><span class="p">,</span>
+            <span class="n">calc_type</span><span class="o">=</span><span class="s2">&quot;minimization&quot;</span><span class="p">,</span>
+            <span class="n">keep_stages</span><span class="o">=</span><span class="n">keep_stages</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">units</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The argument of the command &#39;units&#39; passed to the generator.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">[</span><span class="s2">&quot;units&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">atom_style</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The argument of the command &#39;atom_style&#39; passed to the generator.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">[</span><span class="s2">&quot;atom_style&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The argument of the command &#39;dimension&#39; passed to the generator.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">[</span><span class="s2">&quot;dimension&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">boundary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The argument of the command &#39;boundary&#39; passed to the generator.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">[</span><span class="s2">&quot;boundary&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The argument of the command &#39;read_data&#39; passed to the generator.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">[</span><span class="s2">&quot;read_data&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">force_field</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The details of the force field commands passed to the generator.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">[</span><span class="s2">&quot;force_field&quot;</span><span class="p">]</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.lammps.generators</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

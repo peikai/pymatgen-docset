@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.multiwfn &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.multiwfn</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.io.multiwfn</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module implements input/output processing from Multiwfn.</span>
+
+<span class="sd">Currently, the focus of this module is on processing Quantum Theory of Atoms in Molecules (QTAIM) outputs from</span>
+<span class="sd">Multiwfn. Additional features may be added over time as needed/desired.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Literal</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core.structure</span><span class="w"> </span><span class="kn">import</span> <span class="n">Molecule</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">PathLike</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Santiago Vargas, Evan Spotte-Smith&quot;</span>
+<span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2024, The Materials Project&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.1&quot;</span>
+<span class="n">__maintainer__</span> <span class="o">=</span> <span class="s2">&quot;Evan Spotte-Smith&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;santiagovargas921@gmail.com, espottesmith@gmail.com&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;July 10, 2024&quot;</span>
+
+
+<span class="n">QTAIM_CONDITIONALS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;cp_num&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;----------------&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;ele_info&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Corresponding&quot;</span><span class="p">,</span> <span class="s2">&quot;nucleus:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;connected_bond_paths&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Connected&quot;</span><span class="p">,</span> <span class="s2">&quot;atoms:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;pos_ang&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Position&quot;</span><span class="p">,</span> <span class="s2">&quot;(Angstrom):&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;density_total&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Density&quot;</span><span class="p">,</span> <span class="s2">&quot;of&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;electrons:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;density_alpha&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Density&quot;</span><span class="p">,</span> <span class="s2">&quot;of&quot;</span><span class="p">,</span> <span class="s2">&quot;Alpha&quot;</span><span class="p">,</span> <span class="s2">&quot;electrons:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;density_beta&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Density&quot;</span><span class="p">,</span> <span class="s2">&quot;of&quot;</span><span class="p">,</span> <span class="s2">&quot;Beta&quot;</span><span class="p">,</span> <span class="s2">&quot;electrons:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;spin_density&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Spin&quot;</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">,</span> <span class="s2">&quot;of&quot;</span><span class="p">,</span> <span class="s2">&quot;electrons:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;lol&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Localized&quot;</span><span class="p">,</span> <span class="s2">&quot;orbital&quot;</span><span class="p">,</span> <span class="s2">&quot;locator&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;energy_density&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Energy&quot;</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">,</span> <span class="s2">&quot;E(r)&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;Lagrangian_K&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Lagrangian&quot;</span><span class="p">,</span> <span class="s2">&quot;kinetic&quot;</span><span class="p">,</span> <span class="s2">&quot;energy&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;Hamiltonian_K&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Hamiltonian&quot;</span><span class="p">,</span> <span class="s2">&quot;kinetic&quot;</span><span class="p">,</span> <span class="s2">&quot;energy&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;lap_e_density&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Laplacian&quot;</span><span class="p">,</span> <span class="s2">&quot;electron&quot;</span><span class="p">,</span> <span class="s2">&quot;density:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;e_loc_func&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Electron&quot;</span><span class="p">,</span> <span class="s2">&quot;localization&quot;</span><span class="p">,</span> <span class="s2">&quot;function&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;ave_loc_ion_E&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Average&quot;</span><span class="p">,</span> <span class="s2">&quot;local&quot;</span><span class="p">,</span> <span class="s2">&quot;ionization&quot;</span><span class="p">,</span> <span class="s2">&quot;energy&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;delta_g_promolecular&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Delta-g&quot;</span><span class="p">,</span> <span class="s2">&quot;promolecular&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;delta_g_hirsh&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Delta-g&quot;</span><span class="p">,</span> <span class="s2">&quot;Hirshfeld&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;esp_nuc&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;ESP&quot;</span><span class="p">,</span> <span class="s2">&quot;nuclear&quot;</span><span class="p">,</span> <span class="s2">&quot;charges:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;esp_e&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;ESP&quot;</span><span class="p">,</span> <span class="s2">&quot;electrons:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;esp_total&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Total&quot;</span><span class="p">,</span> <span class="s2">&quot;ESP:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;grad_norm&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Components&quot;</span><span class="p">,</span> <span class="s2">&quot;gradient&quot;</span><span class="p">,</span> <span class="s2">&quot;x/y/z&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;lap_norm&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Components&quot;</span><span class="p">,</span> <span class="s2">&quot;Laplacian&quot;</span><span class="p">,</span> <span class="s2">&quot;x/y/z&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;eig_hess&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Eigenvalues&quot;</span><span class="p">,</span> <span class="s2">&quot;Hessian:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;det_hessian&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Determinant&quot;</span><span class="p">,</span> <span class="s2">&quot;Hessian:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;ellip_e_dens&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Ellipticity&quot;</span><span class="p">,</span> <span class="s2">&quot;electron&quot;</span><span class="p">,</span> <span class="s2">&quot;density:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;eta&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;eta&quot;</span><span class="p">,</span> <span class="s2">&quot;index:&quot;</span><span class="p">],</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="extract_info_from_cp_text">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.multiwfn.extract_info_from_cp_text">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_info_from_cp_text</span><span class="p">(</span>
+    <span class="n">lines_split</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+    <span class="n">cp_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;atom&quot;</span><span class="p">,</span> <span class="s2">&quot;bond&quot;</span><span class="p">,</span> <span class="s2">&quot;ring&quot;</span><span class="p">,</span> <span class="s2">&quot;cage&quot;</span><span class="p">],</span>
+    <span class="n">conditionals</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract specific information from a Multiwfn QTAIM output.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        lines_split (List[List[str]]): List of lines from a (pre-processed) CP file, containing only information</span>
+<span class="sd">            regarding one critical point, split by whitespace</span>
+<span class="sd">        cp_type: Type of critical point. Currently, can be &quot;atom&quot;, &quot;bond&quot;, &quot;ring&quot;, or &quot;cage&quot;</span>
+<span class="sd">        conditionals (Dict[str, List[str]]): Parameters to extract with strings to search for to see if the</span>
+<span class="sd">            data is present</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        cp_dict: dictionary of critical point information</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">cp_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="n">cp_name</span> <span class="o">=</span> <span class="s2">&quot;null&quot;</span>
+
+    <span class="n">this_conditionals</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">conditionals</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">ind</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines_split</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">this_conditionals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">x</span> <span class="ow">in</span> <span class="n">i</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">v</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;cp_num&quot;</span><span class="p">:</span>
+                    <span class="n">cp_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">][:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+                    <span class="c1"># Placeholder name</span>
+                    <span class="c1"># For nuclear critical points, this can be overwritten later (see below)</span>
+                    <span class="n">cp_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cp_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">cp_type</span><span class="si">}</span><span class="s2">&quot;</span>
+
+                <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;ele_info&quot;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">:</span>
+                        <span class="n">cp_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;cp_num&quot;</span><span class="p">])</span> <span class="o">+</span> <span class="s2">&quot;_Unknown&quot;</span>
+                        <span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Unknown&quot;</span>
+                        <span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;ele&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Unknown&quot;</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                            <span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;element&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;(&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">][:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                            <span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;(&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;element&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;(&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+                            <span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;(&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">cp_name</span> <span class="o">=</span> <span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;number&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;element&quot;</span><span class="p">]</span>
+
+                <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;connected_bond_paths&quot;</span><span class="p">:</span>
+                    <span class="n">list_raw</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
+                    <span class="c1"># save only items that contain a number</span>
+                    <span class="n">list_raw</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">list_raw</span> <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">char</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">x</span><span class="p">)]</span>  <span class="c1"># type: ignore[misc]</span>
+                    <span class="n">list_raw</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;(&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">list_raw</span><span class="p">]</span>  <span class="c1"># type: ignore[misc]</span>
+                    <span class="n">cp_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">list_raw</span>
+
+                <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;pos_ang&quot;</span><span class="p">:</span>
+                    <span class="n">cp_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">:]]</span>
+
+                <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;esp_total&quot;</span><span class="p">:</span>
+                    <span class="n">cp_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+
+                <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;eig_hess&quot;</span><span class="p">:</span>
+                    <span class="n">cp_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">i</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">:]]))</span>
+
+                <span class="k">elif</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;grad_norm&quot;</span><span class="p">,</span> <span class="s2">&quot;lap_norm&quot;</span><span class="p">):</span>
+                    <span class="n">cp_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">lines_split</span><span class="p">[</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">2</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">cp_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+                <span class="n">this_conditionals</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+                <span class="k">break</span>
+
+    <span class="k">return</span> <span class="n">cp_name</span><span class="p">,</span> <span class="n">cp_dict</span></div>
+
+
+
+<div class="viewcode-block" id="parse_cp">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.multiwfn.parse_cp">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parse_cp</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse information from a single QTAIM critical point.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        lines (List[str]): list of lines from a (preparsed) CP file, containing only information regarding one</span>
+<span class="sd">            critical point</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        cp_dict: dictionary of critical point information</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">lines_split</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">]</span>
+
+    <span class="n">cp_type</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Figure out what kind of critical-point we&#39;re dealing with</span>
+    <span class="k">if</span> <span class="s2">&quot;(3,-3)&quot;</span> <span class="ow">in</span> <span class="n">lines_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="n">cp_type</span> <span class="o">=</span> <span class="s2">&quot;atom&quot;</span>
+        <span class="n">conditionals</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">QTAIM_CONDITIONALS</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;connected_bond_paths&quot;</span><span class="p">}</span>
+    <span class="k">elif</span> <span class="s2">&quot;(3,-1)&quot;</span> <span class="ow">in</span> <span class="n">lines_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="n">cp_type</span> <span class="o">=</span> <span class="s2">&quot;bond&quot;</span>
+        <span class="n">conditionals</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">QTAIM_CONDITIONALS</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;ele_info&quot;</span><span class="p">}</span>
+    <span class="k">elif</span> <span class="s2">&quot;(3,+1)&quot;</span> <span class="ow">in</span> <span class="n">lines_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="n">cp_type</span> <span class="o">=</span> <span class="s2">&quot;ring&quot;</span>
+        <span class="n">conditionals</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">QTAIM_CONDITIONALS</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;connected_bond_paths&quot;</span><span class="p">,</span> <span class="s2">&quot;ele_info&quot;</span><span class="p">]}</span>
+    <span class="k">elif</span> <span class="s2">&quot;(3,+3)&quot;</span> <span class="ow">in</span> <span class="n">lines_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="n">cp_type</span> <span class="o">=</span> <span class="s2">&quot;cage&quot;</span>
+        <span class="n">conditionals</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">QTAIM_CONDITIONALS</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;connected_bond_paths&quot;</span><span class="p">,</span> <span class="s2">&quot;ele_info&quot;</span><span class="p">]}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">extract_info_from_cp_text</span><span class="p">(</span><span class="n">lines_split</span><span class="p">,</span> <span class="n">cp_type</span><span class="p">,</span> <span class="n">conditionals</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span></div>
+
+
+
+<div class="viewcode-block" id="get_qtaim_descs">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.multiwfn.get_qtaim_descs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_qtaim_descs</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse CPprop file from multiwfn by parsing each individual critical-point section.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        file (PathLike): path to CPprop file</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        descriptors (Dict[str, Dict[str, Any]]): Output dictionary of QTAIM descriptors</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">cp_sections</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">descriptors</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">]</span>
+
+    <span class="c1"># section lines into segments on ----------------</span>
+    <span class="n">lines_segment</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">ind</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;----------------&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+            <span class="n">lines_segment</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">lines_segment</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ind</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;----------------&quot;</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">[</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]:</span>
+                <span class="n">cp_sections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lines_segment</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cp_sections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lines_segment</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">section</span> <span class="ow">in</span> <span class="n">cp_sections</span><span class="p">:</span>
+        <span class="n">cp_name</span><span class="p">,</span> <span class="n">cp_dict</span> <span class="o">=</span> <span class="n">parse_cp</span><span class="p">(</span><span class="n">section</span><span class="p">)</span>
+
+        <span class="c1"># Possibility that parsing fails</span>
+        <span class="k">if</span> <span class="n">cp_name</span><span class="p">:</span>
+            <span class="n">descriptors</span><span class="p">[</span><span class="n">cp_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">cp_dict</span>
+
+    <span class="k">return</span> <span class="n">descriptors</span></div>
+
+
+
+<div class="viewcode-block" id="separate_cps_by_type">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.multiwfn.separate_cps_by_type">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">separate_cps_by_type</span><span class="p">(</span><span class="n">qtaim_descs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Separates QTAIM descriptors by type (atom, bond, ring, or cage)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        qtaim_descs (Dict[str, Dict[str, Any]]): Dictionary where keys are CP names and values are dictionaries of</span>
+<span class="sd">            descriptors obtained from `get_qtaim_descs` and `parse_cp`</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        organized_descs (Dict[str, Dict[str, Dict[str, Any]]]): Dictionary of organized QTAIM critical points and their</span>
+<span class="sd">            descriptors. Keys are &quot;atom&quot;, &quot;bond&quot;, &quot;ring&quot;, and &quot;cage&quot;, and values are dicts</span>
+<span class="sd">            {&lt;CP name&gt;: &lt;QTAIM descriptors&gt;}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">organized_descs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;atom&quot;</span><span class="p">:</span> <span class="nb">dict</span><span class="p">(),</span>
+        <span class="s2">&quot;bond&quot;</span><span class="p">:</span> <span class="nb">dict</span><span class="p">(),</span>
+        <span class="s2">&quot;ring&quot;</span><span class="p">:</span> <span class="nb">dict</span><span class="p">(),</span>
+        <span class="s2">&quot;cage&quot;</span><span class="p">:</span> <span class="nb">dict</span><span class="p">(),</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">qtaim_descs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="s2">&quot;bond&quot;</span> <span class="ow">in</span> <span class="n">k</span><span class="p">:</span>
+            <span class="n">organized_descs</span><span class="p">[</span><span class="s2">&quot;bond&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="k">elif</span> <span class="s2">&quot;ring&quot;</span> <span class="ow">in</span> <span class="n">k</span><span class="p">:</span>
+            <span class="n">organized_descs</span><span class="p">[</span><span class="s2">&quot;ring&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="k">elif</span> <span class="s2">&quot;cage&quot;</span> <span class="ow">in</span> <span class="n">k</span><span class="p">:</span>
+            <span class="n">organized_descs</span><span class="p">[</span><span class="s2">&quot;cage&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="k">elif</span> <span class="s2">&quot;Unknown&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">k</span><span class="p">:</span>
+            <span class="n">organized_descs</span><span class="p">[</span><span class="s2">&quot;atom&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+    <span class="k">return</span> <span class="n">organized_descs</span></div>
+
+
+
+<div class="viewcode-block" id="match_atom_cp">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.multiwfn.match_atom_cp">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">match_atom_cp</span><span class="p">(</span>
+    <span class="n">molecule</span><span class="p">:</span> <span class="n">Molecule</span><span class="p">,</span>
+    <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">atom_cp_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="n">max_distance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    From a dictionary with an atom&#39;s position and element symbol, find the corresponding cp in the atom CP dictionary</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        molecule (Molecule): structure corresponding to this Multiwfn calculation</span>
+<span class="sd">        index (int): index of the atom to be matched</span>
+<span class="sd">        atom_cp_dict (Dict[str, Dict[str, Any]]): Dictionary where keys are critical point names and values are</span>
+<span class="sd">            descriptors, including element symbol and position</span>
+<span class="sd">        max_distance (float): Maximum distance (in Angstrom) that a critical point can be away from an atom center</span>
+<span class="sd">            and be associated with that atom. Default is 0.5 Angstrom</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        cp_name (str | None): Key of atom_cp_dict; the name of the atom critical point corresponding to this atom. If</span>
+<span class="sd">            no match is found, this will be None</span>
+<span class="sd">        cp_dict (Dict): Dictionary of CP descriptors matching this atom</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">sites</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+    <span class="n">atom_symbol</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">species_string</span>
+
+    <span class="k">for</span> <span class="n">cp_name</span><span class="p">,</span> <span class="n">cp_dict</span> <span class="ow">in</span> <span class="n">atom_cp_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">cp_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;element&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">atom_symbol</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cp_name</span><span class="p">,</span> <span class="n">cp_dict</span>
+
+        <span class="k">if</span> <span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;element&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">atom_symbol</span><span class="p">:</span>
+            <span class="n">distance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cp_dict</span><span class="p">[</span><span class="s2">&quot;pos_ang&quot;</span><span class="p">])</span> <span class="o">-</span> <span class="n">atom</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">distance</span> <span class="o">&lt;</span> <span class="n">max_distance</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">cp_name</span><span class="p">,</span> <span class="n">cp_dict</span>
+
+    <span class="c1"># No match</span>
+    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">dict</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="map_atoms_cps">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.multiwfn.map_atoms_cps">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">map_atoms_cps</span><span class="p">(</span>
+    <span class="n">molecule</span><span class="p">:</span> <span class="n">Molecule</span><span class="p">,</span>
+    <span class="n">atom_cp_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="n">max_distance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
+    <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+<span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Connect atom CPs to atoms by their positions.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        molecule (Molecule): structure corresponding to this Multiwfn calculation</span>
+<span class="sd">        atom_cp_dict (Dict[str, Dict[str, Any]]): Dictionary where keys are critical point names and values are</span>
+<span class="sd">            descriptors, including element symbol and position</span>
+<span class="sd">        max_distance (float): Maximum distance (in Angstrom) that a critical point can be away from an atom center</span>
+<span class="sd">            and be associated with that atom. Default is 0.5 Angstrom</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        index_to_cp_desc (Dict[int, Dict[str, Any]]): Dictionary mapping atomic indices to atom critical point</span>
+<span class="sd">            descriptors</span>
+<span class="sd">        missing_atoms (List[int]): list of dft atoms that do not have a cp found in qtaim</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">index_to_cp_desc</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">missing_atoms</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">molecule</span><span class="p">)):</span>
+        <span class="c1"># finds cp by distance and naming scheme from CPprop.txt</span>
+        <span class="n">cp_name</span><span class="p">,</span> <span class="n">this_atom_cp</span> <span class="o">=</span> <span class="n">match_atom_cp</span><span class="p">(</span><span class="n">molecule</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">atom_cp_dict</span><span class="p">,</span> <span class="n">max_distance</span><span class="o">=</span><span class="n">max_distance</span><span class="p">)</span>
+
+        <span class="c1"># If this is False, that means no match was found</span>
+        <span class="k">if</span> <span class="n">cp_name</span><span class="p">:</span>
+            <span class="n">index_to_cp_desc</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">this_atom_cp</span>
+            <span class="n">index_to_cp_desc</span><span class="p">[</span><span class="n">index</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cp_name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">index_to_cp_desc</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+            <span class="n">missing_atoms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">index_to_cp_desc</span><span class="p">,</span> <span class="n">missing_atoms</span></div>
+
+
+
+<div class="viewcode-block" id="add_atoms">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.multiwfn.add_atoms">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_atoms</span><span class="p">(</span>
+    <span class="n">molecule</span><span class="p">:</span> <span class="n">Molecule</span><span class="p">,</span>
+    <span class="n">organized_cps</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]],</span>
+    <span class="n">bond_atom_criterion</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;qtaim&quot;</span><span class="p">,</span> <span class="s2">&quot;distance&quot;</span><span class="p">,</span> <span class="s2">&quot;combined&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;combined&quot;</span><span class="p">,</span>
+    <span class="n">dist_threshold_bond</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">dist_threshold_ring_cage</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span>
+    <span class="n">distance_margin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Modify bond, ring, and cage CPs to include information about surrounding critical points. Bonds will include</span>
+<span class="sd">    information about the atoms that make up the bond. Rings will include the names of neighboring bonds and the</span>
+<span class="sd">    indices of the atoms involved, and cages will include information on neighboring rings, bonds, and the atoms</span>
+<span class="sd">    involved.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        molecule (Molecule): structure corresponding to this Multiwfn calculation</span>
+<span class="sd">        organized_cps (Dict[str, Dict[Any, Dict[str, Any]]]): Keys are CP categories (&quot;atom&quot;, &quot;bond&quot;, &quot;ring&quot;, and</span>
+<span class="sd">            &quot;cage&quot;). Values are themselves dictionaries, where the keys are CP names (or atom indices) and the values</span>
+<span class="sd">            are CP descriptors</span>
+<span class="sd">        bond_atom_criterion (Literal[&quot;qtaim&quot;, &quot;distance&quot;, &quot;combined&quot;]): If this is &quot;qtaim&quot;, the inherent bonding</span>
+<span class="sd">            definition obtained from QTAIM/Multiwfn will be used to link bond CPs to atoms involved in those bonds. If</span>
+<span class="sd">            it is &quot;distance&quot;, a distance-based metric will be used instead, where the atoms closest to the bond CP will</span>
+<span class="sd">            be assumed to be bonded. If this is &quot;combined&quot;, then the QTAIM/Multiwfn definition will be used where</span>
+<span class="sd">            available, and a distance metric will be used for all bond CPs lacking a definition from QTAIM/Multiwfn.</span>
+<span class="sd">            NOTE: to use &quot;qtaim&quot; or &quot;combined&quot; as `bond_atom_criterion`, you must have used `map_atoms_cps` to link atom</span>
+<span class="sd">            numbers from Multiwfn to atom indices in `molecule`.</span>
+<span class="sd">        dist_threshold_bond (float): If the nearest atoms to a bond CP are further from the bond CP than this threshold</span>
+<span class="sd">            (default 1.0 Angstrom), then a warning will be raised.</span>
+<span class="sd">        dist_threshold_ring_cage (float): If the nearest bond CPs to a ring CP or the nearest ring CPs to a cage CP are</span>
+<span class="sd">            further than this threshold (default 3.0 Angstrom), then a warning will be raised.</span>
+<span class="sd">        distance_margin (float): Rings must be made up of at least three bonds, and cages must be made up of at least</span>
+<span class="sd">            three rings. We therefore define rings by the three closest bond CPs and cages by the three closest ring</span>
+<span class="sd">            CPs. We associate additional bond/ring CPs with ring/cage CPs if they are no further than the third-closest</span>
+<span class="sd">            bond/ring CP, plus this margin. Default is 0.5 Angstrom</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        modified_organized_cps (Dict[str, Dict[str, Dict[str, Any]]]): CP dict with additional information added.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">sort_cps_by_distance</span><span class="p">(</span>
+        <span class="n">position</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">options</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="p">):</span>
+        <span class="n">dists</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">oname</span><span class="p">,</span> <span class="n">oval</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">opos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">oval</span><span class="p">[</span><span class="s2">&quot;pos_ang&quot;</span><span class="p">])</span>
+            <span class="n">dists</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">position</span> <span class="o">-</span> <span class="n">opos</span><span class="p">),</span> <span class="n">oname</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">dists</span><span class="p">)</span>
+
+    <span class="n">modified_organized_cps</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">organized_cps</span><span class="p">)</span>
+
+    <span class="n">atom_info</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;pos_ang&quot;</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">coords</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">sites</span><span class="p">)}</span>
+
+    <span class="c1"># Can only include bonds where the connected atoms are provided</span>
+    <span class="k">if</span> <span class="n">bond_atom_criterion</span> <span class="o">==</span> <span class="s2">&quot;qtaim&quot;</span><span class="p">:</span>
+        <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;bond&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;bond&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="s2">&quot;connected_bond_paths&quot;</span> <span class="ow">in</span> <span class="n">v</span>
+        <span class="p">}</span>
+
+    <span class="n">atom_cps</span> <span class="o">=</span> <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;atom&quot;</span><span class="p">]</span>
+    <span class="n">bond_cps</span> <span class="o">=</span> <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;bond&quot;</span><span class="p">]</span>
+    <span class="n">ring_cps</span> <span class="o">=</span> <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;ring&quot;</span><span class="p">]</span>
+    <span class="n">cage_cps</span> <span class="o">=</span> <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;cage&quot;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bond_cps</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">atom_info</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot have a bond CP with less than two atom CPs!&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ring_cps</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">bond_cps</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot have a ring CP with less than three bond CPs!&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cage_cps</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">ring_cps</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot have a cage CP with less than three ring CPs!&quot;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">cp_name</span><span class="p">,</span> <span class="n">cp_desc</span> <span class="ow">in</span> <span class="n">bond_cps</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">bond_atom_criterion</span> <span class="o">==</span> <span class="s2">&quot;distance&quot;</span><span class="p">:</span>
+            <span class="c1"># NOTE: for bonds, we associate based on atoms, NOT based on atom CPs</span>
+            <span class="n">sorted_atoms</span> <span class="o">=</span> <span class="n">sort_cps_by_distance</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cp_desc</span><span class="p">[</span><span class="s2">&quot;pos_ang&quot;</span><span class="p">]),</span> <span class="n">atom_info</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">sorted_atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">dist_threshold_bond</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;Warning: bond CP is far from bonding atoms&quot;</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="c1"># Assume only two atoms involved in bond</span>
+            <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;bond&quot;</span><span class="p">][</span><span class="n">cp_name</span><span class="p">][</span><span class="s2">&quot;atom_inds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">ca</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">ca</span> <span class="ow">in</span> <span class="n">sorted_atoms</span><span class="p">[:</span><span class="mi">2</span><span class="p">]])</span>
+        <span class="k">elif</span> <span class="n">bond_atom_criterion</span> <span class="o">==</span> <span class="s2">&quot;qtaim&quot;</span><span class="p">:</span>
+            <span class="n">bond_atoms_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">cp_desc</span><span class="p">[</span><span class="s2">&quot;connected_bond_paths&quot;</span><span class="p">]:</span>
+                <span class="k">for</span> <span class="n">true_index</span><span class="p">,</span> <span class="n">descriptors</span> <span class="ow">in</span> <span class="n">atom_cps</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">descriptors</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="n">index</span><span class="p">:</span>
+                        <span class="n">bond_atoms_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">true_index</span><span class="p">)</span>
+                        <span class="k">break</span>
+
+            <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;bond&quot;</span><span class="p">][</span><span class="n">cp_name</span><span class="p">][</span><span class="s2">&quot;atom_inds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">bond_atoms_list</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;connected_bond_paths&quot;</span> <span class="ow">in</span> <span class="n">cp_desc</span><span class="p">:</span>
+                <span class="n">bond_atoms_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">cp_desc</span><span class="p">[</span><span class="s2">&quot;connected_bond_paths&quot;</span><span class="p">]:</span>
+                    <span class="k">for</span> <span class="n">true_index</span><span class="p">,</span> <span class="n">descriptors</span> <span class="ow">in</span> <span class="n">atom_cps</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">descriptors</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="n">index</span><span class="p">:</span>
+                            <span class="n">bond_atoms_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">true_index</span><span class="p">)</span>
+                            <span class="k">break</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bond_atoms_list</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not match all atoms in connected_bond_paths for bond CP </span><span class="si">{</span><span class="n">cp_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sorted_atoms</span> <span class="o">=</span> <span class="n">sort_cps_by_distance</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cp_desc</span><span class="p">[</span><span class="s2">&quot;pos_ang&quot;</span><span class="p">]),</span> <span class="n">atom_info</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">sorted_atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">dist_threshold_bond</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="s2">&quot;Warning: bond CP is far from bonding atoms&quot;</span><span class="p">,</span>
+                        <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="n">bond_atoms_list</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">ca</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">ca</span> <span class="ow">in</span> <span class="n">sorted_atoms</span><span class="p">[:</span><span class="mi">2</span><span class="p">]])</span>
+
+            <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;bond&quot;</span><span class="p">][</span><span class="n">cp_name</span><span class="p">][</span><span class="s2">&quot;atom_inds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">bond_atoms_list</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">cp_name</span><span class="p">,</span> <span class="n">cp_desc</span> <span class="ow">in</span> <span class="n">ring_cps</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">sorted_bonds</span> <span class="o">=</span> <span class="n">sort_cps_by_distance</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cp_desc</span><span class="p">[</span><span class="s2">&quot;pos_ang&quot;</span><span class="p">]),</span> <span class="n">bond_cps</span><span class="p">)</span>
+        <span class="n">max_close_dist</span> <span class="o">=</span> <span class="n">sorted_bonds</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">max_close_dist</span> <span class="o">&gt;</span> <span class="n">dist_threshold_ring_cage</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Warning: ring CP is far from closest bond CPs.&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Assume that the three closest bonds are all part of the ring</span>
+        <span class="n">bond_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">bcp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">bcp</span> <span class="ow">in</span> <span class="n">sorted_bonds</span><span class="p">[:</span><span class="mi">3</span><span class="p">]]</span>
+
+        <span class="c1"># Add additional bonds that are relatively close to this ring</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_bonds</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">bond_dist</span><span class="p">,</span> <span class="n">bond_name</span> <span class="ow">in</span> <span class="n">sorted_bonds</span><span class="p">[</span><span class="mi">3</span><span class="p">:]:</span>
+                <span class="k">if</span> <span class="n">bond_dist</span> <span class="o">&lt;</span> <span class="n">max_close_dist</span> <span class="o">+</span> <span class="n">distance_margin</span><span class="p">:</span>
+                    <span class="n">bond_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bond_name</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+        <span class="c1"># Add all unique atoms involved in this ring</span>
+        <span class="n">atom_inds</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">bond_name</span> <span class="ow">in</span> <span class="n">bond_names</span><span class="p">:</span>
+            <span class="n">atom_inds</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">bond_cps</span><span class="p">[</span><span class="n">bond_name</span><span class="p">][</span><span class="s2">&quot;atom_inds&quot;</span><span class="p">])</span>
+
+        <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;ring&quot;</span><span class="p">][</span><span class="n">cp_name</span><span class="p">][</span><span class="s2">&quot;bond_names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bond_names</span>
+        <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;ring&quot;</span><span class="p">][</span><span class="n">cp_name</span><span class="p">][</span><span class="s2">&quot;atom_inds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">atom_inds</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">cp_name</span><span class="p">,</span> <span class="n">cp_desc</span> <span class="ow">in</span> <span class="n">cage_cps</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">sorted_rings</span> <span class="o">=</span> <span class="n">sort_cps_by_distance</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cp_desc</span><span class="p">[</span><span class="s2">&quot;pos_ang&quot;</span><span class="p">]),</span> <span class="n">ring_cps</span><span class="p">)</span>
+        <span class="n">max_close_dist</span> <span class="o">=</span> <span class="n">sorted_rings</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Warn if the three closest bonds are further than the max distance</span>
+        <span class="k">if</span> <span class="n">max_close_dist</span> <span class="o">&gt;</span> <span class="n">dist_threshold_ring_cage</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Warning: cage CP is far from closest ring CPs.&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Assume that the three closest rings are all part of the cage</span>
+        <span class="n">ring_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">rcp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">rcp</span> <span class="ow">in</span> <span class="n">sorted_rings</span><span class="p">[:</span><span class="mi">3</span><span class="p">]]</span>
+
+        <span class="c1"># Add additional rings that are relatively close to this cage</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_rings</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ring_dist</span><span class="p">,</span> <span class="n">ring_name</span> <span class="ow">in</span> <span class="n">sorted_rings</span><span class="p">[</span><span class="mi">3</span><span class="p">:]:</span>
+                <span class="k">if</span> <span class="n">ring_dist</span> <span class="o">&lt;</span> <span class="n">max_close_dist</span> <span class="o">+</span> <span class="n">distance_margin</span><span class="p">:</span>
+                    <span class="n">ring_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ring_name</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+        <span class="c1"># Add all unique bonds and atoms involved in this cage</span>
+        <span class="n">bond_names_cage</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">atom_inds</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">ring_name</span> <span class="ow">in</span> <span class="n">ring_names</span><span class="p">:</span>
+            <span class="n">bond_names_cage</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">ring_cps</span><span class="p">[</span><span class="n">ring_name</span><span class="p">][</span><span class="s2">&quot;bond_names&quot;</span><span class="p">])</span>  <span class="c1"># type: ignore[attr-defined]</span>
+            <span class="n">atom_inds</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">ring_cps</span><span class="p">[</span><span class="n">ring_name</span><span class="p">][</span><span class="s2">&quot;atom_inds&quot;</span><span class="p">])</span>  <span class="c1"># type: ignore[attr-defined]</span>
+
+        <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;cage&quot;</span><span class="p">][</span><span class="n">cp_name</span><span class="p">][</span><span class="s2">&quot;ring_names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ring_names</span>
+        <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;cage&quot;</span><span class="p">][</span><span class="n">cp_name</span><span class="p">][</span><span class="s2">&quot;bond_names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">bond_names_cage</span><span class="p">)</span>
+        <span class="n">modified_organized_cps</span><span class="p">[</span><span class="s2">&quot;cage&quot;</span><span class="p">][</span><span class="n">cp_name</span><span class="p">][</span><span class="s2">&quot;atom_inds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">atom_inds</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">modified_organized_cps</span></div>
+
+
+
+<div class="viewcode-block" id="process_multiwfn_qtaim">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.multiwfn.process_multiwfn_qtaim">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_multiwfn_qtaim</span><span class="p">(</span>
+    <span class="n">molecule</span><span class="p">:</span> <span class="n">Molecule</span><span class="p">,</span>
+    <span class="n">file</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+    <span class="n">bond_atom_criterion</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;qtaim&quot;</span><span class="p">,</span> <span class="s2">&quot;distance&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;distance&quot;</span><span class="p">,</span>
+    <span class="n">max_distance_atom</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">dist_threshold_bond</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">dist_threshold_ring_cage</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span>
+    <span class="n">distance_margin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Process quantum theory of atoms in molecules (QTAIM) outputs from Multiwfn.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        molecule (Molecule): structure corresponding to this Multiwfn calculation</span>
+<span class="sd">        file (PathLike): path to CPprop file containing QTAIM information</span>
+<span class="sd">        bond_atom_criterion (Literal[&quot;qtaim&quot;, &quot;distance&quot;]): If &quot;qtaim&quot;, the inherent bonding definition obtained from</span>
+<span class="sd">            QTAIM/Multiwfn will be used to link bond CPs to atoms involved in those bonds; if &quot;distance&quot;, a</span>
+<span class="sd">            distance-based metric will be used instead, where the atoms closest to the bond CP will be assumed to be</span>
+<span class="sd">            bonded.</span>
+<span class="sd">        max_distance (float): Maximum distance (in Angstrom) that an atom critical point can be away from an atom</span>
+<span class="sd">            center and be associated with that atom. Default is 0.5 Angstrom</span>
+<span class="sd">        dist_threshold_bond (float): If the nearest atoms to a bond CP are further from the bond CP than this threshold</span>
+<span class="sd">            (default 1.0 Angstrom), then a warning will be raised.</span>
+<span class="sd">        dist_threshold_ring_cage (float): If the nearest bond CPs to a ring CP or the nearest ring CPs to a cage CP are</span>
+<span class="sd">            further than this threshold (default 3.0 Angstrom), then a warning will be raised.</span>
+<span class="sd">        distance_margin (float): Rings must be made up of at least three bonds, and cages must be made up of at least</span>
+<span class="sd">            three rings. We therefore define rings by the three closest bond CPs and cages by the three closest ring</span>
+<span class="sd">            CPs. We associate additional bond/ring CPs with ring/cage CPs if they are no further than the third-closest</span>
+<span class="sd">            bond/ring CP, plus this margin. Default is 0.5 Angstrom</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        with_atoms (Dict[str, Dict[str, Dict[str, Any]]]): QTAIM descriptors, organized by type (&quot;atom&quot;, &quot;bond&quot;,</span>
+<span class="sd">            &quot;ring&quot;, &quot;cage&quot;), with additional metadata added to bond, ring, and cage CPs</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Initial parsing and organizing</span>
+    <span class="n">descriptors_unorganized</span> <span class="o">=</span> <span class="n">get_qtaim_descs</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+    <span class="n">qtaim_descriptors</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="n">separate_cps_by_type</span><span class="p">(</span><span class="n">descriptors_unorganized</span><span class="p">)</span>
+
+    <span class="c1"># Remap atom CPs to atom indices</span>
+    <span class="n">remapped_atoms</span><span class="p">,</span> <span class="n">missing_atoms</span> <span class="o">=</span> <span class="n">map_atoms_cps</span><span class="p">(</span><span class="n">molecule</span><span class="p">,</span> <span class="n">qtaim_descriptors</span><span class="p">[</span><span class="s2">&quot;atom&quot;</span><span class="p">],</span> <span class="n">max_distance</span><span class="o">=</span><span class="n">max_distance_atom</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing_atoms</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Some atoms not mapped to atom CPs! Indices: </span><span class="si">{</span><span class="n">missing_atoms</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">qtaim_descriptors</span><span class="p">[</span><span class="s2">&quot;atom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">remapped_atoms</span>
+
+    <span class="k">return</span> <span class="n">add_atoms</span><span class="p">(</span>
+        <span class="n">molecule</span><span class="p">,</span>
+        <span class="n">qtaim_descriptors</span><span class="p">,</span>
+        <span class="n">bond_atom_criterion</span><span class="o">=</span><span class="n">bond_atom_criterion</span><span class="p">,</span>
+        <span class="n">dist_threshold_bond</span><span class="o">=</span><span class="n">dist_threshold_bond</span><span class="p">,</span>
+        <span class="n">dist_threshold_ring_cage</span><span class="o">=</span><span class="n">dist_threshold_ring_cage</span><span class="p">,</span>
+        <span class="n">distance_margin</span><span class="o">=</span><span class="n">distance_margin</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.multiwfn</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

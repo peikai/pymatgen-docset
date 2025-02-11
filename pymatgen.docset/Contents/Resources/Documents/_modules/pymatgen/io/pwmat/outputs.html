@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.pwmat.outputs &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.pwmat.outputs</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.io.pwmat.outputs</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">linecache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">io</span><span class="w"> </span><span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">zopen</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.json</span><span class="w"> </span><span class="kn">import</span> <span class="n">MSONable</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.pwmat.inputs</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACstrExtractor</span><span class="p">,</span> <span class="n">AtomConfig</span><span class="p">,</span> <span class="n">LineLocator</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Structure</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">Tuple3Ints</span>
+
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Hanyu Liu&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;domainofbuaa@gmail.com&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;2024-1-16&quot;</span>
+
+
+<div class="viewcode-block" id="Movement">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.outputs.Movement">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Movement</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parser for data in MOVEMENT which records trajectory during MD.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+        <span class="n">ionic_step_skip</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">ionic_step_offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialization function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename (PathLike): The path of MOVEMENT</span>
+<span class="sd">            ionic_step_skip (int | None, optional): If ionic_step_skip is a number &gt; 1,</span>
+<span class="sd">                only every ionic_step_skip ionic steps will be read for</span>
+<span class="sd">                structure and energies. This is very useful if you are parsing</span>
+<span class="sd">                very large MOVEMENT files. Defaults to None.</span>
+<span class="sd">            ionic_step_offset (int | None, optional): Used together with ionic_step_skip.</span>
+<span class="sd">                If set, the first ionic step read will be offset by the amount of</span>
+<span class="sd">                ionic_step_offset. Defaults to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ionic_step_skip</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">ionic_step_skip</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ionic_step_offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">ionic_step_offset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">split_mark</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;--------------------------------------&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">chunk_sizes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_starts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_chunk_info</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_ionic_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">chunk_sizes</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">ionic_steps</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_sefv</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ionic_step_offset</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ionic_step_skip</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ionic_steps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ionic_steps</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ionic_step_offset</span> <span class="p">::</span> <span class="bp">self</span><span class="o">.</span><span class="n">ionic_step_skip</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_chunk_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Split MOVEMENT into many chunks, so that program process it chunk by chunk.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[list[int], list[int]]:</span>
+<span class="sd">                chunk_sizes (list[int]): The number of lines occupied by structural</span>
+<span class="sd">                    information in each step.</span>
+<span class="sd">                chunk_starts (list[int]): The starting line number for structural</span>
+<span class="sd">                    information in each step.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chunk_sizes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">row_idxs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">LineLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_mark</span><span class="p">)</span>
+        <span class="n">chunk_sizes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row_idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">row_idxs</span><span class="p">)):</span>
+            <span class="n">chunk_sizes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row_idxs</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="o">-</span> <span class="n">row_idxs</span><span class="p">[</span><span class="n">ii</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">chunk_sizes_bak</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">chunk_sizes</span><span class="p">)</span>
+        <span class="n">chunk_sizes_bak</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">chunk_starts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">chunk_sizes_bak</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">chunk_starts</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">chunk_sizes</span><span class="p">,</span> <span class="n">chunk_starts</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">atom_configs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Structure</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;AtomConfig for structures contained in MOVEMENT file.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            list[Structure]: List of Structure objects for the structure at each ionic step.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">step</span><span class="p">[</span><span class="s2">&quot;atom_config&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ionic_steps</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_tots</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Total energies of each ionic step structures contained in MOVEMENT.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Total energy of of each ionic step structure,</span>
+<span class="sd">                with shape of (n_ionic_steps,).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">step</span><span class="p">[</span><span class="s2">&quot;e_tot&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ionic_steps</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">atom_forces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forces on atoms in each structures contained in MOVEMENT.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: The forces on atoms of each ionic step structure,</span>
+<span class="sd">                with shape of (n_ionic_steps, n_atoms, 3).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">step</span><span class="p">[</span><span class="s2">&quot;atom_forces&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ionic_steps</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Individual energies of atoms in each ionic step structures</span>
+<span class="sd">        contained in MOVEMENT.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: The individual energy of atoms in each ionic step structure,</span>
+<span class="sd">                with shape of (n_ionic_steps, n_atoms).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">step</span><span class="p">[</span><span class="s2">&quot;eatoms&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ionic_steps</span> <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;eatoms&quot;</span> <span class="ow">in</span> <span class="n">step</span><span class="p">)])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">virials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Virial tensor of each ionic step structure contained in MOVEMENT.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: The virial tensor of each ionic step structure,</span>
+<span class="sd">                with shape of (n_ionic_steps, 3, 3)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">step</span><span class="p">[</span><span class="s2">&quot;virial&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ionic_steps</span> <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;virial&quot;</span> <span class="ow">in</span> <span class="n">step</span><span class="p">)])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_sefv</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse the MOVEMENT file, return information ionic step structure containing</span>
+<span class="sd">        structures, energies, forces on atoms and virial tensor.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            list[dict]: Structure containing structures, energies, forces on atoms</span>
+<span class="sd">                and virial tensor. The corresponding keys are &#39;atom_config&#39;, &#39;e_tot&#39;,</span>
+<span class="sd">                &#39;atom_forces&#39; and &#39;virial&#39;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ionic_steps</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mvt</span><span class="p">:</span>
+            <span class="n">tmp_step</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_ionic_steps</span><span class="p">):</span>
+                <span class="n">tmp_chunk</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+                <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">chunk_sizes</span><span class="p">[</span><span class="n">ii</span><span class="p">]):</span>
+                    <span class="n">tmp_chunk</span> <span class="o">+=</span> <span class="n">mvt</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span>
+                <span class="n">tmp_step</span><span class="p">[</span><span class="s2">&quot;atom_config&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">AtomConfig</span><span class="o">.</span><span class="n">from_str</span><span class="p">(</span><span class="n">tmp_chunk</span><span class="p">)</span>
+                <span class="n">tmp_step</span><span class="p">[</span><span class="s2">&quot;e_tot&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ACstrExtractor</span><span class="p">(</span><span class="n">tmp_chunk</span><span class="p">)</span><span class="o">.</span><span class="n">get_e_tot</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">tmp_step</span><span class="p">[</span><span class="s2">&quot;atom_forces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ACstrExtractor</span><span class="p">(</span><span class="n">tmp_chunk</span><span class="p">)</span><span class="o">.</span><span class="n">get_atom_forces</span><span class="p">()</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+                <span class="n">e_atoms</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">ACstrExtractor</span><span class="p">(</span><span class="n">tmp_chunk</span><span class="p">)</span><span class="o">.</span><span class="n">get_atom_forces</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">e_atoms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">tmp_step</span><span class="p">[</span><span class="s2">&quot;atom_energies&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ACstrExtractor</span><span class="p">(</span><span class="n">tmp_chunk</span><span class="p">)</span><span class="o">.</span><span class="n">get_atom_energies</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Ionic step #</span><span class="si">{</span><span class="n">ii</span><span class="si">}</span><span class="s2"> : Energy deposition is turn down.&quot;</span><span class="p">)</span>
+                <span class="n">virial</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">ACstrExtractor</span><span class="p">(</span><span class="n">tmp_chunk</span><span class="p">)</span><span class="o">.</span><span class="n">get_virial</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">virial</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">tmp_step</span><span class="p">[</span><span class="s2">&quot;virial&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">virial</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Ionic step #</span><span class="si">{</span><span class="n">ii</span><span class="si">}</span><span class="s2"> : No virial information.&quot;</span><span class="p">)</span>
+                <span class="n">ionic_steps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tmp_step</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ionic_steps</span></div>
+
+
+
+<div class="viewcode-block" id="OutFermi">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.outputs.OutFermi">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">OutFermi</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract fermi energy (eV) from OUT.FERMI.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialization function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename (PathLike): The absolute path of OUT.FERMI file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_e_fermi</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()),</span> <span class="mi">3</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_fermi</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The fermi energy level.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            float: Fermi energy level.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_e_fermi</span></div>
+
+
+
+<div class="viewcode-block" id="Report">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.outputs.Report">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Report</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract information of spin, kpoints, bands, eigenvalues from REPORT file.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialization function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename (PathLike): The absolute path of REPORT file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_kpts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_bands</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_band</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_eigenvalues</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_eigen</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_kpts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kpts_weight</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hsps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_kpt</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_band</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple3Ints</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse REPORT file to obtain spin switches, the number of kpoints</span>
+<span class="sd">        and the number of bands.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[int, int, int]: containing:</span>
+<span class="sd">                spin (int): Whether turn on spin or not</span>
+<span class="sd">                    1: turn down the spin</span>
+<span class="sd">                    2: turn on the spin.</span>
+<span class="sd">                num_kpts (int): The number of kpoints.</span>
+<span class="sd">                num_bands (int): The number of bands.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;SPIN&quot;</span>
+        <span class="n">row_idx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">LineLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">file_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">content</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">spin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">linecache</span><span class="o">.</span><span class="n">getline</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">),</span> <span class="n">row_idx</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+
+        <span class="n">content</span> <span class="o">=</span> <span class="s2">&quot;NUM_KPT&quot;</span>
+        <span class="n">row_idx</span> <span class="o">=</span> <span class="n">LineLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">file_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">content</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">num_kpts</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">linecache</span><span class="o">.</span><span class="n">getline</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">),</span> <span class="n">row_idx</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+
+        <span class="n">content</span> <span class="o">=</span> <span class="s2">&quot;NUM_BAND&quot;</span>
+        <span class="n">row_idx</span> <span class="o">=</span> <span class="n">LineLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">file_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">content</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">num_bands</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">linecache</span><span class="o">.</span><span class="n">getline</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">),</span> <span class="n">row_idx</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">spin</span><span class="p">,</span> <span class="n">num_kpts</span><span class="p">,</span> <span class="n">num_bands</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_eigen</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse REPORT file to obtain information about eigenvalues.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Eigenvalues with shape of (1 or 2, n_kpoints, n_bands).</span>
+<span class="sd">                The first index represents spin, the second index represents</span>
+<span class="sd">                kpoints, the third index represents band.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">num_rows</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_bands</span> <span class="o">/</span> <span class="mi">5</span><span class="p">))</span>
+        <span class="n">content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;eigen energies, in eV&quot;</span>
+        <span class="n">rows_lst</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">LineLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">file_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">content</span><span class="p">)</span>
+        <span class="n">rows_array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">rows_lst</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_spin</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">eigenvalues</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_spin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_kpts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_bands</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_spin</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">jj</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_kpts</span><span class="p">):</span>
+                <span class="n">tmp_eigenvalues_str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+                <span class="k">for</span> <span class="n">kk</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_rows</span><span class="p">):</span>
+                    <span class="n">tmp_eigenvalues_str</span> <span class="o">+=</span> <span class="n">linecache</span><span class="o">.</span><span class="n">getline</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">),</span> <span class="n">rows_array</span><span class="p">[</span><span class="n">ii</span><span class="p">][</span><span class="n">jj</span><span class="p">]</span> <span class="o">+</span> <span class="n">kk</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">tmp_eigenvalues_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">eigen_value</span><span class="p">)</span> <span class="k">for</span> <span class="n">eigen_value</span> <span class="ow">in</span> <span class="n">tmp_eigenvalues_str</span><span class="o">.</span><span class="n">split</span><span class="p">()])</span>
+                <span class="k">for</span> <span class="n">kk</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_bands</span><span class="p">):</span>
+                    <span class="n">eigenvalues</span><span class="p">[</span><span class="n">ii</span><span class="p">][</span><span class="n">jj</span><span class="p">][</span><span class="n">kk</span><span class="p">]</span> <span class="o">=</span> <span class="n">tmp_eigenvalues_array</span><span class="p">[</span><span class="n">kk</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">eigenvalues</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_kpt</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse REPORT file to obtain information about kpoints.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            3-tuple containing:</span>
+<span class="sd">                kpts (np.ndarray): The fractional coordinates of kpoints.</span>
+<span class="sd">                kpts_weight (np.ndarray): The weight of kpoints.</span>
+<span class="sd">                hsps (dict[str, np.ndarray]): The name and coordinates of high symmetric points.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">num_rows</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_kpts</span><span class="p">)</span>
+        <span class="n">content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;total number of K-point:&quot;</span>
+        <span class="n">row_idx</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">LineLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">content</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">kpts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_kpts</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+        <span class="n">kpts_weight</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_kpts</span><span class="p">)</span>
+        <span class="n">hsps</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_rows</span><span class="p">):</span>
+            <span class="c1">#  0.00000     0.00000    0.00000     0.03704           G</span>
+            <span class="n">tmp_row_lst</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">linecache</span><span class="o">.</span><span class="n">getline</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">),</span> <span class="n">row_idx</span> <span class="o">+</span> <span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">jj</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+                <span class="n">kpts</span><span class="p">[</span><span class="n">ii</span><span class="p">][</span><span class="n">jj</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tmp_row_lst</span><span class="p">[</span><span class="n">jj</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+            <span class="n">kpts_weight</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">tmp_row_lst</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tmp_row_lst</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+                <span class="n">hsps</span> <span class="o">|=</span> <span class="p">{</span>
+                    <span class="n">tmp_row_lst</span><span class="p">[</span><span class="mi">4</span><span class="p">]:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                        <span class="p">[</span>
+                            <span class="nb">float</span><span class="p">(</span><span class="n">tmp_row_lst</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                            <span class="nb">float</span><span class="p">(</span><span class="n">tmp_row_lst</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+                            <span class="nb">float</span><span class="p">(</span><span class="n">tmp_row_lst</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+                        <span class="p">]</span>
+                    <span class="p">)</span>
+                <span class="p">}</span>
+        <span class="k">return</span> <span class="n">kpts</span><span class="p">,</span> <span class="n">kpts_weight</span><span class="p">,</span> <span class="n">hsps</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spin</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The spin switches.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: Spin switches. 1 represents turn on spin, 2 represents turn down spin.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spin</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_kpoints</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of k-points.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_kpts</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_bands</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of bands.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_bands</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eigenvalues</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The eigenvalues.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: The first index represents spin, the second index</span>
+<span class="sd">                represents kpoint, the third index represents band.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eigenvalues</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kpoints</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The fractional coordinates of kpoints.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kpts</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kpoints_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The weight of kpoints.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kpts_weight</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hsps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The labels and fractional coordinates of high symmetry points as dict[str, np.ndarray].</span>
+<span class="sd">        Empty dict when task is not line-mode kpath.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hsps</span></div>
+
+
+
+<div class="viewcode-block" id="DosSpin">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.outputs.DosSpin">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DosSpin</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract information of DOS from DOS_SPIN file:</span>
+<span class="sd">    - DOS.totalspin, DOS.totalspin_projected</span>
+<span class="sd">    - DOS.spinup, DOS.spinup_projected</span>
+<span class="sd">    - DOS.spindown, DOS.spindown_projected.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_labels</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse the DOS_SPIN file to get name and values of partial DOS.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            labels (list[str]): The label of DOS, e.g. Total, Cr-3S, ...</span>
+<span class="sd">            dos (NDArray): Value of density of state.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">labels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">linecache</span><span class="o">.</span><span class="n">getline</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">dos_str</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span>
+            <span class="n">dos_str</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">dos</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">StringIO</span><span class="p">(</span><span class="n">dos_str</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">labels</span><span class="p">,</span> <span class="n">dos</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">labels</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The name of the partial density of states.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labels</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Value of density of state.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dos</span>
+
+<div class="viewcode-block" id="DosSpin.get_partial_dos">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.outputs.DosSpin.get_partial_dos">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_partial_dos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">part</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get partial dos for give element or orbital.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            part (str): The name of partial dos.</span>
+<span class="sd">                e.g. &#39;Energy&#39;, &#39;Total&#39;, &#39;Cr-3S&#39;, &#39;Cr-3P&#39;,</span>
+<span class="sd">                    &#39;Cr-4S&#39;, &#39;Cr-3D&#39;, &#39;I-4D&#39;, &#39;I-5S&#39;, &#39;I-5P&#39;, &#39;Cr-3S&#39;, &#39;Cr-3Pz&#39;,</span>
+<span class="sd">                    &#39;Cr-3Px&#39;, &#39;Cr-3Py&#39;, &#39;Cr-4S&#39;, &#39;Cr-3Dz2&#39;,&#39;Cr-3Dxz&#39;, &#39;Cr-3Dyz&#39;,</span>
+<span class="sd">                    &#39;Cr-3D(x^2-y^2)&#39;, &#39;Cr-3Dxy&#39;, &#39;I-4Dz2&#39;, &#39;I-4Dxz&#39;, &#39;I-4Dyz&#39;,</span>
+<span class="sd">                    &#39;I-4D(x^2-y^2)&#39;, &#39;I-4Dxy&#39;, &#39;I-5S&#39;, &#39;I-5Pz&#39;, &#39;I-5Px&#39;, &#39;I-5Py&#39;</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            partial_dos: np.array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">part_upper</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">part</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="n">labels_upper</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">tmp_label</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="k">for</span> <span class="n">tmp_label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labels</span><span class="p">]</span>
+        <span class="n">idx_dos</span> <span class="o">=</span> <span class="n">labels_upper</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">part_upper</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dos</span><span class="p">[:,</span> <span class="n">idx_dos</span><span class="p">]</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.pwmat.outputs</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

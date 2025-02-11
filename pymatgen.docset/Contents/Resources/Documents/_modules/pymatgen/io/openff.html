@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.openff &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.openff</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.io.openff</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Utility functions for classical MD subpackage.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.analysis.graphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">MoleculeGraph</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.analysis.local_env</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenBabelNN</span><span class="p">,</span> <span class="n">metal_edge_extender</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Element</span><span class="p">,</span> <span class="n">Molecule</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">openff.toolkit</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tk</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">openff.units</span><span class="w"> </span><span class="kn">import</span> <span class="n">Quantity</span><span class="p">,</span> <span class="n">unit</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">tk</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">Quantity</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">unit</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+        <span class="s2">&quot;To use the pymatgen.io.openff module install openff-toolkit and openff-units&quot;</span>
+        <span class="s2">&quot;with `conda install -c conda-forge openff-toolkit openff-units`.&quot;</span><span class="p">,</span>
+        <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="mol_graph_to_openff_mol">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.openff.mol_graph_to_openff_mol">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">mol_graph_to_openff_mol</span><span class="p">(</span><span class="n">mol_graph</span><span class="p">:</span> <span class="n">MoleculeGraph</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert a Pymatgen MoleculeGraph to an OpenFF Molecule.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        mol_graph (MoleculeGraph): The Pymatgen MoleculeGraph to be converted.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tk.Molecule: The converted OpenFF Molecule.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># create empty openff_mol and prepare a periodic table</span>
+    <span class="n">p_table</span> <span class="o">=</span> <span class="p">{</span><span class="nb">str</span><span class="p">(</span><span class="n">el</span><span class="p">):</span> <span class="n">el</span><span class="o">.</span><span class="n">Z</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">Element</span><span class="p">}</span>
+    <span class="n">openff_mol</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="p">()</span>
+
+    <span class="c1"># set atom properties</span>
+    <span class="n">partial_charges</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># TODO: should assert that there is only one molecule</span>
+    <span class="k">for</span> <span class="n">i_node</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mol_graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">)):</span>
+        <span class="n">node</span> <span class="o">=</span> <span class="n">mol_graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i_node</span><span class="p">]</span>
+        <span class="n">atomic_number</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;atomic_number&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">p_table</span><span class="p">[</span><span class="n">mol_graph</span><span class="o">.</span><span class="n">molecule</span><span class="p">[</span><span class="n">i_node</span><span class="p">]</span><span class="o">.</span><span class="n">species_string</span><span class="p">]</span>
+
+        <span class="c1"># put formal charge on first atom if there is none present</span>
+        <span class="n">formal_charge</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;formal_charge&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">formal_charge</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">formal_charge</span> <span class="o">=</span> <span class="p">(</span><span class="n">i_node</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="nb">round</span><span class="p">(</span><span class="n">mol_graph</span><span class="o">.</span><span class="n">molecule</span><span class="o">.</span><span class="n">charge</span><span class="p">)</span> <span class="o">*</span> <span class="n">unit</span><span class="o">.</span><span class="n">elementary_charge</span>
+
+        <span class="c1"># assume not aromatic if no info present</span>
+        <span class="n">is_aromatic</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;is_aromatic&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">False</span>
+
+        <span class="n">openff_mol</span><span class="o">.</span><span class="n">add_atom</span><span class="p">(</span><span class="n">atomic_number</span><span class="p">,</span> <span class="n">formal_charge</span><span class="p">,</span> <span class="n">is_aromatic</span><span class="o">=</span><span class="n">is_aromatic</span><span class="p">)</span>
+
+        <span class="c1"># add to partial charge array</span>
+        <span class="n">partial_charge</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;partial_charge&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">partial_charge</span><span class="p">,</span> <span class="n">Quantity</span><span class="p">):</span>
+            <span class="n">partial_charge</span> <span class="o">=</span> <span class="n">partial_charge</span><span class="o">.</span><span class="n">magnitude</span>
+        <span class="n">partial_charges</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">partial_charge</span><span class="p">)</span>
+
+    <span class="n">charge_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">partial_charges</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">not_equal</span><span class="p">(</span><span class="n">charge_array</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+        <span class="n">openff_mol</span><span class="o">.</span><span class="n">partial_charges</span> <span class="o">=</span> <span class="n">charge_array</span> <span class="o">*</span> <span class="n">unit</span><span class="o">.</span><span class="n">elementary_charge</span>
+
+    <span class="c1"># set edge properties, default to single bond and assume not aromatic</span>
+    <span class="k">for</span> <span class="n">i_node</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">bond_data</span> <span class="ow">in</span> <span class="n">mol_graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">edges</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">bond_order</span> <span class="o">=</span> <span class="n">bond_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;bond_order&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">1</span>
+        <span class="n">is_aromatic</span> <span class="o">=</span> <span class="n">bond_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;is_aromatic&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">False</span>
+        <span class="n">openff_mol</span><span class="o">.</span><span class="n">add_bond</span><span class="p">(</span><span class="n">i_node</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">bond_order</span><span class="p">,</span> <span class="n">is_aromatic</span><span class="o">=</span><span class="n">is_aromatic</span><span class="p">)</span>
+
+    <span class="n">openff_mol</span><span class="o">.</span><span class="n">add_conformer</span><span class="p">(</span><span class="n">mol_graph</span><span class="o">.</span><span class="n">molecule</span><span class="o">.</span><span class="n">cart_coords</span> <span class="o">*</span> <span class="n">unit</span><span class="o">.</span><span class="n">angstrom</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">openff_mol</span></div>
+
+
+
+<div class="viewcode-block" id="mol_graph_from_openff_mol">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.openff.mol_graph_from_openff_mol">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">mol_graph_from_openff_mol</span><span class="p">(</span><span class="n">molecule</span><span class="p">:</span> <span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MoleculeGraph</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This is designed to closely mirror the graph structure generated by tk.Molecule.to_networkx.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        molecule (tk.Molecule): The OpenFF Molecule to convert.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        MoleculeGraph: The converted MoleculeGraph.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mol_graph</span> <span class="o">=</span> <span class="n">MoleculeGraph</span><span class="o">.</span><span class="n">from_empty_graph</span><span class="p">(</span><span class="n">Molecule</span><span class="p">([],</span> <span class="p">[]),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;none&quot;</span><span class="p">)</span>
+    <span class="n">p_table</span> <span class="o">=</span> <span class="p">{</span><span class="n">el</span><span class="o">.</span><span class="n">Z</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">el</span><span class="p">)</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">Element</span><span class="p">}</span>
+    <span class="n">total_charge</span> <span class="o">=</span> <span class="n">cum_atoms</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">conformers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">magnitude</span> <span class="k">if</span> <span class="n">molecule</span><span class="o">.</span><span class="n">conformers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">molecule</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">atom</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">molecule</span><span class="o">.</span><span class="n">atoms</span><span class="p">):</span>
+        <span class="n">mol_graph</span><span class="o">.</span><span class="n">insert_node</span><span class="p">(</span>
+            <span class="n">cum_atoms</span> <span class="o">+</span> <span class="n">idx</span><span class="p">,</span>
+            <span class="n">p_table</span><span class="p">[</span><span class="n">atom</span><span class="o">.</span><span class="n">atomic_number</span><span class="p">],</span>
+            <span class="n">coords</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:],</span>
+        <span class="p">)</span>
+        <span class="n">mol_graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">cum_atoms</span> <span class="o">+</span> <span class="n">idx</span><span class="p">][</span><span class="s2">&quot;atomic_number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">atomic_number</span>
+        <span class="n">mol_graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">cum_atoms</span> <span class="o">+</span> <span class="n">idx</span><span class="p">][</span><span class="s2">&quot;is_aromatic&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">is_aromatic</span>
+        <span class="n">mol_graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">cum_atoms</span> <span class="o">+</span> <span class="n">idx</span><span class="p">][</span><span class="s2">&quot;stereochemistry&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">stereochemistry</span>
+        <span class="c1"># set partial charge as a pure float</span>
+        <span class="n">partial_charge</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">atom</span><span class="o">.</span><span class="n">partial_charge</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">atom</span><span class="o">.</span><span class="n">partial_charge</span><span class="o">.</span><span class="n">magnitude</span>
+        <span class="n">mol_graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">cum_atoms</span> <span class="o">+</span> <span class="n">idx</span><span class="p">][</span><span class="s2">&quot;partial_charge&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">partial_charge</span>
+        <span class="c1"># set formal charge as a pure float</span>
+        <span class="n">formal_charge</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">formal_charge</span><span class="o">.</span><span class="n">magnitude</span>
+        <span class="n">mol_graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">cum_atoms</span> <span class="o">+</span> <span class="n">idx</span><span class="p">][</span><span class="s2">&quot;formal_charge&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">formal_charge</span>
+        <span class="n">total_charge</span> <span class="o">+=</span> <span class="n">formal_charge</span>
+    <span class="k">for</span> <span class="n">bond</span> <span class="ow">in</span> <span class="n">molecule</span><span class="o">.</span><span class="n">bonds</span><span class="p">:</span>
+        <span class="n">mol_graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span>
+            <span class="n">cum_atoms</span> <span class="o">+</span> <span class="n">bond</span><span class="o">.</span><span class="n">atom1_index</span><span class="p">,</span>
+            <span class="n">cum_atoms</span> <span class="o">+</span> <span class="n">bond</span><span class="o">.</span><span class="n">atom2_index</span><span class="p">,</span>
+            <span class="n">bond_order</span><span class="o">=</span><span class="n">bond</span><span class="o">.</span><span class="n">bond_order</span><span class="p">,</span>
+            <span class="n">is_aromatic</span><span class="o">=</span><span class="n">bond</span><span class="o">.</span><span class="n">is_aromatic</span><span class="p">,</span>
+            <span class="n">stereochemistry</span><span class="o">=</span><span class="n">bond</span><span class="o">.</span><span class="n">stereochemistry</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="c1"># formal_charge += molecule.total_charge</span>
+    <span class="n">cum_atoms</span> <span class="o">+=</span> <span class="n">molecule</span><span class="o">.</span><span class="n">n_atoms</span>
+    <span class="n">mol_graph</span><span class="o">.</span><span class="n">molecule</span><span class="o">.</span><span class="n">set_charge_and_spin</span><span class="p">(</span><span class="n">charge</span><span class="o">=</span><span class="n">total_charge</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mol_graph</span></div>
+
+
+
+<div class="viewcode-block" id="get_atom_map">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.openff.get_atom_map">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_atom_map</span><span class="p">(</span><span class="n">inferred_mol</span><span class="p">:</span> <span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="p">,</span> <span class="n">openff_mol</span><span class="p">:</span> <span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute an atom mapping between two OpenFF Molecules.</span>
+
+<span class="sd">    Attempts to find an isomorphism between the molecules, considering various matching</span>
+<span class="sd">    criteria such as formal charges, stereochemistry, and bond orders. Returns the atom</span>
+<span class="sd">    mapping if an isomorphism is found, otherwise returns an empty mapping.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        inferred_mol (tk.Molecule): The first OpenFF Molecule.</span>
+<span class="sd">        openff_mol (tk.Molecule): The second OpenFF Molecule.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tuple[bool, Dict[int, int]]: A tuple containing a boolean indicating if an</span>
+<span class="sd">            isomorphism was found and a dictionary representing the atom mapping.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># do not apply formal charge restrictions</span>
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;return_atom_map&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;formal_charge_matching&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">isomorphic</span><span class="p">,</span> <span class="n">atom_map</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">Molecule</span><span class="o">.</span><span class="n">are_isomorphic</span><span class="p">(</span><span class="n">openff_mol</span><span class="p">,</span> <span class="n">inferred_mol</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">isomorphic</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">atom_map</span>
+    <span class="c1"># relax stereochemistry restrictions</span>
+    <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;atom_stereochemistry_matching&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;bond_stereochemistry_matching&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">isomorphic</span><span class="p">,</span> <span class="n">atom_map</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">Molecule</span><span class="o">.</span><span class="n">are_isomorphic</span><span class="p">(</span><span class="n">openff_mol</span><span class="p">,</span> <span class="n">inferred_mol</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">isomorphic</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">atom_map</span>
+    <span class="c1"># relax bond order restrictions</span>
+    <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;bond_order_matching&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">isomorphic</span><span class="p">,</span> <span class="n">atom_map</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">Molecule</span><span class="o">.</span><span class="n">are_isomorphic</span><span class="p">(</span><span class="n">openff_mol</span><span class="p">,</span> <span class="n">inferred_mol</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">isomorphic</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">atom_map</span>
+    <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="p">{}</span></div>
+
+
+
+<div class="viewcode-block" id="infer_openff_mol">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.openff.infer_openff_mol">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">infer_openff_mol</span><span class="p">(</span>
+    <span class="n">mol_geometry</span><span class="p">:</span> <span class="n">Molecule</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Infer an OpenFF Molecule from a Pymatgen Molecule.</span>
+
+<span class="sd">    Constructs a MoleculeGraph from the Pymatgen Molecule using the OpenBabelNN local</span>
+<span class="sd">    environment strategy and extends metal edges. Converts the resulting MoleculeGraph</span>
+<span class="sd">    to an OpenFF Molecule using mol_graph_to_openff_mol.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        mol_geometry (pymatgen.core.Molecule): The Pymatgen Molecule to infer from.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tk.Molecule: The inferred OpenFF Molecule.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mol_graph</span> <span class="o">=</span> <span class="n">MoleculeGraph</span><span class="o">.</span><span class="n">from_local_env_strategy</span><span class="p">(</span><span class="n">mol_geometry</span><span class="p">,</span> <span class="n">OpenBabelNN</span><span class="p">())</span>
+    <span class="n">mol_graph</span> <span class="o">=</span> <span class="n">metal_edge_extender</span><span class="p">(</span><span class="n">mol_graph</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mol_graph_to_openff_mol</span><span class="p">(</span><span class="n">mol_graph</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="add_conformer">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.openff.add_conformer">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_conformer</span><span class="p">(</span><span class="n">openff_mol</span><span class="p">:</span> <span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="p">,</span> <span class="n">geometry</span><span class="p">:</span> <span class="n">Molecule</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Add conformers to an OpenFF Molecule based on the provided geometry.</span>
+
+<span class="sd">    If a geometry is provided, infers an OpenFF Molecule from it,</span>
+<span class="sd">    finds an atom mapping between the inferred molecule and the</span>
+<span class="sd">    input molecule, and adds the conformer coordinates to the input</span>
+<span class="sd">    molecule. If no geometry is provided, generates a single conformer.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        openff_mol (tk.Molecule): The OpenFF Molecule to add conformers to.</span>
+<span class="sd">        geometry (Union[pymatgen.core.Molecule, None]): The geometry to use for adding</span>
+<span class="sd">            conformers.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tuple[tk.Molecule, Dict[int, int]]: A tuple containing the updated OpenFF</span>
+<span class="sd">            Molecule with added conformers and a dictionary representing the atom</span>
+<span class="sd">            mapping.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># TODO: test this</span>
+    <span class="k">if</span> <span class="n">geometry</span><span class="p">:</span>
+        <span class="c1"># for geometry in geometries:</span>
+        <span class="n">inferred_mol</span> <span class="o">=</span> <span class="n">infer_openff_mol</span><span class="p">(</span><span class="n">geometry</span><span class="p">)</span>
+        <span class="n">is_isomorphic</span><span class="p">,</span> <span class="n">atom_map</span> <span class="o">=</span> <span class="n">get_atom_map</span><span class="p">(</span><span class="n">inferred_mol</span><span class="p">,</span> <span class="n">openff_mol</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_isomorphic</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;An isomorphism cannot be found between smile </span><span class="si">{</span><span class="n">openff_mol</span><span class="o">.</span><span class="n">to_smiles</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;and the provided molecule </span><span class="si">{</span><span class="n">geometry</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">new_mol</span> <span class="o">=</span> <span class="n">Molecule</span><span class="o">.</span><span class="n">from_sites</span><span class="p">([</span><span class="n">geometry</span><span class="o">.</span><span class="n">sites</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">atom_map</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+        <span class="n">openff_mol</span><span class="o">.</span><span class="n">add_conformer</span><span class="p">(</span><span class="n">new_mol</span><span class="o">.</span><span class="n">cart_coords</span> <span class="o">*</span> <span class="n">unit</span><span class="o">.</span><span class="n">angstrom</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">atom_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">openff_mol</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">)}</span>
+        <span class="n">openff_mol</span><span class="o">.</span><span class="n">generate_conformers</span><span class="p">(</span><span class="n">n_conformers</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">openff_mol</span><span class="p">,</span> <span class="n">atom_map</span></div>
+
+
+
+<div class="viewcode-block" id="assign_partial_charges">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.openff.assign_partial_charges">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">assign_partial_charges</span><span class="p">(</span>
+    <span class="n">openff_mol</span><span class="p">:</span> <span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="p">,</span>
+    <span class="n">atom_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">charge_method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">partial_charges</span><span class="p">:</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Assign partial charges to an OpenFF Molecule.</span>
+
+<span class="sd">    If partial charges are provided, assigns them to the molecule</span>
+<span class="sd">    based on the atom mapping. If the molecule has only one atom,</span>
+<span class="sd">    assigns the total charge as the partial charge. Otherwise,</span>
+<span class="sd">    assigns partial charges using the specified charge method.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        openff_mol (tk.Molecule): The OpenFF Molecule to assign partial charges to.</span>
+<span class="sd">        atom_map (Dict[int, int]): A dictionary representing the atom mapping.</span>
+<span class="sd">        charge_method (str): The charge method to use if partial charges are</span>
+<span class="sd">            not provided.</span>
+<span class="sd">        partial_charges (Union[None, List[float]]): A list of partial charges to</span>
+<span class="sd">            assign or None to use the charge method.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tk.Molecule: The OpenFF Molecule with assigned partial charges.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># TODO: test this</span>
+    <span class="c1"># assign partial charges</span>
+    <span class="k">if</span> <span class="n">partial_charges</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">partial_charges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">partial_charges</span><span class="p">)</span>
+        <span class="n">chargs</span> <span class="o">=</span> <span class="n">partial_charges</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">atom_map</span><span class="o">.</span><span class="n">values</span><span class="p">())]</span>  <span class="c1"># type: ignore[index, call-overload]</span>
+        <span class="n">openff_mol</span><span class="o">.</span><span class="n">partial_charges</span> <span class="o">=</span> <span class="n">chargs</span> <span class="o">*</span> <span class="n">unit</span><span class="o">.</span><span class="n">elementary_charge</span>
+    <span class="k">elif</span> <span class="n">openff_mol</span><span class="o">.</span><span class="n">n_atoms</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">openff_mol</span><span class="o">.</span><span class="n">partial_charges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">openff_mol</span><span class="o">.</span><span class="n">total_charge</span><span class="o">.</span><span class="n">magnitude</span><span class="p">])</span> <span class="o">*</span> <span class="n">unit</span><span class="o">.</span><span class="n">elementary_charge</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">openff_mol</span><span class="o">.</span><span class="n">assign_partial_charges</span><span class="p">(</span><span class="n">charge_method</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">openff_mol</span></div>
+
+
+
+<div class="viewcode-block" id="create_openff_mol">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.openff.create_openff_mol">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_openff_mol</span><span class="p">(</span>
+    <span class="n">smile</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">geometry</span><span class="p">:</span> <span class="n">Molecule</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">charge_scaling</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">partial_charges</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">backup_charge_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;am1bcc&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create an OpenFF Molecule from a SMILES string and optional geometry.</span>
+
+<span class="sd">    Constructs an OpenFF Molecule from the provided SMILES</span>
+<span class="sd">    string, adds conformers based on the provided geometry (if</span>
+<span class="sd">    any), assigns partial charges using the specified method</span>
+<span class="sd">    or provided partial charges, and applies charge scaling.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        smile (str): The SMILES string of the molecule.</span>
+<span class="sd">        geometry (Union[pymatgen.core.Molecule, str, Path, None], optional): The</span>
+<span class="sd">            geometry to use for adding conformers. Can be a Pymatgen Molecule,</span>
+<span class="sd">            file path, or None.</span>
+<span class="sd">        charge_scaling (float, optional): The scaling factor for partial charges.</span>
+<span class="sd">            Default is 1.</span>
+<span class="sd">        partial_charges (Union[List[float], None], optional): A list of partial</span>
+<span class="sd">            charges to assign, or None to use the charge method.</span>
+<span class="sd">        backup_charge_method (str, optional): The backup charge method to use if</span>
+<span class="sd">            partial charges are not provided. Default is &quot;am1bcc&quot;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tk.Molecule: The created OpenFF Molecule.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">geometry</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">):</span>
+        <span class="n">geometry</span> <span class="o">=</span> <span class="n">Molecule</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">geometry</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">partial_charges</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">geometry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;geometries must be set if partial_charges is set&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">partial_charges</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">geometry</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;partial charges must have same length &amp; order as geometry&quot;</span><span class="p">)</span>
+
+    <span class="n">openff_mol</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Molecule</span><span class="o">.</span><span class="n">from_smiles</span><span class="p">(</span><span class="n">smile</span><span class="p">,</span> <span class="n">allow_undefined_stereo</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># add conformer</span>
+    <span class="n">openff_mol</span><span class="p">,</span> <span class="n">atom_map</span> <span class="o">=</span> <span class="n">add_conformer</span><span class="p">(</span><span class="n">openff_mol</span><span class="p">,</span> <span class="n">geometry</span><span class="p">)</span>
+    <span class="c1"># assign partial charges</span>
+    <span class="n">openff_mol</span> <span class="o">=</span> <span class="n">assign_partial_charges</span><span class="p">(</span>
+        <span class="n">openff_mol</span><span class="p">,</span>
+        <span class="n">atom_map</span><span class="p">,</span>
+        <span class="n">backup_charge_method</span><span class="p">,</span>
+        <span class="n">partial_charges</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">openff_mol</span><span class="o">.</span><span class="n">partial_charges</span> <span class="o">*=</span> <span class="n">charge_scaling</span>
+
+    <span class="k">return</span> <span class="n">openff_mol</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.openff</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.icet &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.icet</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.io.icet</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">multiproc</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">string</span><span class="w"> </span><span class="kn">import</span> <span class="n">ascii_uppercase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="kn">import</span> <span class="n">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.command_line.mcsqs_caller</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sqs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Structure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.ase</span><span class="w"> </span><span class="kn">import</span> <span class="n">AseAtomsAdaptor</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">icet</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClusterSpace</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">icet.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">enumerate_structures</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">icet.tools.structure_generation</span><span class="w"> </span><span class="kn">import</span> <span class="n">_get_sqs_cluster_vector</span><span class="p">,</span> <span class="n">_validate_concentrations</span><span class="p">,</span> <span class="n">generate_sqs</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mchammer.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">compare_cluster_vectors</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">ClusterSpace</span> <span class="o">=</span> <span class="n">_validate_concentrations</span> <span class="o">=</span> <span class="n">_get_sqs_cluster_vector</span> <span class="o">=</span> <span class="n">compare_cluster_vectors</span> <span class="o">=</span> <span class="n">generate_sqs</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">enumerate_structures</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">_icet</span><span class="w"> </span><span class="kn">import</span> <span class="n">_ClusterSpace</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">ase</span><span class="w"> </span><span class="kn">import</span> <span class="n">Atoms</span>
+
+
+<div class="viewcode-block" id="IcetSQS">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.icet.IcetSQS">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IcetSQS</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Interface to the Icet library of SQS structure generation tools.</span>
+
+<span class="sd">    https://icet.materialsmodeling.org</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sqs_kwarg_names</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;monte_carlo&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="s2">&quot;include_smaller_cells&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;pbc&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;T_start&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;T_stop&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;n_steps&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;optimality_weight&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;random_seed&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;tol&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;enumeration&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;include_smaller_cells&quot;</span><span class="p">,</span> <span class="s2">&quot;pbc&quot;</span><span class="p">,</span> <span class="s2">&quot;optimality_weight&quot;</span><span class="p">,</span> <span class="s2">&quot;tol&quot;</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="n">_sqs_kwarg_defaults</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;optimality_weight&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">&quot;tol&quot;</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">,</span>
+        <span class="s2">&quot;include_smaller_cells&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>  <span class="c1"># for consistency with ATAT</span>
+        <span class="s2">&quot;pbc&quot;</span><span class="p">:</span> <span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="n">sqs_methods</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;enumeration&quot;</span><span class="p">,</span> <span class="s2">&quot;monte_carlo&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span>
+        <span class="n">scaling</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">instances</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">cluster_cutoffs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">sqs_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sqs_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Instantiate an IcetSQS interface.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure): disordered structure to compute SQS</span>
+<span class="sd">            scaling (int): SQS supercell contains scaling * len(structure) sites</span>
+<span class="sd">            instances (int): number of parallel SQS jobs to run</span>
+<span class="sd">            cluster_cutoffs (dict): dict of cluster size (pairs, triplets, ...) and</span>
+<span class="sd">                the size of the cluster</span>
+<span class="sd">        Kwargs:</span>
+<span class="sd">            sqs_method (str or None): if a str, one of (&quot;enumeration&quot;, &quot;monte_carlo&quot;)</span>
+<span class="sd">                If None, default to &quot;enumeration&quot; for a supercell of &lt; 24 sites, and</span>
+<span class="sd">                &quot;monte carlo&quot; otherwise.</span>
+<span class="sd">            sqs_kwargs (dict): kwargs to pass to the icet SQS generators.</span>
+<span class="sd">                See self.sqs_kwarg_names for possible options.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">ClusterSpace</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;IcetSQS requires the icet package. Use `pip install icet`&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_structure</span> <span class="o">=</span> <span class="n">structure</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scaling</span> <span class="o">=</span> <span class="n">scaling</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">instances</span> <span class="o">=</span> <span class="n">instances</span> <span class="ow">or</span> <span class="n">multiproc</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_get_site_composition</span><span class="p">()</span>
+
+        <span class="c1"># The peculiar way that icet works requires a copy of the</span>
+        <span class="c1"># disordered structure, but without any fractionally-occupied sites</span>
+        <span class="c1"># Essentially the host structure</span>
+        <span class="n">_ordered_structure</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="n">original_composition</span> <span class="o">=</span> <span class="n">_ordered_structure</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
+        <span class="n">dummy_comp</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">_ordered_structure</span><span class="o">.</span><span class="n">composition</span><span class="p">))</span>
+        <span class="n">_ordered_structure</span><span class="o">.</span><span class="n">replace_species</span><span class="p">(</span>
+            <span class="p">{</span><span class="n">species</span><span class="p">:</span> <span class="n">dummy_comp</span> <span class="k">for</span> <span class="n">species</span> <span class="ow">in</span> <span class="n">original_composition</span> <span class="k">if</span> <span class="n">species</span> <span class="o">!=</span> <span class="n">dummy_comp</span><span class="p">}</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ordered_atoms</span> <span class="o">=</span> <span class="n">AseAtomsAdaptor</span><span class="o">.</span><span class="n">get_atoms</span><span class="p">(</span><span class="n">_ordered_structure</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">cutoffs_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">cluster_cutoffs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cluster_cutoffs</span><span class="p">:</span>
+                <span class="c1"># pad missing non-sequential values</span>
+                <span class="n">cluster_cutoffs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cutoffs_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cluster_cutoffs</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+        <span class="c1"># For safety, enumeration works well on 1 core for ~&lt; 24 sites/cell</span>
+        <span class="c1"># The bottleneck is **generation** of the structures via enumeration,</span>
+        <span class="c1"># less checking their SQS objective.</span>
+        <span class="c1"># Beyond ~24 sites/cell, monte carlo is more efficient</span>
+        <span class="n">sqs_method</span> <span class="o">=</span> <span class="n">sqs_method</span> <span class="ow">or</span> <span class="p">(</span><span class="s2">&quot;enumeration&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_structure</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">24</span> <span class="k">else</span> <span class="s2">&quot;monte_carlo&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Default sqs_kwargs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sqs_kwarg_defaults</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">sqs_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
+
+        <span class="n">unrecognized_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwarg_names</span><span class="p">[</span><span class="n">sqs_method</span><span class="p">]}</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unrecognized_kwargs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Ignoring unrecognized icet </span><span class="si">{</span><span class="n">sqs_method</span><span class="si">}</span><span class="s2"> kwargs: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">unrecognized_kwargs</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">key</span><span class="p">:</span> <span class="n">value</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwarg_names</span><span class="p">[</span><span class="n">sqs_method</span><span class="p">]</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">sqs_method</span> <span class="o">==</span> <span class="s2">&quot;monte_carlo&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sqs_getter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">monte_carlo_sqs_structures</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;random_seed&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span><span class="p">[</span><span class="s2">&quot;random_seed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e6</span> <span class="o">*</span> <span class="n">time</span><span class="p">())</span>
+
+        <span class="k">elif</span> <span class="n">sqs_method</span> <span class="o">==</span> <span class="s2">&quot;enumeration&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sqs_getter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enumerate_sqs_structures</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown </span><span class="si">{</span><span class="n">sqs_method</span><span class="si">=}</span><span class="s2">! Must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sqs_methods</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sqs_obj_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;optimality_weight&quot;</span><span class="p">,</span> <span class="s2">&quot;tol&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sqs_kwarg_defaults</span><span class="p">[</span><span class="n">key</span><span class="p">]):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_sqs_obj_kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="n">cluster_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_cluster_space</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_concentrations</span> <span class="o">=</span> <span class="n">_validate_concentrations</span><span class="p">(</span>
+            <span class="n">concentrations</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="p">,</span> <span class="n">cluster_space</span><span class="o">=</span><span class="n">cluster_space</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sqs_vector</span> <span class="o">=</span> <span class="n">_get_sqs_cluster_vector</span><span class="p">(</span>
+            <span class="n">cluster_space</span><span class="o">=</span><span class="n">cluster_space</span><span class="p">,</span>
+            <span class="n">target_concentrations</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">target_concentrations</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="IcetSQS.run">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.icet.IcetSQS.run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sqs</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Run the SQS search with icet.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            pymatgen Sqs object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sqs_structures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqs_getter</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sqs_structures</span><span class="p">)):</span>
+            <span class="n">sqs_structures</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="s2">&quot;structure&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">AseAtomsAdaptor</span><span class="o">.</span><span class="n">get_structure</span><span class="p">(</span><span class="n">sqs_structures</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="s2">&quot;structure&quot;</span><span class="p">])</span>
+        <span class="n">sqs_structures</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">sqs_structures</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">entry</span><span class="p">:</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;objective_function&quot;</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">Sqs</span><span class="p">(</span>
+            <span class="n">bestsqs</span><span class="o">=</span><span class="n">sqs_structures</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;structure&quot;</span><span class="p">],</span>
+            <span class="n">objective_function</span><span class="o">=</span><span class="n">sqs_structures</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;objective_function&quot;</span><span class="p">],</span>
+            <span class="n">allsqs</span><span class="o">=</span><span class="n">sqs_structures</span><span class="p">,</span>
+            <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;./&quot;</span><span class="p">,</span>
+            <span class="n">clusters</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_cluster_space</span><span class="p">()),</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_site_composition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get Icet-format composition from structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict with sublattice compositions specified by uppercase letters,</span>
+<span class="sd">                e.g. In_x Ga_1-x As becomes: {</span>
+<span class="sd">                    &quot;A&quot;: {&quot;In&quot;: x, &quot;Ga&quot;: 1 - x},</span>
+<span class="sd">                    &quot;B&quot;: {&quot;As&quot;: 1}</span>
+<span class="sd">                }</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">uppercase_letters</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ascii_uppercase</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_structure</span><span class="p">):</span>
+            <span class="n">site_comp</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">species</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">site_comp</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="p">[</span><span class="n">uppercase_letters</span><span class="p">[</span><span class="n">idx</span><span class="p">]]</span> <span class="o">=</span> <span class="n">site_comp</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_cluster_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ClusterSpace</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate the ClusterSpace object for icet.&quot;&quot;&quot;</span>
+        <span class="n">chemical_symbols</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">site</span><span class="o">.</span><span class="n">species</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span> <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_structure</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">ClusterSpace</span><span class="p">(</span>
+            <span class="n">structure</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_ordered_atoms</span><span class="p">,</span>
+            <span class="n">cutoffs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cutoffs_list</span><span class="p">,</span>
+            <span class="n">chemical_symbols</span><span class="o">=</span><span class="n">chemical_symbols</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="IcetSQS.get_icet_sqs_obj">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.icet.IcetSQS.get_icet_sqs_obj">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_icet_sqs_obj</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">material</span><span class="p">:</span> <span class="n">Atoms</span> <span class="o">|</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">cluster_space</span><span class="p">:</span> <span class="n">_ClusterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the SQS objective function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            material (pymatgen.Structure | ase.Atoms): structure to compute SQS objective function for.</span>
+<span class="sd">            cluster_space (ClusterSpace): ClusterSpace of the SQS search.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            float: the SQS objective function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">material</span><span class="p">,</span> <span class="n">Structure</span><span class="p">):</span>
+            <span class="n">material</span> <span class="o">=</span> <span class="n">AseAtomsAdaptor</span><span class="o">.</span><span class="n">get_atoms</span><span class="p">(</span><span class="n">material</span><span class="p">)</span>
+
+        <span class="n">cluster_space</span> <span class="o">=</span> <span class="n">cluster_space</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_cluster_space</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">compare_cluster_vectors</span><span class="p">(</span>
+            <span class="n">cv_1</span><span class="o">=</span><span class="n">cluster_space</span><span class="o">.</span><span class="n">get_cluster_vector</span><span class="p">(</span><span class="n">material</span><span class="p">),</span>
+            <span class="n">cv_2</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sqs_vector</span><span class="p">,</span>
+            <span class="n">orbit_data</span><span class="o">=</span><span class="n">cluster_space</span><span class="o">.</span><span class="n">orbit_data</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_sqs_obj_kwargs</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IcetSQS.enumerate_sqs_structures">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.icet.IcetSQS.enumerate_sqs_structures">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">enumerate_sqs_structures</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cluster_space</span><span class="p">:</span> <span class="n">_ClusterSpace</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate an SQS by enumeration of all possible arrangements.</span>
+
+<span class="sd">        Adapted from icet.tools.structure_generation.generate_sqs_by_enumeration</span>
+<span class="sd">        to accommodate multiprocessing.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            cluster_space (ClusterSpace) : ClusterSpace of the SQS search.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            list: dicts of the form: {</span>
+<span class="sd">                    &quot;structure&quot;: SQS structure,</span>
+<span class="sd">                    &quot;objective_function&quot;: SQS objective function,</span>
+<span class="sd">                }</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Translate concentrations to the format required for concentration</span>
+        <span class="c1"># restricted enumeration</span>
+        <span class="n">cr</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">cluster_space</span> <span class="o">=</span> <span class="n">cluster_space</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_cluster_space</span><span class="p">()</span>
+        <span class="n">sub_lattices</span> <span class="o">=</span> <span class="n">cluster_space</span><span class="o">.</span><span class="n">get_sublattices</span><span class="p">(</span><span class="n">cluster_space</span><span class="o">.</span><span class="n">primitive_structure</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">sl</span> <span class="ow">in</span> <span class="n">sub_lattices</span><span class="p">:</span>
+            <span class="n">mult_factor</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sl</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">cluster_space</span><span class="o">.</span><span class="n">primitive_structure</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">sl</span><span class="o">.</span><span class="n">symbol</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_concentrations</span><span class="p">:</span>
+                <span class="n">sl_conc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_concentrations</span><span class="p">[</span><span class="n">sl</span><span class="o">.</span><span class="n">symbol</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sl_conc</span> <span class="o">=</span> <span class="p">{</span><span class="n">sl</span><span class="o">.</span><span class="n">chemical_symbols</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="mf">1.0</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">species</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">sl_conc</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="n">value</span> <span class="o">*</span> <span class="n">mult_factor</span>
+                <span class="k">if</span> <span class="n">species</span> <span class="ow">in</span> <span class="n">cr</span><span class="p">:</span>
+                    <span class="n">cr</span><span class="p">[</span><span class="n">species</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">cr</span><span class="p">[</span><span class="n">species</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">c</span><span class="p">,</span> <span class="n">cr</span><span class="p">[</span><span class="n">species</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">c</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">cr</span><span class="p">[</span><span class="n">species</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+
+        <span class="c1"># Check to be sure...</span>
+        <span class="n">c_sum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cr</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">c_sum</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span><span class="p">[</span><span class="s2">&quot;tol&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Site occupancies sum to </span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">c_sum</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead of 1!&quot;</span><span class="p">)</span>
+
+        <span class="n">sizes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span><span class="p">[</span><span class="s2">&quot;include_smaller_cells&quot;</span><span class="p">]</span> <span class="k">else</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scaling</span><span class="p">]</span>
+
+        <span class="c1"># Prepare primitive structure with the right boundary conditions</span>
+        <span class="n">prim</span> <span class="o">=</span> <span class="n">cluster_space</span><span class="o">.</span><span class="n">primitive_structure</span>
+        <span class="n">prim</span><span class="o">.</span><span class="n">set_pbc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span><span class="p">[</span><span class="s2">&quot;pbc&quot;</span><span class="p">])</span>
+
+        <span class="n">structures</span> <span class="o">=</span> <span class="n">enumerate_structures</span><span class="p">(</span><span class="n">prim</span><span class="p">,</span> <span class="n">sizes</span><span class="p">,</span> <span class="n">cluster_space</span><span class="o">.</span><span class="n">chemical_symbols</span><span class="p">,</span> <span class="n">concentration_restrictions</span><span class="o">=</span><span class="n">cr</span><span class="p">)</span>
+        <span class="n">chunks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Atoms</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">instances</span><span class="p">)]</span>
+        <span class="n">proc_idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">structure</span> <span class="ow">in</span> <span class="n">structures</span><span class="p">:</span>
+            <span class="n">chunks</span><span class="p">[</span><span class="n">proc_idx</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span>
+            <span class="n">proc_idx</span> <span class="o">=</span> <span class="p">(</span><span class="n">proc_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">instances</span>
+
+        <span class="n">manager</span> <span class="o">=</span> <span class="n">multiproc</span><span class="o">.</span><span class="n">Manager</span><span class="p">()</span>
+        <span class="n">working_list</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>
+        <span class="n">processes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">proc_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">instances</span><span class="p">):</span>
+            <span class="n">process</span> <span class="o">=</span> <span class="n">multiproc</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span>
+                <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_best_sqs_from_list</span><span class="p">,</span>
+                <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">chunks</span><span class="p">[</span><span class="n">proc_idx</span><span class="p">],</span> <span class="n">working_list</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">processes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">process</span><span class="p">)</span>
+            <span class="n">process</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">process</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
+            <span class="n">process</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">working_list</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_best_sqs_from_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Atoms</span><span class="p">],</span> <span class="n">output_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find best SQS structure from list of SQS structures.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structures (list of ase Atoms) : list of SQS structures</span>
+<span class="sd">            output_list (list of dicts) : shared list between</span>
+<span class="sd">                multiprocessing processes to store best SQS objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">best_sqs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;objective_function&quot;</span><span class="p">:</span> <span class="mf">1.0e20</span><span class="p">}</span>
+        <span class="n">cluster_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_cluster_space</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">structure</span> <span class="ow">in</span> <span class="n">structures</span><span class="p">:</span>
+            <span class="n">objective</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_icet_sqs_obj</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">cluster_space</span><span class="o">=</span><span class="n">cluster_space</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">objective</span> <span class="o">&lt;</span> <span class="n">best_sqs</span><span class="p">[</span><span class="s2">&quot;objective_function&quot;</span><span class="p">]:</span>
+                <span class="n">best_sqs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="n">structure</span><span class="p">,</span> <span class="s2">&quot;objective_function&quot;</span><span class="p">:</span> <span class="n">objective</span><span class="p">}</span>
+        <span class="n">output_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">best_sqs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">best_sqs</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_single_monte_carlo_sqs_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run a single Monte Carlo SQS search with Icet.&quot;&quot;&quot;</span>
+        <span class="n">cluster_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_cluster_space</span><span class="p">()</span>
+        <span class="n">sqs_structure</span> <span class="o">=</span> <span class="n">generate_sqs</span><span class="p">(</span>
+            <span class="n">cluster_space</span><span class="o">=</span><span class="n">cluster_space</span><span class="p">,</span>
+            <span class="n">max_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scaling</span><span class="p">,</span>
+            <span class="n">target_concentrations</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">target_concentrations</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">sqs_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="n">sqs_structure</span><span class="p">,</span>
+            <span class="s2">&quot;objective_function&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_icet_sqs_obj</span><span class="p">(</span><span class="n">sqs_structure</span><span class="p">,</span> <span class="n">cluster_space</span><span class="o">=</span><span class="n">cluster_space</span><span class="p">),</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="IcetSQS.monte_carlo_sqs_structures">
+<a class="viewcode-back" href="../../../pymatgen.io.html#pymatgen.io.icet.IcetSQS.monte_carlo_sqs_structures">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">monte_carlo_sqs_structures</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run `self.instances` Monte Carlo SQS search with Icet.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">multiproc</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">instances</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pool</span><span class="o">.</span><span class="n">starmap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_single_monte_carlo_sqs_run</span><span class="p">,</span> <span class="p">[()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">instances</span><span class="p">)])</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.icet</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

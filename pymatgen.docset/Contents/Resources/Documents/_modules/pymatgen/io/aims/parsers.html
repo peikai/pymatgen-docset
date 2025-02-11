@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.aims.parsers &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.aims.parsers</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.io.aims.parsers</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;AIMS output parser, taken from ASE with modifications.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">gzip</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lattice</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">,</span> <span class="n">Structure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core.tensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple3Floats</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Sequence</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">io</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextIOWrapper</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Matrix3D</span><span class="p">,</span> <span class="n">Vector3D</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Thomas A. R. Purcell and Andrey Sobolev&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;1.0&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;purcellt@arizona.edu and andrey.n.sobolev@gmail.com&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;November 2023&quot;</span>
+
+<span class="c1"># TARP: Originally an object, but type hinting needs this to be an int</span>
+<span class="n">LINE_NOT_FOUND</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1000</span>
+<span class="n">EV_PER_A3_TO_KBAR</span> <span class="o">=</span> <span class="mf">1.60217653e-19</span> <span class="o">*</span> <span class="mf">1e22</span>
+
+
+<div class="viewcode-block" id="ParseError">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.ParseError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ParseError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse error during reading of a file.&quot;&quot;&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="AimsParseError">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.AimsParseError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AimsParseError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exception raised if an error occurs when parsing an Aims output file.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the error with the message, message.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># Read aims.out files</span>
+<span class="n">SCALAR_PROPERTY_TO_LINE_KEY</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;free_energy&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;| Electronic free energy&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;number_of_iterations&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;| Number of self-consistency cycles&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;magnetic_moment&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;N_up - N_down&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;n_atoms&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;| Number of atoms&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;n_bands&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;Number of Kohn-Sham states&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Reducing total number of  Kohn-Sham states&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Reducing total number of Kohn-Sham states&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;n_electrons&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;The structure contains&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;n_kpts&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;| Number of k-points&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;n_spins&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;| Number of spin channels&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;electronic_temp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Occupation type:&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;fermi_energy&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;| Chemical potential (Fermi level)&quot;</span><span class="p">],</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="AimsOutChunk">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.AimsOutChunk">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AimsOutChunk</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for AimsOutChunks.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        lines (list[str]): The list of all lines in the chunk</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AimsOutChunk.reverse_search_for">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.AimsOutChunk.reverse_search_for">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reverse_search_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keys</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">line_start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find the last time one of the keys appears in self.lines.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            keys (list[str]): The key strings to search for in self.lines</span>
+<span class="sd">            line_start (int): The lowest index to search for in self.lines</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The last time one of the keys appears in self.lines</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">:][::</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">key</span> <span class="ow">in</span> <span class="n">line</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">):</span>
+                <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span> <span class="o">-</span> <span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span>
+
+        <span class="k">return</span> <span class="n">LINE_NOT_FOUND</span></div>
+
+
+<div class="viewcode-block" id="AimsOutChunk.search_for_all">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.AimsOutChunk.search_for_all">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">search_for_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">line_start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">line_end</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find the all times the key appears in self.lines.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key string to search for in self.lines</span>
+<span class="sd">            line_start (int): The first line to start the search from</span>
+<span class="sd">            line_end (int): The last line to end the search at</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            All times the key appears in the lines</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">line_index</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ll</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">:</span><span class="n">line_end</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                <span class="n">line_index</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ll</span> <span class="o">+</span> <span class="n">line_start</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">line_index</span></div>
+
+
+<div class="viewcode-block" id="AimsOutChunk.parse_scalar">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.AimsOutChunk.parse_scalar">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">property</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># noqa: A002</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse a scalar property from the chunk.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            property (str): The property key to parse</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The scalar value of the property or None if not found</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">(</span><span class="n">SCALAR_PROPERTY_TO_LINE_KEY</span><span class="p">[</span><span class="nb">property</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="AimsOutHeaderChunk">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.AimsOutHeaderChunk">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AimsOutHeaderChunk</span><span class="p">(</span><span class="n">AimsOutChunk</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The header of the aims.out file containing general information.&quot;&quot;&quot;</span>
+
+    <span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">_cache</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">commit_hash</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The commit hash for the FHI-aims version.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Commit number&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AimsParseError</span><span class="p">(</span><span class="s2">&quot;This file does not appear to be an aims-output file&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">aims_uuid</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The aims-uuid for the calculation.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;aims_uuid&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AimsParseError</span><span class="p">(</span><span class="s2">&quot;This file does not appear to be an aims-output file&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">version_number</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The commit hash for the FHI-aims version.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;FHI-aims version&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AimsParseError</span><span class="p">(</span><span class="s2">&quot;This file does not appear to be an aims-output file&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fortran_compiler</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The fortran compiler used to make FHI-aims.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Fortran compiler      :&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AimsParseError</span><span class="p">(</span><span class="s2">&quot;This file does not appear to be an aims-output file&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">c_compiler</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The C compiler used to make FHI-aims.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;C compiler            :&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fortran_compiler_flags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The fortran compiler flags used to make FHI-aims.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Fortran compiler flags&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AimsParseError</span><span class="p">(</span><span class="s2">&quot;This file does not appear to be an aims-output file&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">c_compiler_flags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The C compiler flags used to make FHI-aims.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;C compiler flags&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The optional build flags passed to cmake.&quot;&quot;&quot;</span>
+        <span class="n">line_end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Linking against:&quot;</span><span class="p">])</span>
+        <span class="n">line_inds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_for_all</span><span class="p">(</span><span class="s2">&quot;Using&quot;</span><span class="p">,</span> <span class="n">line_end</span><span class="o">=</span><span class="n">line_end</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">:])</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="n">line_inds</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">linked_against</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;All libraries used to link the FHI-aims executable.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Linking against:&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="n">linked_libs</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+        <span class="n">line_start</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">while</span> <span class="s2">&quot;lib&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]:</span>
+            <span class="n">linked_libs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+            <span class="n">line_start</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">return</span> <span class="n">linked_libs</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_lattice</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Lattice</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The initial lattice vectors from the aims.out file.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;| Unit cell:&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">Lattice</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="p">[[</span><span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span> <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">3</span><span class="p">:]]</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">line_start</span> <span class="o">+</span> <span class="mi">4</span><span class="p">]]</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The initial structure.</span>
+
+<span class="sd">        Using the FHI-aims output file recreate the initial structure for</span>
+<span class="sd">        the calculation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lattice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_lattice</span>
+
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Atomic structure:&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AimsParseError</span><span class="p">(</span><span class="s2">&quot;No information about the structure in the chunk.&quot;</span><span class="p">)</span>
+
+        <span class="n">line_start</span> <span class="o">+=</span> <span class="mi">2</span>
+
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+        <span class="n">species</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span>
+        <span class="k">for</span> <span class="n">ll</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span> <span class="p">:</span> <span class="n">line_start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">]):</span>
+            <span class="n">inp</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="n">coords</span><span class="p">[</span><span class="n">ll</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span> <span class="k">for</span> <span class="n">pos</span> <span class="ow">in</span> <span class="n">inp</span><span class="p">[</span><span class="mi">4</span><span class="p">:</span><span class="mi">7</span><span class="p">]]</span>
+            <span class="n">species</span><span class="p">[</span><span class="n">ll</span><span class="p">]</span> <span class="o">=</span> <span class="n">inp</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+
+        <span class="n">site_properties</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;charge&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_charges</span><span class="p">}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_magnetic_moments</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;magmoms&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_magnetic_moments</span>
+
+        <span class="k">if</span> <span class="n">lattice</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Structure</span><span class="p">(</span>
+                <span class="n">lattice</span><span class="p">,</span>
+                <span class="n">species</span><span class="p">,</span>
+                <span class="n">coords</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_charges</span><span class="p">),</span>
+                <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">site_properties</span><span class="o">=</span><span class="n">site_properties</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">Molecule</span><span class="p">(</span>
+            <span class="n">species</span><span class="p">,</span>
+            <span class="n">coords</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_charges</span><span class="p">),</span>
+            <span class="n">site_properties</span><span class="o">=</span><span class="n">site_properties</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_charges</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The initial charges for the structure.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;initial_charges&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parse_initial_charges_and_moments</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;initial_charges&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_magnetic_moments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The initial magnetic Moments.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;initial_magnetic_moments&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parse_initial_charges_and_moments</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;initial_magnetic_moments&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_initial_charges_and_moments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse the initial charges and magnetic moments from a file.&quot;&quot;&quot;</span>
+        <span class="n">charges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">)</span>
+        <span class="n">magmoms</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Initial charges&quot;</span><span class="p">,</span> <span class="s2">&quot;Initial moments and charges&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">!=</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="n">line_start</span> <span class="o">+=</span> <span class="mi">2</span>
+            <span class="n">magmoms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">ll</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span> <span class="p">:</span> <span class="n">line_start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">]):</span>
+                <span class="n">inp</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="n">charges</span><span class="p">[</span><span class="n">ll</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+                    <span class="n">magmoms</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">charges</span><span class="p">[</span><span class="n">ll</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+                    <span class="n">magmoms</span><span class="p">[</span><span class="n">ll</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;initial_charges&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">charges</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;initial_magnetic_moments&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">magmoms</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_md</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Is the output for a molecular dynamics calculation?&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Complete information for previous time-step:&quot;</span><span class="p">])</span> <span class="o">!=</span> <span class="n">LINE_NOT_FOUND</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_relaxation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Is the output for a relaxation?&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Geometry relaxation:&quot;</span><span class="p">])</span> <span class="o">!=</span> <span class="n">LINE_NOT_FOUND</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_k_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse the list of k-points used in the calculation.&quot;&quot;&quot;</span>
+        <span class="n">n_kpts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_scalar</span><span class="p">(</span><span class="s2">&quot;n_kpts&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_kpts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">|=</span> <span class="p">{</span><span class="s2">&quot;k_points&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;k_point_weights&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+            <span class="k">return</span>
+        <span class="n">n_kpts</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_kpts</span><span class="p">)</span>
+
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;| K-points in task&quot;</span><span class="p">])</span>
+        <span class="n">line_end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;| k-point:&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">LINE_NOT_FOUND</span> <span class="ow">in</span> <span class="p">{</span><span class="n">line_start</span><span class="p">,</span> <span class="n">line_end</span><span class="p">}</span> <span class="ow">or</span> <span class="p">(</span><span class="n">line_end</span> <span class="o">-</span> <span class="n">line_start</span> <span class="o">!=</span> <span class="n">n_kpts</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">|=</span> <span class="p">{</span><span class="s2">&quot;k_points&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;k_point_weights&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+            <span class="k">return</span>
+
+        <span class="n">k_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_kpts</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+        <span class="n">k_point_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_kpts</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">kk</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">line_end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]):</span>
+            <span class="n">k_points</span><span class="p">[</span><span class="n">kk</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span> <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">4</span><span class="p">:</span><span class="mi">7</span><span class="p">]]</span>
+            <span class="n">k_point_weights</span><span class="p">[</span><span class="n">kk</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">|=</span> <span class="p">{</span><span class="s2">&quot;k_points&quot;</span><span class="p">:</span> <span class="n">k_points</span><span class="p">,</span> <span class="s2">&quot;k_point_weights&quot;</span><span class="p">:</span> <span class="n">k_point_weights</span><span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of atoms for the material.&quot;&quot;&quot;</span>
+        <span class="n">n_atoms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_scalar</span><span class="p">(</span><span class="s2">&quot;n_atoms&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_atoms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AimsParseError</span><span class="p">(</span><span class="s2">&quot;No information about the number of atoms in the header.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_atoms</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_bands</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of Kohn-Sham states for the chunk.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">(</span><span class="n">SCALAR_PROPERTY_TO_LINE_KEY</span><span class="p">[</span><span class="s2">&quot;n_bands&quot;</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AimsParseError</span><span class="p">(</span><span class="s2">&quot;No information about the number of Kohn-Sham states in the header.&quot;</span><span class="p">)</span>
+
+        <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;| Number of Kohn-Sham states&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_electrons</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of electrons for the chunk.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">(</span><span class="n">SCALAR_PROPERTY_TO_LINE_KEY</span><span class="p">[</span><span class="s2">&quot;n_electrons&quot;</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AimsParseError</span><span class="p">(</span><span class="s2">&quot;No information about the number of electrons in the header.&quot;</span><span class="p">)</span>
+
+        <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">2</span><span class="p">]))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_k_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of k_ppoints for the calculation.&quot;&quot;&quot;</span>
+        <span class="n">n_kpts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_scalar</span><span class="p">(</span><span class="s2">&quot;n_kpts&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_kpts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_kpts</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_spins</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of spin channels for the chunk.&quot;&quot;&quot;</span>
+        <span class="n">n_spins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_scalar</span><span class="p">(</span><span class="s2">&quot;n_spins&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_spins</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AimsParseError</span><span class="p">(</span><span class="s2">&quot;No information about the number of spin channels in the header.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_spins</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">electronic_temperature</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The electronic temperature for the chunk.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">(</span><span class="n">SCALAR_PROPERTY_TO_LINE_KEY</span><span class="p">[</span><span class="s2">&quot;electronic_temp&quot;</span><span class="p">])</span>
+        <span class="c1"># TARP: Default FHI-aims value</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.00</span>
+
+        <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">k_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Vector3D</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;All k-points listed in the calculation.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;k_points&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parse_k_points</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;k_points&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">k_point_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The k-point weights for the calculation.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;k_point_weights&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parse_k_points</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;k_point_weights&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">header_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dictionary summarizing the information inside the header.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;initial_structure&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_structure</span><span class="p">,</span>
+            <span class="s2">&quot;initial_lattice&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_lattice</span><span class="p">,</span>
+            <span class="s2">&quot;is_relaxation&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_relaxation</span><span class="p">,</span>
+            <span class="s2">&quot;is_md&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_md</span><span class="p">,</span>
+            <span class="s2">&quot;n_atoms&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">,</span>
+            <span class="s2">&quot;n_bands&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_bands</span><span class="p">,</span>
+            <span class="s2">&quot;n_electrons&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_electrons</span><span class="p">,</span>
+            <span class="s2">&quot;n_spins&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_spins</span><span class="p">,</span>
+            <span class="s2">&quot;electronic_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">electronic_temperature</span><span class="p">,</span>
+            <span class="s2">&quot;n_k_points&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_k_points</span><span class="p">,</span>
+            <span class="s2">&quot;k_points&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">k_points</span><span class="p">,</span>
+            <span class="s2">&quot;k_point_weights&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">k_point_weights</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metadata_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dictionary containing all metadata for FHI-aims build.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;commit_hash&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">commit_hash</span><span class="p">,</span>
+            <span class="s2">&quot;aims_uuid&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">aims_uuid</span><span class="p">,</span>
+            <span class="s2">&quot;version_number&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">version_number</span><span class="p">,</span>
+            <span class="s2">&quot;fortran_compiler&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">fortran_compiler</span><span class="p">,</span>
+            <span class="s2">&quot;c_compiler&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_compiler</span><span class="p">,</span>
+            <span class="s2">&quot;fortran_compiler_flags&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">fortran_compiler_flags</span><span class="p">,</span>
+            <span class="s2">&quot;c_compiler_flags&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_compiler_flags</span><span class="p">,</span>
+            <span class="s2">&quot;build_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_type</span><span class="p">,</span>
+            <span class="s2">&quot;linked_against&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked_against</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="AimsOutCalcChunk">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.AimsOutCalcChunk">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AimsOutCalcChunk</span><span class="p">(</span><span class="n">AimsOutChunk</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A part of the aims.out file corresponding to a single structure.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">header</span><span class="p">:</span> <span class="n">AimsOutHeaderChunk</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct the AimsOutCalcChunk.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            lines (list[str]): The lines used for the structure</span>
+<span class="sd">            header (.AimsOutHeaderChunk):  A summary of the relevant information from</span>
+<span class="sd">                the aims.out header</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_header</span> <span class="o">=</span> <span class="n">header</span><span class="o">.</span><span class="n">header_summary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse a structure object from the file.</span>
+
+<span class="sd">        For the given section of the aims output file generate the</span>
+<span class="sd">        calculated structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The structure or molecule for the calculation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">species</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">velocities</span><span class="p">,</span> <span class="n">lattice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_lattice_atom_pos</span><span class="p">()</span>
+
+        <span class="n">site_properties</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">velocities</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;velocity&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">velocities</span><span class="p">)</span>
+
+        <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span>
+        <span class="n">site_prop_keys</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;forces&quot;</span><span class="p">:</span> <span class="s2">&quot;force&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;stresses&quot;</span><span class="p">:</span> <span class="s2">&quot;atomic_virial_stress&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hirshfeld_charges&quot;</span><span class="p">:</span> <span class="s2">&quot;hirshfeld_charge&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hirshfeld_volumes&quot;</span><span class="p">:</span> <span class="s2">&quot;hirshfeld_volume&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hirshfeld_atomic_dipoles&quot;</span><span class="p">:</span> <span class="s2">&quot;hirshfeld_atomic_dipole&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;mulliken_charges&quot;</span><span class="p">:</span> <span class="s2">&quot;charge&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;mulliken_spins&quot;</span><span class="p">:</span> <span class="s2">&quot;magmom&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">properties</span> <span class="o">=</span> <span class="p">{</span><span class="n">prop</span><span class="p">:</span> <span class="n">results</span><span class="p">[</span><span class="n">prop</span><span class="p">]</span> <span class="k">for</span> <span class="n">prop</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">prop</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">site_prop_keys</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">prop</span><span class="p">,</span> <span class="n">site_key</span> <span class="ow">in</span> <span class="n">site_prop_keys</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">prop</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                <span class="n">site_properties</span><span class="p">[</span><span class="n">site_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="n">prop</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="p">((</span><span class="n">magmom</span> <span class="o">:=</span> <span class="n">site_properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;magmom&quot;</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">magmom</span><span class="p">)</span> <span class="o">-</span> <span class="n">properties</span><span class="p">[</span><span class="s2">&quot;magmom&quot;</span><span class="p">]</span>
+        <span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-3</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Total magnetic moment and sum of Mulliken spins are not consistent&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">lattice</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Structure</span><span class="p">(</span>
+                <span class="n">lattice</span><span class="p">,</span>
+                <span class="n">species</span><span class="p">,</span>
+                <span class="n">coords</span><span class="p">,</span>
+                <span class="n">site_properties</span><span class="o">=</span><span class="n">site_properties</span><span class="p">,</span>
+                <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">,</span>
+                <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">Molecule</span><span class="p">(</span>
+            <span class="n">species</span><span class="p">,</span>
+            <span class="n">coords</span><span class="p">,</span>
+            <span class="n">site_properties</span><span class="o">=</span><span class="n">site_properties</span><span class="p">,</span>
+            <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_lattice_atom_pos</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">Vector3D</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">Vector3D</span><span class="p">],</span> <span class="n">Lattice</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse the lattice and atomic positions of the structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            list[str]: The species symbols for the atoms in the structure</span>
+<span class="sd">            list[Vector3D]: The Cartesian coordinates of the atoms</span>
+<span class="sd">            list[Vector3D]: The velocities of the atoms</span>
+<span class="sd">            Lattice or None: The Lattice for the structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lattice_vectors</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">velocities</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Vector3D</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">species</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Vector3D</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">start_keys</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;Atomic structure (and velocities) as used in the preceding time step&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Updated atomic structure&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Atomic structure that was used in the preceding time step of the wrapper&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">(</span><span class="n">start_keys</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="n">species</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">symbol</span> <span class="k">for</span> <span class="n">sp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_structure</span><span class="o">.</span><span class="n">species</span><span class="p">]</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_structure</span><span class="o">.</span><span class="n">cart_coords</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="n">velocities</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_structure</span><span class="o">.</span><span class="n">site_properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;velocity&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+            <span class="n">lattice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_lattice</span>
+
+            <span class="k">return</span> <span class="n">species</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">velocities</span><span class="p">,</span> <span class="n">lattice</span>
+
+        <span class="n">line_start</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">line_end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">(</span>
+            <span class="p">[</span><span class="s1">&#39;Writing the current geometry to file &quot;geometry.in.next_step&quot;&#39;</span><span class="p">],</span>
+            <span class="n">line_start</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">line_end</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="n">line_end</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">:</span><span class="n">line_end</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="s2">&quot;lattice_vector   &quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                <span class="n">lattice_vectors</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span> <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">:]])</span>
+            <span class="k">elif</span> <span class="s2">&quot;atom   &quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                <span class="n">line_split</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="n">species</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_split</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+                <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">Tuple3Floats</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span> <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">line_split</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">])))</span>
+            <span class="k">elif</span> <span class="s2">&quot;velocity   &quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                <span class="n">velocities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">Tuple3Floats</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span> <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">])))</span>
+
+        <span class="n">lattice</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="n">lattice_vectors</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lattice_vectors</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">species</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">velocities</span><span class="p">,</span> <span class="n">lattice</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">species</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The list of atomic symbols for all atoms in the structure.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;species&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;species&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;coords&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;velocities&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;lattice&quot;</span><span class="p">],</span>
+            <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_lattice_atom_pos</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;species&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Vector3D</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The cartesian coordinates of the atoms.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;coords&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;species&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;coords&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;velocities&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;lattice&quot;</span><span class="p">],</span>
+            <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_lattice_atom_pos</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;coords&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">velocities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Vector3D</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The velocities of the atoms.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;velocities&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;species&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;coords&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;velocities&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;lattice&quot;</span><span class="p">],</span>
+            <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_lattice_atom_pos</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;velocities&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">lattice</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Lattice</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The Lattice object for the structure.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;lattice&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;species&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;coords&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;velocities&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;lattice&quot;</span><span class="p">],</span>
+            <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_lattice_atom_pos</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;lattice&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The forces from the aims.out file.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Total atomic forces&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">line_start</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[[</span><span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span> <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">3</span><span class="p">:]]</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span> <span class="p">:</span> <span class="n">line_start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">]]</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stresses</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The stresses from the aims.out file and convert to kBar.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Per atom stress (eV) used for heat flux calculation&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">line_start</span> <span class="o">+=</span> <span class="mi">3</span>
+        <span class="n">stresses</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span> <span class="p">:</span> <span class="n">line_start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">]:</span>
+            <span class="n">xx</span><span class="p">,</span> <span class="n">yy</span><span class="p">,</span> <span class="n">zz</span><span class="p">,</span> <span class="n">xy</span><span class="p">,</span> <span class="n">xz</span><span class="p">,</span> <span class="n">yz</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">2</span><span class="p">:</span><span class="mi">8</span><span class="p">])</span>
+            <span class="n">stresses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Tensor</span><span class="o">.</span><span class="n">from_voigt</span><span class="p">([</span><span class="n">xx</span><span class="p">,</span> <span class="n">yy</span><span class="p">,</span> <span class="n">zz</span><span class="p">,</span> <span class="n">yz</span><span class="p">,</span> <span class="n">xz</span><span class="p">,</span> <span class="n">xy</span><span class="p">]))</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">stresses</span><span class="p">)</span> <span class="o">*</span> <span class="n">EV_PER_A3_TO_KBAR</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stress</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Matrix3D</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The stress from the aims.out file and convert to kBar.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;Analytical stress tensor - Symmetrized&quot;</span><span class="p">,</span> <span class="s2">&quot;Numerical stress tensor&quot;</span><span class="p">]</span>
+        <span class="p">)</span>  <span class="c1"># Offset to relevant lines</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">stress</span> <span class="o">=</span> <span class="p">[[</span><span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span> <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">]]</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span> <span class="o">+</span> <span class="mi">5</span> <span class="p">:</span> <span class="n">line_start</span> <span class="o">+</span> <span class="mi">8</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">stress</span><span class="p">)</span> <span class="o">*</span> <span class="n">EV_PER_A3_TO_KBAR</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_metallic</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Is the system is metallic.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;material is metallic within the approximate finite broadening function (occupation_type)&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">line_start</span> <span class="o">!=</span> <span class="n">LINE_NOT_FOUND</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">energy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The energy from the aims.out file.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_lattice</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_metallic</span><span class="p">:</span>
+            <span class="n">line_ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Total energy corrected&quot;</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">line_ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Total energy uncorrected&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_ind</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AimsParseError</span><span class="p">(</span><span class="s2">&quot;No energy is associated with the structure.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_ind</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">5</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dipole</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Vector3D</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The electric dipole moment from the aims.out file.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Total dipole moment [eAng]&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span> <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">6</span><span class="p">:</span><span class="mi">9</span><span class="p">]])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dielectric_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Matrix3D</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The dielectric tensor from the aims.out file.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;PARSE DFPT_dielectric_tensor&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># we should find the tensor in the next three lines:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">line_start</span> <span class="o">+</span> <span class="mi">4</span><span class="p">]</span>
+
+        <span class="c1"># make ndarray and return</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">fromstring</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot; &quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">polarization</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Vector3D</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The polarization vector from the aims.out file.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;| Cartesian Polarization&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">3</span><span class="p">:]])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_homo_lumo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse the HOMO/LUMO values and get band gap if periodic.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Highest occupied state (VBM)&quot;</span><span class="p">])</span>
+        <span class="n">homo</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; at &quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;eV&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Lowest unoccupied state (CBM)&quot;</span><span class="p">])</span>
+        <span class="n">lumo</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; at &quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;eV&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;verall HOMO-LUMO gap&quot;</span><span class="p">])</span>
+        <span class="n">homo_lumo_gap</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;eV&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Smallest direct gap&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">&quot;vbm&quot;</span><span class="p">:</span> <span class="n">homo</span><span class="p">,</span>
+                <span class="s2">&quot;cbm&quot;</span><span class="p">:</span> <span class="n">lumo</span><span class="p">,</span>
+                <span class="s2">&quot;gap&quot;</span><span class="p">:</span> <span class="n">homo_lumo_gap</span><span class="p">,</span>
+                <span class="s2">&quot;direct_gap&quot;</span><span class="p">:</span> <span class="n">homo_lumo_gap</span><span class="p">,</span>
+            <span class="p">}</span>
+
+        <span class="n">direct_gap</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">line_start</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;eV&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;vbm&quot;</span><span class="p">:</span> <span class="n">homo</span><span class="p">,</span>
+            <span class="s2">&quot;cbm&quot;</span><span class="p">:</span> <span class="n">lumo</span><span class="p">,</span>
+            <span class="s2">&quot;gap&quot;</span><span class="p">:</span> <span class="n">homo_lumo_gap</span><span class="p">,</span>
+            <span class="s2">&quot;direct_gap&quot;</span><span class="p">:</span> <span class="n">direct_gap</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_hirshfeld</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse the Hirshfled charges volumes, and dipole moments.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Performing Hirshfeld analysis of fragment charges and moments.&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">|=</span> <span class="p">{</span>
+                <span class="s2">&quot;hirshfeld_charges&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">&quot;hirshfeld_volumes&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">&quot;hirshfeld_atomic_dipoles&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">&quot;hirshfeld_dipole&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">return</span>
+
+        <span class="n">line_inds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_for_all</span><span class="p">(</span><span class="s2">&quot;Hirshfeld charge&quot;</span><span class="p">,</span> <span class="n">line_start</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">hirshfeld_charges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="n">line_inds</span><span class="p">])</span>
+
+        <span class="n">line_inds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_for_all</span><span class="p">(</span><span class="s2">&quot;Hirshfeld volume&quot;</span><span class="p">,</span> <span class="n">line_start</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">hirshfeld_volumes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="n">line_inds</span><span class="p">])</span>
+
+        <span class="n">line_inds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_for_all</span><span class="p">(</span><span class="s2">&quot;Hirshfeld dipole vector&quot;</span><span class="p">,</span> <span class="n">line_start</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">hirshfeld_atomic_dipoles</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[[</span><span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span> <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()]</span> <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="n">line_inds</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lattice</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">hirshfeld_dipole</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
+                <span class="n">hirshfeld_charges</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span>
+                <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">hirshfeld_dipole</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">|=</span> <span class="p">{</span>
+            <span class="s2">&quot;hirshfeld_charges&quot;</span><span class="p">:</span> <span class="n">hirshfeld_charges</span><span class="p">,</span>
+            <span class="s2">&quot;hirshfeld_volumes&quot;</span><span class="p">:</span> <span class="n">hirshfeld_volumes</span><span class="p">,</span>
+            <span class="s2">&quot;hirshfeld_atomic_dipoles&quot;</span><span class="p">:</span> <span class="n">hirshfeld_atomic_dipoles</span><span class="p">,</span>
+            <span class="s2">&quot;hirshfeld_dipole&quot;</span><span class="p">:</span> <span class="n">hirshfeld_dipole</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_mulliken</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse the Mulliken charges and spins.&quot;&quot;&quot;</span>
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Performing Mulliken charge analysis&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">mulliken_charges</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mulliken_spins</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Summary of the per-atom charge analysis&quot;</span><span class="p">])</span>
+        <span class="n">mulliken_charges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">3</span><span class="p">])</span> <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">line_start</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">line_start</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">)]</span>
+        <span class="p">)</span>
+
+        <span class="n">line_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reverse_search_for</span><span class="p">([</span><span class="s2">&quot;Summary of the per-atom spin analysis&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">line_start</span> <span class="o">==</span> <span class="n">LINE_NOT_FOUND</span><span class="p">:</span>
+            <span class="n">mulliken_spins</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mulliken_spins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">2</span><span class="p">])</span> <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">line_start</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">line_start</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">)]</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;mulliken_charges&quot;</span><span class="p">:</span> <span class="n">mulliken_charges</span><span class="p">,</span>
+                <span class="s2">&quot;mulliken_spins&quot;</span><span class="p">:</span> <span class="n">mulliken_spins</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">structure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The pytmagen SiteCollection of the chunk.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;structure&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_structure</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert an AimsOutChunk to a Results Dictionary.&quot;&quot;&quot;</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;energy&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy</span><span class="p">,</span>
+            <span class="s2">&quot;free_energy&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">free_energy</span><span class="p">,</span>
+            <span class="s2">&quot;forces&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">forces</span><span class="p">,</span>
+            <span class="s2">&quot;stress&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">stress</span><span class="p">,</span>
+            <span class="s2">&quot;stresses&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">stresses</span><span class="p">,</span>
+            <span class="s2">&quot;magmom&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">magmom</span><span class="p">,</span>
+            <span class="s2">&quot;dipole&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dipole</span><span class="p">,</span>
+            <span class="s2">&quot;fermi_energy&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">E_f</span><span class="p">,</span>
+            <span class="s2">&quot;n_iter&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_iter</span><span class="p">,</span>
+            <span class="s2">&quot;mulliken_charges&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">mulliken_charges</span><span class="p">,</span>
+            <span class="s2">&quot;mulliken_spins&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">mulliken_spins</span><span class="p">,</span>
+            <span class="s2">&quot;hirshfeld_charges&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hirshfeld_charges</span><span class="p">,</span>
+            <span class="s2">&quot;hirshfeld_dipole&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hirshfeld_dipole</span><span class="p">,</span>
+            <span class="s2">&quot;hirshfeld_volumes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hirshfeld_volumes</span><span class="p">,</span>
+            <span class="s2">&quot;hirshfeld_atomic_dipoles&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hirshfeld_atomic_dipoles</span><span class="p">,</span>
+            <span class="s2">&quot;dielectric_tensor&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dielectric_tensor</span><span class="p">,</span>
+            <span class="s2">&quot;polarization&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">polarization</span><span class="p">,</span>
+            <span class="s2">&quot;vbm&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">vbm</span><span class="p">,</span>
+            <span class="s2">&quot;cbm&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cbm</span><span class="p">,</span>
+            <span class="s2">&quot;gap&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">gap</span><span class="p">,</span>
+            <span class="s2">&quot;direct_gap&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">direct_gap</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">value</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">}</span>
+
+    <span class="c1"># Properties from the aims.out header</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The initial structure for the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_header</span><span class="p">[</span><span class="s2">&quot;initial_structure&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_lattice</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Lattice</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The initial Lattice of the structure.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_header</span><span class="p">[</span><span class="s2">&quot;initial_lattice&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of atoms in the structure.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_header</span><span class="p">[</span><span class="s2">&quot;n_atoms&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_bands</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of Kohn-Sham states for the chunk.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_header</span><span class="p">[</span><span class="s2">&quot;n_bands&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_electrons</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of electrons for the chunk.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_header</span><span class="p">[</span><span class="s2">&quot;n_electrons&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_spins</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of spin channels for the chunk.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_header</span><span class="p">[</span><span class="s2">&quot;n_spins&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">electronic_temperature</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The electronic temperature for the chunk.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_header</span><span class="p">[</span><span class="s2">&quot;electronic_temperature&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_k_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of k_ppoints for the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_header</span><span class="p">[</span><span class="s2">&quot;n_k_points&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">k_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Vector3D</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;All k-points listed in the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_header</span><span class="p">[</span><span class="s2">&quot;k_points&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">k_point_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The k-point weights for the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_header</span><span class="p">[</span><span class="s2">&quot;k_point_weights&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">free_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The free energy of the calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_scalar</span><span class="p">(</span><span class="s2">&quot;free_energy&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_iter</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of steps needed to converge the SCF cycle for the chunk.&quot;&quot;&quot;</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_scalar</span><span class="p">(</span><span class="s2">&quot;number_of_iterations&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">magmom</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The magnetic moment of the structure.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_scalar</span><span class="p">(</span><span class="s2">&quot;magnetic_moment&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">E_f</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The Fermi energy.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_scalar</span><span class="p">(</span><span class="s2">&quot;fermi_energy&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">converged</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;True if the calculation is converged.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;Have a nice day.&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="o">-</span><span class="mi">5</span><span class="p">:])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mulliken_charges</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The Mulliken charges of the system&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;mulliken_charges&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parse_mulliken</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;mulliken_charges&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mulliken_spins</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The Mulliken spins of the system&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;mulliken_spins&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parse_mulliken</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;mulliken_spins&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hirshfeld_charges</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The Hirshfeld charges of the system.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;hirshfeld_charges&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parse_hirshfeld</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;hirshfeld_charges&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hirshfeld_atomic_dipoles</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Vector3D</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The Hirshfeld atomic dipoles of the system.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;hirshfeld_atomic_dipoles&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parse_hirshfeld</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;hirshfeld_atomic_dipoles&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hirshfeld_volumes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The Hirshfeld atomic dipoles of the system.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;hirshfeld_volumes&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parse_hirshfeld</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;hirshfeld_volumes&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hirshfeld_dipole</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">Vector3D</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The Hirshfeld dipole of the system.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;hirshfeld_dipole&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parse_hirshfeld</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="s2">&quot;hirshfeld_dipole&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">vbm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The valance band maximum.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_homo_lumo</span><span class="p">()[</span><span class="s2">&quot;vbm&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cbm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The conduction band minimnum.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_homo_lumo</span><span class="p">()[</span><span class="s2">&quot;cbm&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The band gap.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_homo_lumo</span><span class="p">()[</span><span class="s2">&quot;gap&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">direct_gap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The direct bandgap.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_homo_lumo</span><span class="p">()[</span><span class="s2">&quot;direct_gap&quot;</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="get_lines">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.get_lines">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_lines</span><span class="p">(</span><span class="n">content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">TextIOWrapper</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get a list of lines from a str or file of content.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        content: the content of the file to parse</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The list of lines</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">content</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">content</span><span class="o">.</span><span class="n">readlines</span><span class="p">()]</span></div>
+
+
+
+<div class="viewcode-block" id="get_header_chunk">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.get_header_chunk">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_header_chunk</span><span class="p">(</span><span class="n">content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">TextIOWrapper</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AimsOutHeaderChunk</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the header chunk for an output.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        content (str or TextIOWrapper): the content to parse</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The AimsHeaderChunk of the file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">get_lines</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+    <span class="n">header</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">stopped</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="c1"># Stop the header once the first SCF cycle begins</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+        <span class="n">header</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="s2">&quot;Convergence:    q app. |  density  | eigen (eV) | Etot (eV)&quot;</span> <span class="ow">in</span> <span class="n">line</span>
+            <span class="ow">or</span> <span class="s2">&quot;Begin self-consistency iteration #&quot;</span> <span class="ow">in</span> <span class="n">line</span>
+        <span class="p">):</span>
+            <span class="n">stopped</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">break</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">stopped</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;No SCF steps present, calculation failed at setup.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">AimsOutHeaderChunk</span><span class="p">(</span><span class="n">header</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_aims_out_chunks">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.get_aims_out_chunks">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_aims_out_chunks</span><span class="p">(</span><span class="n">content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">TextIOWrapper</span><span class="p">,</span> <span class="n">header_chunk</span><span class="p">:</span> <span class="n">AimsOutHeaderChunk</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Yield unprocessed chunks (header, lines) for each AimsOutChunk image.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        content (str or TextIOWrapper): the content to parse</span>
+<span class="sd">        header_chunk (AimsOutHeaderChunk): The AimsOutHeader for the calculation</span>
+
+<span class="sd">    Yields:</span>
+<span class="sd">        The next AimsOutChunk</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">get_lines</span><span class="p">(</span><span class="n">content</span><span class="p">)[</span><span class="nb">len</span><span class="p">(</span><span class="n">header_chunk</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span> <span class="p">:]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="c1"># If the calculation is relaxation the updated structural information</span>
+    <span class="c1"># occurs before the re-initialization</span>
+    <span class="k">if</span> <span class="n">header_chunk</span><span class="o">.</span><span class="n">is_relaxation</span><span class="p">:</span>
+        <span class="n">chunk_end_line</span> <span class="o">=</span> <span class="s2">&quot;Geometry optimization: Attempting to predict improved coordinates.&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">chunk_end_line</span> <span class="o">=</span> <span class="s2">&quot;Begin self-consistency loop: Re-initialization&quot;</span>
+
+    <span class="c1"># If SCF is not converged then do not treat the next chunk_end_line as a</span>
+    <span class="c1"># new chunk until after the SCF is re-initialized</span>
+    <span class="n">ignore_chunk_end_line</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">line_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">line_iter</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>  <span class="c1"># Raises StopIteration on empty file</span>
+        <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+            <span class="k">break</span>
+
+        <span class="n">chunk_lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">while</span> <span class="n">chunk_end_line</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">line</span> <span class="ow">or</span> <span class="n">ignore_chunk_end_line</span><span class="p">:</span>
+            <span class="n">chunk_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+            <span class="c1"># If SCF cycle not converged or numerical stresses are requested,</span>
+            <span class="c1"># don&#39;t end chunk on next Re-initialization</span>
+            <span class="n">patterns</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">(</span><span class="s2">&quot;Self-consistency cycle not yet converged - restarting mixer to attempt better convergence.&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;Components of the stress tensor (for mathematical background see comments in numerical_stress.f90).&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;Calculation of numerical stress completed&quot;</span><span class="p">,</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">pattern</span> <span class="ow">in</span> <span class="n">line</span> <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="n">patterns</span><span class="p">):</span>
+                <span class="n">ignore_chunk_end_line</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">elif</span> <span class="s2">&quot;Begin self-consistency loop: Re-initialization&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                <span class="n">ignore_chunk_end_line</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">line_iter</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="k">yield</span> <span class="n">AimsOutCalcChunk</span><span class="p">(</span><span class="n">chunk_lines</span><span class="p">,</span> <span class="n">header_chunk</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="check_convergence">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.check_convergence">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_convergence</span><span class="p">(</span><span class="n">chunks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AimsOutCalcChunk</span><span class="p">],</span> <span class="n">non_convergence_ok</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if the aims output file is for a converged calculation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        chunks(list[.AimsOutCalcChunk]): The list of chunks for the aims calculations</span>
+<span class="sd">        non_convergence_ok(bool): True if it is okay for the calculation to not be converged</span>
+<span class="sd">        chunks: list[AimsOutCalcChunk]:</span>
+<span class="sd">        non_convergence_ok: bool:  (Default value = False)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        True if the calculation is converged</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">non_convergence_ok</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">chunks</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">converged</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;The calculation did not complete successfully&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">True</span></div>
+
+
+
+<div class="viewcode-block" id="read_aims_header_info_from_content">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.read_aims_header_info_from_content">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_aims_header_info_from_content</span><span class="p">(</span>
+    <span class="n">content</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read the FHI-aims header information.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">      content (str): The content of the output file to check</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The metadata for the header of the aims calculation</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">header_chunk</span> <span class="o">=</span> <span class="n">get_header_chunk</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">header_chunk</span><span class="o">.</span><span class="n">metadata_summary</span><span class="p">,</span> <span class="n">header_chunk</span><span class="o">.</span><span class="n">header_summary</span></div>
+
+
+
+<div class="viewcode-block" id="read_aims_header_info">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.read_aims_header_info">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_aims_header_info</span><span class="p">(</span>
+    <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read the FHI-aims header information.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">      filename(str or Path): The file to read</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The metadata for the header of the aims calculation</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Path</span><span class="p">(</span><span class="n">filename</span><span class="p">),</span> <span class="n">Path</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">.gz&quot;</span><span class="p">)]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">==</span> <span class="s2">&quot;.gz&quot;</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">content</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The requested output file </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2"> does not exist.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">read_aims_header_info_from_content</span><span class="p">(</span><span class="n">content</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="read_aims_output_from_content">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.read_aims_output_from_content">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_aims_output_from_content</span><span class="p">(</span>
+    <span class="n">content</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">slice</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">non_convergence_ok</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read and aims output file from the content of a file.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">      content (str): The content of the file to read</span>
+<span class="sd">      index: int | slice:  (Default value = -1)</span>
+<span class="sd">      non_convergence_ok: bool:  (Default value = False)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The list of images to get</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">header_chunk</span> <span class="o">=</span> <span class="n">get_header_chunk</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+    <span class="n">chunks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">get_aims_out_chunks</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">header_chunk</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">header_chunk</span><span class="o">.</span><span class="n">is_relaxation</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="s2">&quot;Final atomic structure:&quot;</span> <span class="ow">in</span> <span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">chunks</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lines</span><span class="p">):</span>
+        <span class="n">chunks</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">lines</span> <span class="o">+=</span> <span class="n">chunks</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lines</span>
+        <span class="n">chunks</span> <span class="o">=</span> <span class="n">chunks</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">check_convergence</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">non_convergence_ok</span><span class="p">)</span>
+    <span class="c1"># Relaxations have an additional footer chunk due to how it is split</span>
+    <span class="n">images</span> <span class="o">=</span> <span class="p">[</span><span class="n">chunk</span><span class="o">.</span><span class="n">structure</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">chunks</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">images</span><span class="p">[</span><span class="n">index</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="read_aims_output">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.parsers.read_aims_output">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_aims_output</span><span class="p">(</span>
+    <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">slice</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">non_convergence_ok</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Import FHI-aims output files with all data available.</span>
+
+<span class="sd">    Includes all structures for relaxations and MD runs with FHI-aims</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename(str or Path): The file to read</span>
+<span class="sd">        index(int or slice): The index of the images to read</span>
+<span class="sd">        non_convergence_ok(bool): True if the calculations do not have to be converged</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The list of images to get</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Path</span><span class="p">(</span><span class="n">filename</span><span class="p">),</span> <span class="n">Path</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">.gz&quot;</span><span class="p">)]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">==</span> <span class="s2">&quot;.gz&quot;</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">content</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The requested output file </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2"> does not exist.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">read_aims_output_from_content</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">non_convergence_ok</span><span class="p">)</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.aims.parsers</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

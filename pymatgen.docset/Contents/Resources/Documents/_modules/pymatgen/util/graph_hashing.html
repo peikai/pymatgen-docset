@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.util.graph_hashing &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.util.graph_hashing</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.util.graph_hashing</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Copyright (C) 2004-2022, NetworkX Developers</span>
+<span class="sd">Aric Hagberg &lt;hagberg@lanl.gov&gt;</span>
+<span class="sd">Dan Schult &lt;dschult@colgate.edu&gt;</span>
+<span class="sd">Pieter Swart &lt;swart@lanl.gov&gt;</span>
+<span class="sd">All rights reserved.</span>
+
+<span class="sd">Redistribution and use in source and binary forms, with or without</span>
+<span class="sd">modification, are permitted provided that the following conditions are</span>
+<span class="sd">met:</span>
+
+<span class="sd">  * Redistributions of source code must retain the above copyright</span>
+<span class="sd">    notice, this list of conditions and the following disclaimer.</span>
+
+<span class="sd">  * Redistributions in binary form must reproduce the above</span>
+<span class="sd">    copyright notice, this list of conditions and the following</span>
+<span class="sd">    disclaimer in the documentation and/or other materials provided</span>
+<span class="sd">    with the distribution.</span>
+
+<span class="sd">  * Neither the name of the NetworkX Developers nor the names of its</span>
+<span class="sd">    contributors may be used to endorse or promote products derived</span>
+<span class="sd">    from this software without specific prior written permission.</span>
+
+<span class="sd">THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS</span>
+<span class="sd">&quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT</span>
+<span class="sd">LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR</span>
+<span class="sd">A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT</span>
+<span class="sd">OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,</span>
+<span class="sd">SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT</span>
+<span class="sd">LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,</span>
+<span class="sd">DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY</span>
+<span class="sd">THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT</span>
+<span class="sd">(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE</span>
+<span class="sd">OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</span>
+
+<span class="sd">-----</span>
+
+<span class="sd">Functions for hashing graphs to strings.</span>
+<span class="sd">Isomorphic graphs should be assigned identical hashes.</span>
+<span class="sd">For now, only Weisfeiler-Lehman hashing is implemented.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span><span class="p">,</span> <span class="n">defaultdict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hashlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">blake2b</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">networkx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nx</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_hash_label</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">digest_size</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">blake2b</span><span class="p">(</span><span class="n">label</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">),</span> <span class="n">digest_size</span><span class="o">=</span><span class="n">digest_size</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_init_node_labels</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span> <span class="n">edge_attr</span><span class="p">,</span> <span class="n">node_attr</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">node_attr</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">u</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">dd</span><span class="p">[</span><span class="n">node_attr</span><span class="p">])</span> <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">dd</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">)}</span>
+    <span class="k">if</span> <span class="n">edge_attr</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">u</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">deg</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">deg</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">degree</span><span class="p">()}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_neighborhood_aggregate</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">node_labels</span><span class="p">,</span> <span class="n">edge_attr</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute new labels for given node by aggregating</span>
+<span class="sd">    the labels of each node&#39;s neighbors.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">label_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">nbr</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">neighbors</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">edge_attr</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">graph</span><span class="p">[</span><span class="n">node</span><span class="p">][</span><span class="n">nbr</span><span class="p">][</span><span class="n">edge_attr</span><span class="p">])</span>
+        <span class="n">label_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">prefix</span> <span class="o">+</span> <span class="n">node_labels</span><span class="p">[</span><span class="n">nbr</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">node_labels</span><span class="p">[</span><span class="n">node</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">label_list</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="weisfeiler_lehman_graph_hash">
+<a class="viewcode-back" href="../../../pymatgen.util.html#pymatgen.util.graph_hashing.weisfeiler_lehman_graph_hash">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">weisfeiler_lehman_graph_hash</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span> <span class="n">edge_attr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">node_attr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">iterations</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">digest_size</span><span class="o">=</span><span class="mi">16</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return Weisfeiler Lehman (WL) graph hash.</span>
+
+<span class="sd">    The function iteratively aggregates and hashes neighborhoods of each node.</span>
+<span class="sd">    After each node&#39;s neighbors are hashed to obtain updated node labels,</span>
+<span class="sd">    a hashed histogram of resulting labels is returned as the final hash.</span>
+
+<span class="sd">    Hashes are identical for isomorphic graphs and strong guarantees that</span>
+<span class="sd">    non-isomorphic graphs will get different hashes. See [1]_ for details.</span>
+
+<span class="sd">    If no node or edge attributes are provided, the degree of each node</span>
+<span class="sd">    is used as its initial label.</span>
+<span class="sd">    Otherwise, node and/or edge labels are used to compute the hash.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        graph: nx.Graph</span>
+<span class="sd">            The graph to be hashed.</span>
+<span class="sd">            Can have node and/or edge attributes. Can also have no attributes.</span>
+<span class="sd">        edge_attr: string, default=None</span>
+<span class="sd">            The key in edge attribute dictionary to be used for hashing.</span>
+<span class="sd">            If None, edge labels are ignored.</span>
+<span class="sd">        node_attr: string, default=None</span>
+<span class="sd">            The key in node attribute dictionary to be used for hashing.</span>
+<span class="sd">            If None, and no edge_attr given, use the degrees of the nodes as labels.</span>
+<span class="sd">        iterations: int, default=3</span>
+<span class="sd">            Number of neighbor aggregations to perform.</span>
+<span class="sd">            Should be larger for larger graphs.</span>
+<span class="sd">        digest_size: int, default=16</span>
+<span class="sd">            Size (in bits) of blake2b hash digest to use for hashing node labels.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        h : string</span>
+<span class="sd">            Hexadecimal string corresponding to hash of the input graph.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        To return the WL hashes of each subgraph of a graph, use</span>
+<span class="sd">        `weisfeiler_lehman_subgraph_hashes`</span>
+
+<span class="sd">        Similarity between hashes does not imply similarity between graphs.</span>
+
+<span class="sd">    References:</span>
+<span class="sd">        .. [1] Shervashidze, Nino, Pascal Schweitzer, Erik Jan Van Leeuwen,</span>
+<span class="sd">        Kurt Mehlhorn, and Karsten M. Borgwardt. Weisfeiler Lehman</span>
+<span class="sd">        Graph Kernels. Journal of Machine Learning Research. 2011.</span>
+<span class="sd">        https://www.jmlr.org/papers/volume12/shervashidze11a/shervashidze11a.pdf</span>
+
+<span class="sd">    See Also:</span>
+<span class="sd">        weisfeiler_lehman_subgraph_hashes</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">weisfeiler_lehman_step</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">edge_attr</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply neighborhood aggregation to each node</span>
+<span class="sd">        in the graph.</span>
+<span class="sd">        Computes a dictionary with labels for each node.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">new_labels</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">G</span><span class="o">.</span><span class="n">nodes</span><span class="p">():</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">_neighborhood_aggregate</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">edge_attr</span><span class="o">=</span><span class="n">edge_attr</span><span class="p">)</span>
+            <span class="n">new_labels</span><span class="p">[</span><span class="n">node</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hash_label</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">digest_size</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_labels</span>
+
+    <span class="c1"># set initial node labels</span>
+    <span class="n">node_labels</span> <span class="o">=</span> <span class="n">_init_node_labels</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">edge_attr</span><span class="p">,</span> <span class="n">node_attr</span><span class="p">)</span>
+
+    <span class="n">subgraph_hash_counts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">iterations</span><span class="p">):</span>
+        <span class="n">node_labels</span> <span class="o">=</span> <span class="n">weisfeiler_lehman_step</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">node_labels</span><span class="p">,</span> <span class="n">edge_attr</span><span class="o">=</span><span class="n">edge_attr</span><span class="p">)</span>
+        <span class="n">counter</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">node_labels</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="c1"># sort the counter, extend total counts</span>
+        <span class="n">subgraph_hash_counts</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">counter</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+
+    <span class="c1"># hash the final counter</span>
+    <span class="k">return</span> <span class="n">_hash_label</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">subgraph_hash_counts</span><span class="p">)),</span> <span class="n">digest_size</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="weisfeiler_lehman_subgraph_hashes">
+<a class="viewcode-back" href="../../../pymatgen.util.html#pymatgen.util.graph_hashing.weisfeiler_lehman_subgraph_hashes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">weisfeiler_lehman_subgraph_hashes</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">edge_attr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">node_attr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">iterations</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">digest_size</span><span class="o">=</span><span class="mi">16</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a dictionary of subgraph hashes by node.</span>
+
+<span class="sd">    The dictionary is keyed by node to a list of hashes in increasingly</span>
+<span class="sd">    sized induced subgraphs containing the nodes within 2*k edges</span>
+<span class="sd">    of the key node for increasing integer k until all nodes are included.</span>
+
+<span class="sd">    The function iteratively aggregates and hashes neighborhoods of each node.</span>
+<span class="sd">    This is achieved for each step by replacing for each node its label from</span>
+<span class="sd">    the previous iteration with its hashed 1-hop neighborhood aggregate.</span>
+<span class="sd">    The new node label is then appended to a list of node labels for each</span>
+<span class="sd">    node.</span>
+
+<span class="sd">    To aggregate neighborhoods at each step for a node $n$, all labels of</span>
+<span class="sd">    nodes adjacent to $n$ are concatenated. If the `edge_attr` parameter is set,</span>
+<span class="sd">    labels for each neighboring node are prefixed with the value of this attribute</span>
+<span class="sd">    along the connecting edge from this neighbor to node $n$. The resulting string</span>
+<span class="sd">    is then hashed to compress this information into a fixed digest size.</span>
+
+<span class="sd">    Thus, at the $i$th iteration nodes within $2i$ distance influence any given</span>
+<span class="sd">    hashed node label. We can therefore say that at depth $i$ for node $n$</span>
+<span class="sd">    we have a hash for a subgraph induced by the $2i$-hop neighborhood of $n$.</span>
+
+<span class="sd">    Can be used to to create general Weisfeiler-Lehman graph kernels, or</span>
+<span class="sd">    generate features for graphs or nodes, for example to generate &#39;words&#39; in a</span>
+<span class="sd">    graph as seen in the &#39;graph2vec&#39; algorithm.</span>
+<span class="sd">    See [1]_ &amp; [2]_ respectively for details.</span>
+
+<span class="sd">    Hashes are identical for isomorphic subgraphs and there exist strong</span>
+<span class="sd">    guarantees that non-isomorphic graphs will get different hashes.</span>
+<span class="sd">    See [1]_ for details.</span>
+
+<span class="sd">    If no node or edge attributes are provided, the degree of each node</span>
+<span class="sd">    is used as its initial label.</span>
+<span class="sd">    Otherwise, node and/or edge labels are used to compute the hash.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        graph: nx.Graph</span>
+<span class="sd">            The graph to be hashed.</span>
+<span class="sd">            Can have node and/or edge attributes. Can also have no attributes.</span>
+<span class="sd">        edge_attr: string, default=None</span>
+<span class="sd">            The key in edge attribute dictionary to be used for hashing.</span>
+<span class="sd">            If None, edge labels are ignored.</span>
+<span class="sd">        node_attr: string, default=None</span>
+<span class="sd">            The key in node attribute dictionary to be used for hashing.</span>
+<span class="sd">            If None, and no edge_attr given, use the degrees of the nodes as labels.</span>
+<span class="sd">        iterations: int, default=3</span>
+<span class="sd">            Number of neighbor aggregations to perform.</span>
+<span class="sd">            Should be larger for larger graphs.</span>
+<span class="sd">        digest_size: int, default=16</span>
+<span class="sd">            Size (in bits) of blake2b hash digest to use for hashing node labels.</span>
+<span class="sd">            The default size is 16 bits</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        node_subgraph_hashes : dict</span>
+<span class="sd">            A dictionary with each key given by a node in G, and each value given</span>
+<span class="sd">            by the subgraph hashes in order of depth from the key node.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        To hash the full graph when subgraph hashes are not needed, use</span>
+<span class="sd">        `weisfeiler_lehman_graph_hash` for efficiency.</span>
+
+<span class="sd">        Similarity between hashes does not imply similarity between graphs.</span>
+
+<span class="sd">    References:</span>
+<span class="sd">        .. [1] Shervashidze, Nino, Pascal Schweitzer, Erik Jan Van Leeuwen,</span>
+<span class="sd">        Kurt Mehlhorn, and Karsten M. Borgwardt. Weisfeiler Lehman</span>
+<span class="sd">        Graph Kernels. Journal of Machine Learning Research. 2011.</span>
+<span class="sd">        https://www.jmlr.org/papers/volume12/shervashidze11a/shervashidze11a.pdf</span>
+<span class="sd">        .. [2] Annamalai Narayanan, Mahinthan Chandramohan, Rajasekar Venkatesan,</span>
+<span class="sd">        Lihui Chen, Yang Liu and Shantanu Jaiswa. graph2vec: Learning</span>
+<span class="sd">        Distributed Representations of Graphs. arXiv. 2017</span>
+<span class="sd">        https://arxiv.org/pdf/1707.05005.pdf</span>
+
+<span class="sd">    See Also:</span>
+<span class="sd">        weisfeiler_lehman_graph_hash</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">weisfeiler_lehman_step</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">node_subgraph_hashes</span><span class="p">,</span> <span class="n">edge_attr</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply neighborhood aggregation to each node</span>
+<span class="sd">        in the graph.</span>
+<span class="sd">        Computes a dictionary with labels for each node.</span>
+<span class="sd">        Appends the new hashed label to the dictionary of subgraph hashes</span>
+<span class="sd">        originating from and indexed by each node in G.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">new_labels</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">G</span><span class="o">.</span><span class="n">nodes</span><span class="p">():</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">_neighborhood_aggregate</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">edge_attr</span><span class="o">=</span><span class="n">edge_attr</span><span class="p">)</span>
+            <span class="n">hashed_label</span> <span class="o">=</span> <span class="n">_hash_label</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">digest_size</span><span class="p">)</span>
+            <span class="n">new_labels</span><span class="p">[</span><span class="n">node</span><span class="p">]</span> <span class="o">=</span> <span class="n">hashed_label</span>
+            <span class="n">node_subgraph_hashes</span><span class="p">[</span><span class="n">node</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hashed_label</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_labels</span>
+
+    <span class="n">node_labels</span> <span class="o">=</span> <span class="n">_init_node_labels</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">edge_attr</span><span class="p">,</span> <span class="n">node_attr</span><span class="p">)</span>
+
+    <span class="n">node_subgraph_hashes</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">iterations</span><span class="p">):</span>
+        <span class="n">node_labels</span> <span class="o">=</span> <span class="n">weisfeiler_lehman_step</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">node_labels</span><span class="p">,</span> <span class="n">node_subgraph_hashes</span><span class="p">,</span> <span class="n">edge_attr</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">node_subgraph_hashes</span><span class="p">)</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.util.graph_hashing</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

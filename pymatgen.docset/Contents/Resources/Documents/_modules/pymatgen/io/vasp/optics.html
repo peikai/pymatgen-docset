@@ -1,27 +1,19 @@
-
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../../../../">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.vasp.optics &#8212; pymatgen 2023.1.30 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
-    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-    <script src="../../../../_static/doctools.js"></script>
-    <script src="../../../../_static/sphinx_highlight.js"></script>
+    <title>pymatgen.io.vasp.optics &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../../search.html" />
- 
-<script type="text/javascript">
-  var _gaq = _gaq || [];
-  _gaq.push(['_setAccount', 'UA-33990148-1']);
-  _gaq.push(['_trackPageview']);
-</script>
-
+    <link rel="search" title="Search" href="../../../../search.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -30,7 +22,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.vasp.optics</a></li> 
       </ul>
@@ -41,43 +33,46 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.io.vasp.optics</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
-<span class="c1"># Distributed under the terms of the MIT License.</span>
-<span class="sd">&quot;&quot;&quot;Classes for parsing and manipulating VASP optical properties calculations.&quot;&quot;&quot;</span>
+<span></span><span class="sd">&quot;&quot;&quot;Classes for parsing and manipulating VASP optical properties calculations.&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">overload</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.constants</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.special</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.json</span><span class="w"> </span><span class="kn">import</span> <span class="n">MSONable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.electronic_structure.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Spin</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.vasp.outputs</span><span class="w"> </span><span class="kn">import</span> <span class="n">Vasprun</span><span class="p">,</span> <span class="n">Waveder</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">NDArray</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">PathLike</span>
 
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Jimmy-Xuan Shen&quot;</span>
 <span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2022, The Materials Project&quot;</span>
 <span class="n">__maintainer__</span> <span class="o">=</span> <span class="s2">&quot;Jimmy-Xuan Shen&quot;</span>
 <span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;jmmshn@gmail.com&quot;</span>
 
+<span class="n">au2ang</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">physical_constants</span><span class="p">[</span><span class="s2">&quot;atomic unit of length&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e-10</span>
+<span class="n">ryd2ev</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">physical_constants</span><span class="p">[</span><span class="s2">&quot;Rydberg constant times hc in eV&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">edeps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">ryd2ev</span> <span class="o">*</span> <span class="n">au2ang</span>  <span class="c1"># from constant.inc in VASP</span>
 
-<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">numpy.typing</span> <span class="k">as</span> <span class="nn">npt</span>
-<span class="kn">import</span> <span class="nn">scipy.constants</span>
-<span class="kn">import</span> <span class="nn">scipy.special</span>
-<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
-<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
-
-<span class="kn">from</span> <span class="nn">pymatgen.electronic_structure.core</span> <span class="kn">import</span> <span class="n">Spin</span>
-<span class="kn">from</span> <span class="nn">pymatgen.io.vasp.outputs</span> <span class="kn">import</span> <span class="n">Vasprun</span><span class="p">,</span> <span class="n">Waveder</span>
-
-<span class="n">au2ang</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">physical_constants</span><span class="p">[</span><span class="s2">&quot;atomic unit of length&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e-10</span>
-<span class="n">ryd2ev</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">physical_constants</span><span class="p">[</span><span class="s2">&quot;Rydberg constant times hc in eV&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-<span class="n">edeps</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">ryd2ev</span> <span class="o">*</span> <span class="n">au2ang</span>  <span class="c1"># from constant.inc in VASP</span>
-
-<span class="n">KB</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">physical_constants</span><span class="p">[</span><span class="s2">&quot;Boltzmann constant in eV/K&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">KB</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">constants</span><span class="o">.</span><span class="n">physical_constants</span><span class="p">[</span><span class="s2">&quot;Boltzmann constant in eV/K&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
 
 
-<div class="viewcode-block" id="DielectricFunctionCalculator"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.DielectricFunctionCalculator">[docs]</a><span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">DielectricFunctionCalculator</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for postprocessing VASP optical properties calculations.</span>
+<div class="viewcode-block" id="DielectricFunctionCalculator">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.DielectricFunctionCalculator">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DielectricFunctionCalculator</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Post-process VASP optical properties calculations.</span>
 
 <span class="sd">    This objects helps load the different parameters from the vasprun.xml file but allows users to override</span>
 <span class="sd">    them as needed.</span>
@@ -93,16 +88,16 @@
 <span class="sd">        - Perform symmetry operations (this is not implemented here)</span>
 <span class="sd">        - Calculate the real part</span>
 
-<span class="sd">    Currently, this Calculator only works for ``ISYM=0`` calculations since we cannot gauranttee that our</span>
-<span class="sd">    externally defined symmetry operations are the same as VASP&#39;s.  This can be fixed by printing the</span>
-<span class="sd">    symmetry operators into the vasprun.xml file.  If this happens in future versions of VASP,</span>
+<span class="sd">    Currently, this Calculator only works for ``ISYM=0`` calculations since we cannot guarantee that our</span>
+<span class="sd">    externally defined symmetry operations are the same as VASP&#39;s. This can be fixed by printing the</span>
+<span class="sd">    symmetry operators into the vasprun.xml file. If this happens in future versions of VASP,</span>
 <span class="sd">    we can dramatically speed up the calculations here by considering only the irreducible kpoints.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">cder_real</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span>
-    <span class="n">cder_imag</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span>
-    <span class="n">eigs</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span>
-    <span class="n">kweights</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span>
+    <span class="n">cder_real</span><span class="p">:</span> <span class="n">NDArray</span>
+    <span class="n">cder_imag</span><span class="p">:</span> <span class="n">NDArray</span>
+    <span class="n">eigs</span><span class="p">:</span> <span class="n">NDArray</span>
+    <span class="n">kweights</span><span class="p">:</span> <span class="n">NDArray</span>
     <span class="n">nedos</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">deltae</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">ismear</span><span class="p">:</span> <span class="nb">int</span>
@@ -112,9 +107,11 @@
     <span class="n">ispin</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">volume</span><span class="p">:</span> <span class="nb">float</span>
 
-<div class="viewcode-block" id="DielectricFunctionCalculator.from_vasp_objects"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.DielectricFunctionCalculator.from_vasp_objects">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_vasp_objects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">vrun</span><span class="p">:</span> <span class="n">Vasprun</span><span class="p">,</span> <span class="n">waveder</span><span class="p">:</span> <span class="n">Waveder</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a DielectricFunction from Vasprun, Kpoint, and Waveder objects.</span>
+<div class="viewcode-block" id="DielectricFunctionCalculator.from_vasp_objects">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.DielectricFunctionCalculator.from_vasp_objects">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_vasp_objects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">vrun</span><span class="p">:</span> <span class="n">Vasprun</span><span class="p">,</span> <span class="n">waveder</span><span class="p">:</span> <span class="n">Waveder</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a DielectricFunction from Vasprun, Kpoint, and Waveder.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            vrun: Vasprun object</span>
@@ -122,6 +119,9 @@
 <span class="sd">            waveder: Waveder object</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">bands</span> <span class="o">=</span> <span class="n">vrun</span><span class="o">.</span><span class="n">eigenvalues</span>
+        <span class="k">if</span> <span class="n">bands</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;eigenvalues cannot be None.&quot;</span><span class="p">)</span>
+
         <span class="n">sspins</span> <span class="o">=</span> <span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">,</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">]</span>
         <span class="n">eigs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">bands</span><span class="p">[</span><span class="n">spin</span><span class="p">]</span> <span class="k">for</span> <span class="n">spin</span> <span class="ow">in</span> <span class="n">sspins</span><span class="p">[:</span> <span class="n">vrun</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;ISPIN&quot;</span><span class="p">]]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
         <span class="n">eigs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">eigs</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
@@ -137,7 +137,10 @@
         <span class="k">if</span> <span class="n">vrun</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;ISYM&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;ISYM != 0 is not implemented yet&quot;</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">DielectricFunctionCalculator</span><span class="p">(</span>
+        <span class="k">if</span> <span class="n">efermi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;efermi cannot be None.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">cder_real</span><span class="o">=</span><span class="n">waveder</span><span class="o">.</span><span class="n">cder_real</span><span class="p">,</span>
             <span class="n">cder_imag</span><span class="o">=</span><span class="n">waveder</span><span class="o">.</span><span class="n">cder_imag</span><span class="p">,</span>
             <span class="n">eigs</span><span class="o">=</span><span class="n">eigs</span><span class="p">,</span>
@@ -152,36 +155,42 @@
             <span class="n">volume</span><span class="o">=</span><span class="n">volume</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="DielectricFunctionCalculator.from_directory"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.DielectricFunctionCalculator.from_directory">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_directory</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">directory</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a DielectricFunction from a directory containing vasprun.xml and WAVEDER files.&quot;&quot;&quot;</span>
-        <span class="n">d_</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">directory</span><span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">_try_reading</span><span class="p">(</span><span class="n">dtypes</span><span class="p">):</span>
+<div class="viewcode-block" id="DielectricFunctionCalculator.from_directory">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.DielectricFunctionCalculator.from_directory">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_directory</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">directory</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a DielectricFunction from a directory containing</span>
+<span class="sd">        vasprun.xml and WAVEDER files.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_try_reading</span><span class="p">(</span><span class="n">dtypes</span><span class="p">):</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Return None if failed.&quot;&quot;&quot;</span>
             <span class="k">for</span> <span class="n">dtype</span> <span class="ow">in</span> <span class="n">dtypes</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">waveder</span> <span class="o">=</span> <span class="n">Waveder</span><span class="o">.</span><span class="n">from_binary</span><span class="p">(</span><span class="n">d_</span> <span class="o">/</span> <span class="s2">&quot;WAVEDER&quot;</span><span class="p">,</span> <span class="n">data_type</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
-                    <span class="k">return</span> <span class="n">waveder</span>
-                <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="s2">&quot;reshape&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">Waveder</span><span class="o">.</span><span class="n">from_binary</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s2">/WAVEDER&quot;</span><span class="p">,</span> <span class="n">data_type</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="s2">&quot;reshape&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">):</span>
                         <span class="k">continue</span>
-                    <span class="k">raise</span> <span class="n">e</span>
+                    <span class="k">raise</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="n">vrun</span> <span class="o">=</span> <span class="n">Vasprun</span><span class="p">(</span><span class="n">d_</span> <span class="o">/</span> <span class="s2">&quot;vasprun.xml&quot;</span><span class="p">)</span>
+        <span class="n">vrun</span> <span class="o">=</span> <span class="n">Vasprun</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s2">/vasprun.xml&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;gamma&quot;</span> <span class="ow">in</span> <span class="n">vrun</span><span class="o">.</span><span class="n">generator</span><span class="p">[</span><span class="s2">&quot;subversion&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
             <span class="n">waveder</span> <span class="o">=</span> <span class="n">_try_reading</span><span class="p">([</span><span class="s2">&quot;float64&quot;</span><span class="p">,</span> <span class="s2">&quot;float32&quot;</span><span class="p">])</span>  <span class="c1"># large one first should give value error</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">waveder</span> <span class="o">=</span> <span class="n">_try_reading</span><span class="p">([</span><span class="s2">&quot;complex128&quot;</span><span class="p">,</span> <span class="s2">&quot;complex64&quot;</span><span class="p">])</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_vasp_objects</span><span class="p">(</span><span class="n">vrun</span><span class="p">,</span> <span class="n">waveder</span><span class="p">)</span></div>
 
+
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">cder</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cder</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Complex CDER from WAVEDER.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cder_real</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">cder_imag</span> <span class="o">*</span> <span class="mf">1.0</span><span class="n">j</span>
 
-<div class="viewcode-block" id="DielectricFunctionCalculator.get_epsilon"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.DielectricFunctionCalculator.get_epsilon">[docs]</a>    <span class="k">def</span> <span class="nf">get_epsilon</span><span class="p">(</span>
+<div class="viewcode-block" id="DielectricFunctionCalculator.get_epsilon">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.DielectricFunctionCalculator.get_epsilon">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_epsilon</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">idir</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">jdir</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -191,8 +200,8 @@
         <span class="n">ismear</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cshift</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">mask</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]:</span>
+        <span class="n">mask</span><span class="p">:</span> <span class="n">NDArray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">NDArray</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the frequency dependent dielectric function.</span>
 
 <span class="sd">        Args:</span>
@@ -207,45 +216,60 @@
 <span class="sd">            mask: Mask for the bands/kpoint/spin index to include in the calculation</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="k">def</span> <span class="nf">_use_default</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">default</span><span class="p">):</span>
+        <span class="nd">@overload</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_use_default</span><span class="p">(</span><span class="n">param</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+        <span class="nd">@overload</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_use_default</span><span class="p">(</span><span class="n">param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_use_default</span><span class="p">(</span><span class="n">param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">param</span> <span class="k">if</span> <span class="n">param</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">default</span>
 
-        <span class="n">efermi</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">)</span>
-        <span class="n">nedos</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">nedos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nedos</span><span class="p">)</span>
-        <span class="n">deltae</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">deltae</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">deltae</span><span class="p">)</span>
-        <span class="n">ismear</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">ismear</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ismear</span><span class="p">)</span>
-        <span class="n">sigma</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="p">)</span>
-        <span class="n">cshift</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">cshift</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cshift</span><span class="p">)</span>
+        <span class="n">_efermi</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">efermi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">efermi</span><span class="p">)</span>
+        <span class="n">_nedos</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">nedos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nedos</span><span class="p">)</span>
+        <span class="n">_deltae</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">deltae</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">deltae</span><span class="p">)</span>
+        <span class="n">_ismear</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">ismear</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ismear</span><span class="p">)</span>
+        <span class="n">_sigma</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="p">)</span>
+        <span class="n">_cshift</span> <span class="o">=</span> <span class="n">_use_default</span><span class="p">(</span><span class="n">cshift</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cshift</span><span class="p">)</span>
 
-        <span class="n">egrid</span><span class="p">,</span> <span class="n">eps_imag</span> <span class="o">=</span> <span class="n">epsilon_imag</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+        <span class="n">egrid</span><span class="p">,</span> <span class="n">eps_imag</span> <span class="o">=</span> <span class="n">epsilon_imag</span><span class="p">(</span>
             <span class="n">cder</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cder</span><span class="p">,</span>
             <span class="n">eigs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eigs</span><span class="p">,</span>
             <span class="n">kweights</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kweights</span><span class="p">,</span>
-            <span class="n">efermi</span><span class="o">=</span><span class="n">efermi</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
-            <span class="n">nedos</span><span class="o">=</span><span class="n">nedos</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
-            <span class="n">deltae</span><span class="o">=</span><span class="n">deltae</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
-            <span class="n">ismear</span><span class="o">=</span><span class="n">ismear</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
-            <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+            <span class="n">efermi</span><span class="o">=</span><span class="n">_efermi</span><span class="p">,</span>
+            <span class="n">nedos</span><span class="o">=</span><span class="n">_nedos</span><span class="p">,</span>
+            <span class="n">deltae</span><span class="o">=</span><span class="n">_deltae</span><span class="p">,</span>
+            <span class="n">ismear</span><span class="o">=</span><span class="n">_ismear</span><span class="p">,</span>
+            <span class="n">sigma</span><span class="o">=</span><span class="n">_sigma</span><span class="p">,</span>
             <span class="n">idir</span><span class="o">=</span><span class="n">idir</span><span class="p">,</span>
             <span class="n">jdir</span><span class="o">=</span><span class="n">jdir</span><span class="p">,</span>
             <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="c1"># scaling constant: edeps * np.pi / structure.volume</span>
         <span class="n">eps_in</span> <span class="o">=</span> <span class="n">eps_imag</span> <span class="o">*</span> <span class="n">edeps</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">volume</span>
-        <span class="n">eps</span> <span class="o">=</span> <span class="n">kramers_kronig</span><span class="p">(</span><span class="n">eps_in</span><span class="p">,</span> <span class="n">nedos</span><span class="o">=</span><span class="n">nedos</span><span class="p">,</span> <span class="n">deltae</span><span class="o">=</span><span class="n">deltae</span><span class="p">,</span> <span class="n">cshift</span><span class="o">=</span><span class="n">cshift</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">kramers_kronig</span><span class="p">(</span><span class="n">eps_in</span><span class="p">,</span> <span class="n">nedos</span><span class="o">=</span><span class="n">_nedos</span><span class="p">,</span> <span class="n">deltae</span><span class="o">=</span><span class="n">_deltae</span><span class="p">,</span> <span class="n">cshift</span><span class="o">=</span><span class="n">_cshift</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">idir</span> <span class="o">==</span> <span class="n">jdir</span><span class="p">:</span>
             <span class="n">eps</span> <span class="o">+=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">0.0</span><span class="n">j</span>
         <span class="k">return</span> <span class="n">egrid</span><span class="p">,</span> <span class="n">eps</span></div>
 
-<div class="viewcode-block" id="DielectricFunctionCalculator.plot_weighted_transition_data"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.DielectricFunctionCalculator.plot_weighted_transition_data">[docs]</a>    <span class="k">def</span> <span class="nf">plot_weighted_transition_data</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">idir</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">jdir</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">mask</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+<div class="viewcode-block" id="DielectricFunctionCalculator.plot_weighted_transition_data">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.DielectricFunctionCalculator.plot_weighted_transition_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_weighted_transition_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">idir</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">jdir</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">mask</span><span class="p">:</span> <span class="n">NDArray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">min_val</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Data for plotting the weight matrix elements as a scatter plot.</span>
 
 <span class="sd">        Since the computation of the final spectrum (especially the smearing part)</span>
 <span class="sd">        is still fairly expensive.  This function can be used to check the values</span>
 <span class="sd">        of some portion of the spectrum (defined by the mask).</span>
-<span class="sd">        In a sense, we are lookin at the imaginary part of the dielectric function</span>
+<span class="sd">        In a sense, we are looking at the imaginary part of the dielectric function</span>
 <span class="sd">        before the smearing is applied.</span>
 
 <span class="sd">        Args:</span>
@@ -255,23 +279,21 @@
 <span class="sd">                index to include in the calculation</span>
 <span class="sd">            min_val: Minimum value below this value the matrix element will not be shown.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">cderm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cder</span> <span class="o">*</span> <span class="n">mask</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">cderm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cder</span>
+        <span class="n">cderm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cder</span> <span class="o">*</span> <span class="n">mask</span> <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">cder</span>
 
         <span class="n">norm_kweights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kweights</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kweights</span><span class="p">)</span>
         <span class="n">eigs_shifted</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eigs</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">efermi</span>
         <span class="n">rspin</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">-</span> <span class="n">cderm</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
-        <span class="c1"># limit the first two indices based on the mask</span>
+
+        <span class="c1"># Limit the first two indices based on the mask</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">min_band0</span><span class="p">,</span> <span class="n">max_band0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cderm</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cderm</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
             <span class="n">min_band1</span><span class="p">,</span> <span class="n">max_band1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cderm</span><span class="p">)[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cderm</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">if</span> <span class="s2">&quot;zero-size array&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No matrix elements found.  Check the mask.&quot;</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">e</span>
+
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;zero-size array&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No matrix elements found. Check the mask.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span>
 
         <span class="n">x_val</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">y_val</span> <span class="o">=</span> <span class="p">[]</span>
@@ -295,14 +317,18 @@
                 <span class="n">x_val</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">decel</span><span class="p">)</span>
                 <span class="n">y_val</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">matrix_el</span><span class="p">)</span>
                 <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;s:</span><span class="si">{</span><span class="n">ispin</span><span class="si">}</span><span class="s2">, k:</span><span class="si">{</span><span class="n">ik</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">ib</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">jb</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">decel</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">x_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">,</span> <span class="n">text</span></div></div>
+        <span class="k">return</span> <span class="n">x_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">,</span> <span class="n">text</span></div>
+</div>
 
 
-<div class="viewcode-block" id="delta_methfessel_paxton"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.delta_methfessel_paxton">[docs]</a><span class="k">def</span> <span class="nf">delta_methfessel_paxton</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+
+<div class="viewcode-block" id="delta_methfessel_paxton">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.delta_methfessel_paxton">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">delta_methfessel_paxton</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    D_n (x) = exp -x^2 * sum_i=0^n A_i H_2i(x)</span>
 <span class="sd">    where H is a Hermite polynomial and</span>
-<span class="sd">    A_i = (-1)^i / ( i! 4^i sqrt(pi) )</span>
+<span class="sd">    A_i = (-1)^i / ( i! 4^i sqrt(pi) ).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">ii</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">A</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="n">ii</span> <span class="o">/</span> <span class="p">(</span><span class="n">scipy</span><span class="o">.</span><span class="n">special</span><span class="o">.</span><span class="n">factorial</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span><span class="o">**</span><span class="n">ii</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span>
@@ -310,11 +336,14 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">))</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">H</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="step_methfessel_paxton"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.step_methfessel_paxton">[docs]</a><span class="k">def</span> <span class="nf">step_methfessel_paxton</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+
+<div class="viewcode-block" id="step_methfessel_paxton">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.step_methfessel_paxton">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">step_methfessel_paxton</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    S_n (x) = (1 + erf x)/2 - exp -x^2 * sum_i=1^n A_i H_{2i-1}(x)</span>
 <span class="sd">    where H is a Hermite polynomial and</span>
-<span class="sd">    A_i = (-1)^i / ( i! 4^i sqrt(pi) )</span>
+<span class="sd">    A_i = (-1)^i / ( i! 4^i sqrt(pi) ).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">ii</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">A</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="n">ii</span> <span class="o">/</span> <span class="p">(</span><span class="n">scipy</span><span class="o">.</span><span class="n">special</span><span class="o">.</span><span class="n">factorial</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span><span class="o">**</span><span class="n">ii</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span>
@@ -322,29 +351,38 @@
     <span class="k">return</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">scipy</span><span class="o">.</span><span class="n">special</span><span class="o">.</span><span class="n">erf</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">))</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">H</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="delta_func"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.delta_func">[docs]</a><span class="k">def</span> <span class="nf">delta_func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ismear</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Replication of VASP&#39;s delta function&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="delta_func">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.delta_func">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">delta_func</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span> <span class="n">ismear</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Replication of VASP&#39;s delta function.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">ismear</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Delta function not implemented for ismear &lt; -1&quot;</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">ismear</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">ismear</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">step_func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">step_func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-    <span class="k">elif</span> <span class="n">ismear</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">ismear</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">delta_methfessel_paxton</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ismear</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="step_func"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.step_func">[docs]</a><span class="k">def</span> <span class="nf">step_func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ismear</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Replication of VASP&#39;s step function&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="step_func">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.step_func">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">step_func</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span> <span class="n">ismear</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Replication of VASP&#39;s step function.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">ismear</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Delta function not implemented for ismear &lt; -1&quot;</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">ismear</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">ismear</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
         <span class="k">return</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">))</span>
-    <span class="k">elif</span> <span class="n">ismear</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">ismear</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">scipy</span><span class="o">.</span><span class="n">special</span><span class="o">.</span><span class="n">erf</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">step_methfessel_paxton</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ismear</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="get_delta"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.get_delta">[docs]</a><span class="k">def</span> <span class="nf">get_delta</span><span class="p">(</span><span class="n">x0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">nx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">ismear</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">):</span>
+
+<div class="viewcode-block" id="get_delta">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.get_delta">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_delta</span><span class="p">(</span><span class="n">x0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">nx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">ismear</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the smeared delta function to be added to form the spectrum.</span>
 
 <span class="sd">    This replaces the `SLOT` function from VASP. Uses finite differences instead of</span>
@@ -357,11 +395,10 @@
 <span class="sd">        dx: The gridspacing of the output grid.</span>
 <span class="sd">        ismear: The smearing parameter used by the ``step_func``.</span>
 
-<span class="sd">    Return:</span>
-<span class="sd">        np.array: Array of size `nx` with delta function on the desired outputgrid.</span>
-
+<span class="sd">    Returns:</span>
+<span class="sd">        np.ndarray: Array of size `nx` with delta function on the desired outputgrid.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">xgrid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nx</span> <span class="o">*</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span>
+    <span class="n">xgrid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nx</span> <span class="o">*</span> <span class="n">dx</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">xgrid</span> <span class="o">-=</span> <span class="n">x0</span>
     <span class="n">x_scaled</span> <span class="o">=</span> <span class="p">(</span><span class="n">xgrid</span> <span class="o">+</span> <span class="p">(</span><span class="n">dx</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="n">sigma</span>
     <span class="n">sfun</span> <span class="o">=</span> <span class="n">step_func</span><span class="p">(</span><span class="n">x_scaled</span><span class="p">,</span> <span class="n">ismear</span><span class="p">)</span>
@@ -370,7 +407,10 @@
     <span class="k">return</span> <span class="n">dfun</span></div>
 
 
-<div class="viewcode-block" id="get_step"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.get_step">[docs]</a><span class="k">def</span> <span class="nf">get_step</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">ismear</span><span class="p">):</span>
+
+<div class="viewcode-block" id="get_step">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.get_step">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_step</span><span class="p">(</span><span class="n">x0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">nx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">ismear</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the smeared step function to be added to form the spectrum.</span>
 
 <span class="sd">    This replaces the `SLOT` function from VASP.</span>
@@ -382,19 +422,22 @@
 <span class="sd">        dx: The gridspacing of the output grid.</span>
 <span class="sd">        ismear: The smearing parameter used by the ``step_func``.</span>
 
-<span class="sd">    Return:</span>
-<span class="sd">        np.array: Array of size `nx` with step function on the desired outputgrid.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        np.ndarray: Array of size `nx` with step function on the desired outputgrid.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">xgrid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nx</span> <span class="o">*</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span>
+    <span class="n">xgrid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nx</span> <span class="o">*</span> <span class="n">dx</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">xgrid</span> <span class="o">-=</span> <span class="n">x0</span>
     <span class="n">x_scaled</span> <span class="o">=</span> <span class="p">(</span><span class="n">xgrid</span> <span class="o">+</span> <span class="p">(</span><span class="n">dx</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="n">sigma</span>
     <span class="k">return</span> <span class="n">step_func</span><span class="p">(</span><span class="n">x_scaled</span><span class="p">,</span> <span class="n">ismear</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="epsilon_imag"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.epsilon_imag">[docs]</a><span class="k">def</span> <span class="nf">epsilon_imag</span><span class="p">(</span>
-    <span class="n">cder</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span>
-    <span class="n">eigs</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span>
-    <span class="n">kweights</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+
+<div class="viewcode-block" id="epsilon_imag">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.epsilon_imag">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">epsilon_imag</span><span class="p">(</span>
+    <span class="n">cder</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span>
+    <span class="n">eigs</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span>
+    <span class="n">kweights</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
     <span class="n">efermi</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">nedos</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">deltae</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -402,8 +445,8 @@
     <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">idir</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">jdir</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">mask</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">):</span>
+    <span class="n">mask</span><span class="p">:</span> <span class="n">NDArray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">NDArray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Replicate the EPSILON_IMAG function of VASP.</span>
 
 <span class="sd">    Args:</span>
@@ -419,22 +462,18 @@
 <span class="sd">        jdir: The second direction of the dielectric tensor</span>
 <span class="sd">        mask: Mask for the bands/kpoint/spin index to include in the calculation</span>
 
-<span class="sd">    Return:</span>
-<span class="sd">        np.array: Array of size `nedos` with the imaginary part of the dielectric function.</span>
-
+<span class="sd">    Returns:</span>
+<span class="sd">        np.ndarray: Array of size `nedos` with the imaginary part of the dielectric function.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">norm_kweights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">kweights</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">kweights</span><span class="p">)</span>
-    <span class="n">egrid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nedos</span> <span class="o">*</span> <span class="n">deltae</span><span class="p">,</span> <span class="n">deltae</span><span class="p">)</span>
+    <span class="n">egrid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nedos</span> <span class="o">*</span> <span class="n">deltae</span><span class="p">,</span> <span class="n">nedos</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">eigs_shifted</span> <span class="o">=</span> <span class="n">eigs</span> <span class="o">-</span> <span class="n">efermi</span>
     <span class="c1"># np.subtract.outer results in a matrix of shape (nband, nband)</span>
     <span class="n">rspin</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">-</span> <span class="n">cder</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
 
-    <span class="c1"># for the transition between two bands at one kpoint the contributions is:</span>
+    <span class="c1"># For the transition between two bands at one kpoint the contributions is:</span>
     <span class="c1">#  (fermi[band_i] - fermi[band_j]) * rspin * normalized_kpoint_weight</span>
-    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">cderm</span> <span class="o">=</span> <span class="n">cder</span> <span class="o">*</span> <span class="n">mask</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">cderm</span> <span class="o">=</span> <span class="n">cder</span>
+    <span class="n">cderm</span> <span class="o">=</span> <span class="n">cder</span> <span class="o">*</span> <span class="n">mask</span> <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cder</span>
 
     <span class="c1"># min_band0, max_band0 = np.min(np.where(cderm)[0]), np.max(np.where(cderm)[0])</span>
     <span class="c1"># min_band1, max_band1 = np.min(np.where(cderm)[1]), np.max(np.where(cderm)[1])</span>
@@ -442,10 +481,10 @@
     <span class="k">try</span><span class="p">:</span>
         <span class="n">min_band0</span><span class="p">,</span> <span class="n">max_band0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cderm</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cderm</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">min_band1</span><span class="p">,</span> <span class="n">max_band1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cderm</span><span class="p">)[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cderm</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
-    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="k">if</span> <span class="s2">&quot;zero-size array&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">egrid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">egrid</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
-        <span class="k">raise</span> <span class="n">e</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;zero-size array&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">egrid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">egrid</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+        <span class="k">raise</span>
     <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">nk</span><span class="p">,</span> <span class="n">nspin</span> <span class="o">=</span> <span class="n">cderm</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">4</span><span class="p">]</span>
     <span class="n">iter_idx</span> <span class="o">=</span> <span class="p">[</span>
         <span class="nb">range</span><span class="p">(</span><span class="n">min_band0</span><span class="p">,</span> <span class="n">max_band0</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
@@ -456,7 +495,6 @@
     <span class="n">num_</span> <span class="o">=</span> <span class="p">(</span><span class="n">max_band0</span> <span class="o">-</span> <span class="n">min_band0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">max_band1</span> <span class="o">-</span> <span class="n">min_band1</span><span class="p">)</span> <span class="o">*</span> <span class="n">nk</span> <span class="o">*</span> <span class="n">nspin</span>
     <span class="n">epsdd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">egrid</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">ib</span><span class="p">,</span> <span class="n">jb</span><span class="p">,</span> <span class="n">ik</span><span class="p">,</span> <span class="n">ispin</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">iter_idx</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="n">num_</span><span class="p">):</span>
-        <span class="c1"># print(f&quot;{ib=}, {jb=}, {ik=}, {ispin=}&quot;)</span>
         <span class="n">fermi_w_i</span> <span class="o">=</span> <span class="n">step_func</span><span class="p">((</span><span class="n">eigs_shifted</span><span class="p">[</span><span class="n">ib</span><span class="p">,</span> <span class="n">ik</span><span class="p">,</span> <span class="n">ispin</span><span class="p">])</span> <span class="o">/</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">ismear</span><span class="p">)</span>
         <span class="n">fermi_w_j</span> <span class="o">=</span> <span class="n">step_func</span><span class="p">((</span><span class="n">eigs_shifted</span><span class="p">[</span><span class="n">jb</span><span class="p">,</span> <span class="n">ik</span><span class="p">,</span> <span class="n">ispin</span><span class="p">])</span> <span class="o">/</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">ismear</span><span class="p">)</span>
         <span class="n">weight</span> <span class="o">=</span> <span class="p">(</span><span class="n">fermi_w_j</span> <span class="o">-</span> <span class="n">fermi_w_i</span><span class="p">)</span> <span class="o">*</span> <span class="n">rspin</span> <span class="o">*</span> <span class="n">norm_kweights</span><span class="p">[</span><span class="n">ik</span><span class="p">]</span>
@@ -471,12 +509,15 @@
     <span class="k">return</span> <span class="n">egrid</span><span class="p">,</span> <span class="n">epsdd</span></div>
 
 
-<div class="viewcode-block" id="kramers_kronig"><a class="viewcode-back" href="../../../../pymatgen.io.vasp.optics.html#pymatgen.io.vasp.optics.kramers_kronig">[docs]</a><span class="k">def</span> <span class="nf">kramers_kronig</span><span class="p">(</span>
-    <span class="n">eps</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+
+<div class="viewcode-block" id="kramers_kronig">
+<a class="viewcode-back" href="../../../../pymatgen.io.vasp.html#pymatgen.io.vasp.optics.kramers_kronig">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">kramers_kronig</span><span class="p">(</span>
+    <span class="n">eps</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span>
     <span class="n">nedos</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">deltae</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">cshift</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Perform the Kramers-Kronig transformation.</span>
 
 <span class="sd">    Perform the Kramers-Kronig transformation exactly as VASP does it.</span>
@@ -485,13 +526,14 @@
 <span class="sd">    The output should be the complex dielectric function.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        eps: The dielectric function with the imaginary part stored as the real part and nothing in the imaginary part.</span>
+<span class="sd">        eps: The dielectric function with the imaginary part stored as the real part</span>
+<span class="sd">            and nothing in the imaginary part.</span>
 <span class="sd">        nedos: The sampling of the energy values</span>
 <span class="sd">        deltae: The energy grid spacing</span>
 <span class="sd">        cshift: The shift of the imaginary part of the dielectric function.</span>
 
-<span class="sd">    Return:</span>
-<span class="sd">        np.array: Array of size `nedos` with the complex dielectric function.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        np.ndarray: Array of size `nedos` with the complex dielectric function.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">egrid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">deltae</span> <span class="o">*</span> <span class="n">nedos</span><span class="p">,</span> <span class="n">nedos</span><span class="p">)</span>
     <span class="n">csfhit</span> <span class="o">=</span> <span class="n">cshift</span> <span class="o">*</span> <span class="mf">1.0</span><span class="n">j</span>
@@ -500,7 +542,6 @@
     <span class="n">vals</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">((</span><span class="n">eps</span> <span class="o">/</span> <span class="n">cdiff</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">eps</span><span class="p">)</span> <span class="o">/</span> <span class="n">csum</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">deltae</span></div>
 
-    <span class="c1"># loop over that</span>
 </pre></div>
 
             <div class="clearer"></div>
@@ -508,7 +549,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -517,29 +558,14 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.vasp.optics</a></li> 
       </ul>
     </div>
-
     <div class="footer" role="contentinfo">
-        &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
     </div>
-<div class="footer">This page uses <a href="http://analytics.google.com/">
-Google Analytics</a> to collect statistics. You can disable it by blocking
-the JavaScript coming from www.google-analytics.com.
-<script type="text/javascript">
-  (function() {
-    var ga = document.createElement('script');
-    ga.src = ('https:' == document.location.protocol ?
-              'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-    ga.setAttribute('async', 'true');
-    document.documentElement.firstChild.appendChild(ga);
-  })();
-</script>
-</div>
-
   </body>
 </html>

@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.pwmat.inputs &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.pwmat.inputs</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.io.pwmat.inputs</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">linecache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">zopen</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.json</span><span class="w"> </span><span class="kn">import</span> <span class="n">MSONable</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lattice</span><span class="p">,</span> <span class="n">Structure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.symmetry.kpath</span><span class="w"> </span><span class="kn">import</span> <span class="n">KPathSeek</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">PathLike</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Hanyu Liu&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;domainofbuaa@gmail.com&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;2024-1-16&quot;</span>
+
+
+<div class="viewcode-block" id="LineLocator">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.LineLocator">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LineLocator</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find the line indices (starts from 1) of a certain paragraph of text from the file.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="LineLocator.locate_all_lines">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.LineLocator.locate_all_lines">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">locate_all_lines</span><span class="p">(</span><span class="n">file_path</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">exclusion</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Locate the line in file where a certain paragraph of text is located (return all indices).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            file_path (PathLike): Absolute path to file.</span>
+<span class="sd">            content (str): Certain paragraph of text that needs to be located.</span>
+<span class="sd">            exclusion (str): Certain paragraph of text that is excluded.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">row_idxs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># starts from 1 to be compatible with linecache package</span>
+        <span class="n">row_no</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">row_content</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">row_no</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">content</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="ow">in</span> <span class="n">row_content</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="ow">and</span> <span class="p">(</span>
+                    <span class="ow">not</span> <span class="n">exclusion</span> <span class="ow">or</span> <span class="n">exclusion</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">row_content</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+                <span class="p">):</span>
+                    <span class="n">row_idxs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row_no</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">row_idxs</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ListLocator">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ListLocator">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ListLocator</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find the element indices (starts from 0) of a certain paragraph of text from the list.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ListLocator.locate_all_lines">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ListLocator.locate_all_lines">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">locate_all_lines</span><span class="p">(</span><span class="n">strs_lst</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">content</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">exclusion</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Locate the elements in list where a certain paragraph of text is located (return all indices).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            strs_lst (list[str]): List of strings.</span>
+<span class="sd">            content (str): Certain paragraph of text that needs to be located.</span>
+<span class="sd">            exclusion (str): Certain paragraph of text that is excluded.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">str_idxs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># starts from 0 to be compatible with list</span>
+        <span class="n">str_no</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">for</span> <span class="n">tmp_str</span> <span class="ow">in</span> <span class="n">strs_lst</span><span class="p">:</span>
+            <span class="n">str_no</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">content</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="ow">in</span> <span class="n">tmp_str</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">exclusion</span> <span class="ow">or</span> <span class="n">exclusion</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">tmp_str</span><span class="o">.</span><span class="n">upper</span><span class="p">()):</span>
+                <span class="n">str_idxs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">str_no</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">str_idxs</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ACExtractorBase">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractorBase">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ACExtractorBase</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A parent class of ACExtractor and ACstrExtractor, ensuring that they are as consistent as possible.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ACExtractorBase.get_n_atoms">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractorBase.get_n_atoms">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the number of atoms in structure defined by atom.config file.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="ACExtractorBase.get_lattice">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractorBase.get_lattice">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_lattice</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the lattice of structure defined by atom.config file.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="ACExtractorBase.get_types">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractorBase.get_types">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get atomic number of atoms in structure defined by atom.config file.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="ACExtractorBase.get_coords">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractorBase.get_coords">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get fractional coordinates of atoms in structure defined by atom.config file.&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="ACExtractorBase.get_magmoms">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractorBase.get_magmoms">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_magmoms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get atomic magmoms of atoms in structure defined by atom.config file.&quot;&quot;&quot;</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ACExtractor">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ACExtractor</span><span class="p">(</span><span class="n">ACExtractorBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract information contained in atom.config : number of atoms, lattice, types, frac_coords, magmoms.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialization function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            file_path (str): The absolute path of atom.config file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">atom_config_path</span> <span class="o">=</span> <span class="n">file_path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_n_atoms</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lattice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_lattice</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">types</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_types</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_coords</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">magmoms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_magmoms</span><span class="p">()</span>
+
+<div class="viewcode-block" id="ACExtractor.get_n_atoms">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractor.get_n_atoms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of atoms in the structure.&quot;&quot;&quot;</span>
+        <span class="n">first_row</span> <span class="o">=</span> <span class="n">linecache</span><span class="o">.</span><span class="n">getline</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atom_config_path</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">first_row</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="ACExtractor.get_lattice">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractor.get_lattice">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_lattice</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the lattice of structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            lattice: np.ndarray, shape = (9,)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">basis_vectors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;LATTICE&quot;</span>
+        <span class="n">idx_row</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">LineLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">file_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">atom_config_path</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">content</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">row_idx</span> <span class="ow">in</span> <span class="p">[</span><span class="n">idx_row</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">idx_row</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">idx_row</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]:</span>
+            <span class="n">row_content</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">linecache</span><span class="o">.</span><span class="n">getline</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atom_config_path</span><span class="p">),</span> <span class="n">row_idx</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()[:</span><span class="mi">3</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">row_content</span><span class="p">:</span>
+                <span class="n">basis_vectors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">basis_vectors</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ACExtractor.get_types">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractor.get_types">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the atomic number of atoms in structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Atomic numbers in order corresponding to sites</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="s2">&quot;POSITION&quot;</span>
+        <span class="n">idx_row</span> <span class="o">=</span> <span class="n">LineLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">file_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">atom_config_path</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">content</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atom_config_path</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">atom_config_content</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+        <span class="n">atomic_numbers_content</span> <span class="o">=</span> <span class="n">atom_config_content</span><span class="p">[</span><span class="n">idx_row</span> <span class="p">:</span> <span class="n">idx_row</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">]</span>
+        <span class="n">atomic_numbers_lst</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">atomic_numbers_content</span><span class="p">]</span>  <span class="c1"># convert str to int</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">atomic_numbers_lst</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ACExtractor.get_coords">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractor.get_coords">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the fractional coordinates in structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Fractional coordinates.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">coords_lst</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;POSITION&quot;</span>
+        <span class="n">idx_row</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">LineLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">file_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">atom_config_path</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">content</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atom_config_path</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">atom_config_content</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        row_content:</span>
+<span class="sd">            &#39;29         0.377262291145329         0.128590184800933         0.257759805813488     1  1  1&#39;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">row_content</span> <span class="ow">in</span> <span class="n">atom_config_content</span><span class="p">[</span><span class="n">idx_row</span> <span class="p">:</span> <span class="n">idx_row</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">]:</span>
+            <span class="n">row_content_lst</span> <span class="o">=</span> <span class="n">row_content</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="n">coord_tmp</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">row_content_lst</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">]]</span>  <span class="c1"># convert str to float.</span>
+            <span class="n">coords_lst</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">coord_tmp</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">coords_lst</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ACExtractor.get_magmoms">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACExtractor.get_magmoms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_magmoms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the magenetic moments of atoms in structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: The magnetic moments of individual atoms.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MAGNETIC&quot;</span>
+        <span class="n">magnetic_moments_lst</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">try</span><span class="p">:</span>  <span class="c1"># Error: not containing magmoms info.</span>
+            <span class="n">idx_row</span> <span class="o">=</span> <span class="n">LineLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">file_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">atom_config_path</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">content</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atom_config_path</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">atom_config_content</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+
+            <span class="n">magnetic_moments_content</span> <span class="o">=</span> <span class="n">atom_config_content</span><span class="p">[</span><span class="n">idx_row</span> <span class="p">:</span> <span class="n">idx_row</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">]</span>
+            <span class="c1"># MAGNETIC</span>
+            <span class="c1"># 3 0.0 # atomic_number magmom</span>
+            <span class="c1"># ...</span>
+            <span class="n">magnetic_moments_lst</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">tmp_magnetic_moment</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">tmp_magnetic_moment</span> <span class="ow">in</span> <span class="n">magnetic_moments_content</span>
+            <span class="p">]</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">magnetic_moments_lst</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_atoms</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">magnetic_moments_lst</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ACstrExtractor">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACstrExtractor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ACstrExtractor</span><span class="p">(</span><span class="n">ACExtractorBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract information from atom.config file. You can get str by slicing the MOVEMENT.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_config_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialization function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            atom_config_str (str): A string describing the structure in atom.config file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">atom_config_str</span> <span class="o">=</span> <span class="n">atom_config_str</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">atom_config_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_atoms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_n_atoms</span><span class="p">()</span>
+
+<div class="viewcode-block" id="ACstrExtractor.get_n_atoms">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACstrExtractor.get_n_atoms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of atoms in structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: The number of atoms</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="ACstrExtractor.get_lattice">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACstrExtractor.get_lattice">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_lattice</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the lattice of structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Lattice basis vectors of shape=(9,)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">basis_vectors_lst</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">aim_content</span> <span class="o">=</span> <span class="s2">&quot;LATTICE&quot;</span>
+        <span class="n">aim_idx</span> <span class="o">=</span> <span class="n">ListLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">strs_lst</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">aim_content</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">idx_str</span> <span class="ow">in</span> <span class="p">[</span><span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]:</span>
+            <span class="c1"># [&#39;0.8759519000E+01&#39;, &#39;0.0000000000E+00&#39;, &#39;0.0000000000E+00&#39;]</span>
+            <span class="n">str_lst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">[</span><span class="n">idx_str</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[:</span><span class="mi">3</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">tmp_str</span> <span class="ow">in</span> <span class="n">str_lst</span><span class="p">:</span>
+                <span class="n">basis_vectors_lst</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">tmp_str</span><span class="p">))</span>  <span class="c1"># convert str to float</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">basis_vectors_lst</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ACstrExtractor.get_types">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACstrExtractor.get_types">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the atomic number of atoms in structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Types of elements.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">aim_content</span> <span class="o">=</span> <span class="s2">&quot;POSITION&quot;</span>
+        <span class="n">aim_idx</span> <span class="o">=</span> <span class="n">ListLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">strs_lst</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">aim_content</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">strs_lst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">[</span><span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">aim_idx</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_atoms</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">atomic_numbers_lst</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">strs_lst</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">atomic_numbers_lst</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ACstrExtractor.get_coords">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACstrExtractor.get_coords">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the fractional coordinate of atoms in structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Fractional coordinates of atoms of shape=(num_atoms*3,)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">coords_lst</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">aim_content</span> <span class="o">=</span> <span class="s2">&quot;POSITION&quot;</span>
+        <span class="n">aim_idx</span> <span class="o">=</span> <span class="n">ListLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">strs_lst</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">aim_content</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">tmp_str</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">[</span><span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">aim_idx</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_atoms</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]:</span>
+            <span class="c1"># [&#39;14&#39;, &#39;0.751401861790384&#39;, &#39;0.501653718883189&#39;, &#39;0.938307102003243&#39;, &#39;1&#39;, &#39;1&#39;, &#39;1&#39;]</span>
+            <span class="n">tmp_strs_lst</span> <span class="o">=</span> <span class="n">tmp_str</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="n">tmp_coord</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">tmp_strs_lst</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">]]</span>  <span class="c1"># convert str to float</span>
+            <span class="n">coords_lst</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tmp_coord</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">coords_lst</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ACstrExtractor.get_magmoms">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACstrExtractor.get_magmoms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_magmoms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the magnetic moments of atoms in structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Atomic magnetic moments.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">magnetic_moments_lst</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">aim_content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MAGNETIC&quot;</span>
+        <span class="n">aim_idxs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">ListLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">strs_lst</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">aim_content</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">aim_idxs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">magnetic_moments_lst</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_atoms</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">aim_idx</span> <span class="o">=</span> <span class="n">aim_idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">magnetic_moments_content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">[</span><span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">aim_idx</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_atoms</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">magnetic_moments_lst</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">tmp_magnetic_moment</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">tmp_magnetic_moment</span> <span class="ow">in</span> <span class="n">magnetic_moments_content</span>
+            <span class="p">]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">magnetic_moments_lst</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ACstrExtractor.get_e_tot">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACstrExtractor.get_e_tot">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_e_tot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the total energy of structure.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: The total energy of the material system.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># strs_lst:</span>
+        <span class="c1">#   [&#39; 216 atoms&#39;, &#39;Iteration (fs) =    0.3000000000E+01&#39;,</span>
+        <span class="c1">#    &#39; Etot&#39;, &#39;Ep&#39;, &#39;Ek =   -0.2831881714E+05  -0.2836665392E+05   0.4783678177E+02&#39;,</span>
+        <span class="c1">#    &#39; SCF =     7&#39;]</span>
+        <span class="n">strs_lst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>
+        <span class="n">aim_index</span> <span class="o">=</span> <span class="n">ListLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">strs_lst</span><span class="o">=</span><span class="n">strs_lst</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="s2">&quot;EK&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># strs_lst[aim_index].split() :</span>
+        <span class="c1">#   [&#39;Ek&#39;, &#39;(eV)&#39;, &#39;=&#39;, &#39;-0.2831881714E+05&#39;, &#39;-0.2836665392E+05&#39;, &#39;0.4783678177E+02&#39;]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">strs_lst</span><span class="p">[</span><span class="n">aim_index</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())])</span></div>
+
+
+<div class="viewcode-block" id="ACstrExtractor.get_atom_energies">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACstrExtractor.get_atom_energies">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_atom_energies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the energies of individual atoms in material system.</span>
+
+<span class="sd">        When turning on `ENERGY DEPOSITION`, PWmat will output energy per atom.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray | None: The energies of individual atoms within the material system.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">energies</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">aim_content</span> <span class="o">=</span> <span class="s2">&quot;Atomic-Energy, &quot;</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="n">aim_idxs</span> <span class="o">=</span> <span class="n">ListLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">strs_lst</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">aim_content</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">aim_idxs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">aim_idx</span> <span class="o">=</span> <span class="n">aim_idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">tmp_str</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">[</span><span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">aim_idx</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_atoms</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Atomic-Energy, Etot(eV),E_nonloc(eV),Q_atom:dE(eV)=  -0.1281163115E+06</span>
+<span class="sd">            14   0.6022241483E+03    0.2413350871E+02    0.3710442365E+01</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">tmp_str</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ACstrExtractor.get_atom_forces">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACstrExtractor.get_atom_forces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_atom_forces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the force on atoms in material system.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Forces acting on individual atoms of shape=(num_atoms*3,)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">forces</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">aim_content</span> <span class="o">=</span> <span class="s2">&quot;Force&quot;</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="n">aim_idx</span> <span class="o">=</span> <span class="n">ListLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">strs_lst</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">aim_content</span><span class="p">,</span> <span class="n">exclusion</span><span class="o">=</span><span class="s2">&quot;average&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">[</span><span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">aim_idx</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_atoms</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]:</span>
+            <span class="c1"># [&#39;14&#39;, &#39;0.089910342901203&#39;, &#39;0.077164252174742&#39;, &#39;0.254144099204679&#39;]</span>
+            <span class="n">forces</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">]])</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">forces</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ACstrExtractor.get_virial">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.ACstrExtractor.get_virial">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_virial</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the virial tensor of material system.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray | None: Virial tensor of shape=(9,)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">virial_tensor</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">aim_content</span> <span class="o">=</span> <span class="s2">&quot;LATTICE&quot;</span>
+        <span class="n">aim_idx</span> <span class="o">=</span> <span class="n">ListLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">strs_lst</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">aim_content</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">tmp_idx</span> <span class="ow">in</span> <span class="p">[</span><span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]:</span>
+            <span class="c1"># tmp_strs_lst =</span>
+            <span class="c1"># [&#39;0.8759519000E+01&#39;, &#39;0.0000000000E+00&#39;, &#39;0.0000000000E+00&#39;,</span>
+            <span class="c1"># &#39;stress&#39;, &#39;(eV):&#39;, &#39;0.115558E+02&#39;, &#39;0.488108E+01&#39;, &#39;0.238778E+01&#39;]</span>
+            <span class="n">tmp_strs_lst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">[</span><span class="n">tmp_idx</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="n">tmp_aim_row_lst</span> <span class="o">=</span> <span class="n">ListLocator</span><span class="o">.</span><span class="n">locate_all_lines</span><span class="p">(</span><span class="n">strs_lst</span><span class="o">=</span><span class="n">tmp_strs_lst</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="s2">&quot;STRESS&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tmp_aim_row_lst</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">for</span> <span class="n">tmp_idx</span> <span class="ow">in</span> <span class="p">[</span><span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">aim_idx</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]:</span>
+            <span class="c1"># tmp_str_lst = [&#39;0.120972E+02&#39;, &#39;0.483925E+01&#39;, &#39;0.242063E+01&#39;]</span>
+            <span class="n">tmp_str_lst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strs_lst</span><span class="p">[</span><span class="n">tmp_idx</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">3</span><span class="p">:]</span>
+            <span class="n">virial_tensor</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">tmp_str_lst</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">tmp_str_lst</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">tmp_str_lst</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">virial_tensor</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="AtomConfig">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.AtomConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AtomConfig</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Object for representing the data in a atom.config or final.config file.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">sort_structure</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialization function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure): Structure object</span>
+<span class="sd">            sort_structure (bool, optional): Whether to sort the structure. Useful if species</span>
+<span class="sd">                are not grouped properly together. Defaults to False.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">=</span> <span class="n">structure</span>
+        <span class="k">if</span> <span class="n">sort_structure</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">get_sorted_structure</span><span class="p">()</span>
+        <span class="n">elements_counter</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">Counter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">species</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+        <span class="n">true_names</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">tmp_key</span><span class="si">}{</span><span class="n">tmp_value</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="p">(</span><span class="n">tmp_key</span><span class="p">,</span> <span class="n">tmp_value</span><span class="p">)</span> <span class="ow">in</span> <span class="n">elements_counter</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">true_names</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">true_names</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_str</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_str</span><span class="p">()</span>
+
+<div class="viewcode-block" id="AtomConfig.from_str">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.AtomConfig.from_str">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_str</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">mag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reads a atom.config from a string.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data (str): string containing atom.config data</span>
+<span class="sd">            mag (bool, optional): Whether to read magnetic moment information.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            AtomConfig object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ac_extractor</span> <span class="o">=</span> <span class="n">ACstrExtractor</span><span class="p">(</span><span class="n">atom_config_str</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">properties</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">structure</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">(</span>
+            <span class="n">lattice</span><span class="o">=</span><span class="n">ac_extractor</span><span class="o">.</span><span class="n">get_lattice</span><span class="p">(),</span>
+            <span class="n">species</span><span class="o">=</span><span class="n">ac_extractor</span><span class="o">.</span><span class="n">get_types</span><span class="p">(),</span>
+            <span class="n">coords</span><span class="o">=</span><span class="n">ac_extractor</span><span class="o">.</span><span class="n">get_coords</span><span class="p">()</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+            <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">mag</span><span class="p">:</span>
+            <span class="n">magmoms</span> <span class="o">=</span> <span class="n">ac_extractor</span><span class="o">.</span><span class="n">get_magmoms</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">tmp_site</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">structure</span><span class="p">):</span>
+                <span class="n">tmp_site</span><span class="o">.</span><span class="n">properties</span> <span class="o">|=</span> <span class="p">{</span><span class="s2">&quot;magmom&quot;</span><span class="p">:</span> <span class="n">magmoms</span><span class="p">[</span><span class="n">idx</span><span class="p">]}</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomConfig.from_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.AtomConfig.from_file">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">mag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a AtomConfig from a file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename (PathLike): File name containing AtomConfig data</span>
+<span class="sd">            mag (bool, optional): Whether to read magnetic moments. Defaults to True.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            AtomConfig object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_str</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">mag</span><span class="o">=</span><span class="n">mag</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomConfig.from_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.AtomConfig.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a AtomConfig object from a dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dct: dict containing atom.config data</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            AtomConfig object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">Structure</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">dct</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">]))</span></div>
+
+
+<div class="viewcode-block" id="AtomConfig.get_str">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.AtomConfig.get_str">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a string describing the structure in atom.config format.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: String representation of atom.config</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># This corrects for VASP really annoying bug of crashing on lattices</span>
+        <span class="c1"># which have triple product &lt; 0. We will just invert the lattice vectors.</span>
+        <span class="n">lattice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">lattice</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">det</span><span class="p">(</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">lattice</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="o">-</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span><span class="p">)</span>
+
+        <span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">lines</span> <span class="o">+=</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">num_sites</span><span class="si">}</span><span class="s2"> atoms</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;Lattice vector</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;15f</span><span class="si">}{</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;15f</span><span class="si">}{</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;15f</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Position, move_x, move_y, move_z</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">site_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">)):</span>
+            <span class="n">lines</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">species</span><span class="p">[</span><span class="n">site_idx</span><span class="p">]</span><span class="o">.</span><span class="n">Z</span><span class="p">)</span><span class="si">:</span><span class="s2">&gt;4d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">frac_coords</span><span class="p">[</span><span class="n">site_idx</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;15f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">frac_coords</span><span class="p">[</span><span class="n">site_idx</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;15f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">frac_coords</span><span class="p">[</span><span class="n">site_idx</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;15f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;   1   1   1</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;magmom&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">sites</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">properties</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;MAGNETIC</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">tmp_site</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">sites</span><span class="p">):</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">tmp_site</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">Z</span><span class="p">)</span><span class="si">:</span><span class="s2">&gt;4d</span><span class="si">}{</span><span class="n">tmp_site</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s1">&#39;magmom&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;15f</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AtomConfig.write_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.AtomConfig.write_file">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write AtomConfig to a file.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;wt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_str</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="AtomConfig.as_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.AtomConfig.as_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            dict.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span>
+            <span class="s2">&quot;true_names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">true_names</span><span class="p">,</span>
+        <span class="p">}</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="GenKpt">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.GenKpt">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GenKpt</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read and write gen.kpt. This file just generates line-mode kpoints.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">reciprocal_lattice</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">kpoints</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+        <span class="n">density</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialization function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            reciprocal_lattice (NDArray): Reciprocal lattice with factor of 2*pi.</span>
+<span class="sd">            kpoints (dict[str, np.array]): Kpoints and their corresponding fractional coordinates.</span>
+<span class="sd">            kpath (list[list[str]]): All kpaths, with each list representing one kpath.</span>
+<span class="sd">            density (float): The density of kpoints mesh with factor of 2*pi.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reciprocal_lattice</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">reciprocal_lattice</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kpath</span> <span class="o">|=</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpoints</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kpath</span> <span class="o">|=</span> <span class="p">{</span><span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">density</span> <span class="o">=</span> <span class="n">density</span>
+
+<div class="viewcode-block" id="GenKpt.from_structure">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.GenKpt.from_structure">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_structure</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">density</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Obtain a AtomConfig object from Structure object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure): A structure object.</span>
+<span class="sd">            dim (int): The dimension of the material system (2 or 3).</span>
+<span class="sd">            density (float): Kpoints mesh without factor with 2*pi. Program will</span>
+<span class="sd">                automatically convert it with 2*pi.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">kpath_set</span> <span class="o">=</span> <span class="n">KPathSeek</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">kpts_2d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">tmp_name</span><span class="p">,</span> <span class="n">tmp_kpt</span> <span class="ow">in</span> <span class="n">kpath_set</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;kpoints&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">tmp_kpt</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">kpts_2d</span> <span class="o">|=</span> <span class="p">{</span><span class="n">tmp_name</span><span class="p">:</span> <span class="n">tmp_kpt</span><span class="p">}</span>
+
+            <span class="n">path_2d</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">tmp_path</span> <span class="ow">in</span> <span class="n">kpath_set</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">]:</span>
+                <span class="n">tmp_path_2d</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">tmp_hsp</span> <span class="ow">in</span> <span class="n">tmp_path</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">tmp_hsp</span> <span class="ow">in</span> <span class="n">kpts_2d</span><span class="p">:</span>
+                        <span class="n">tmp_path_2d</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tmp_hsp</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tmp_path_2d</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">path_2d</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tmp_path_2d</span><span class="p">)</span>
+            <span class="n">kpts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="n">kpts_2d</span>
+            <span class="n">path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">path_2d</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">kpts</span> <span class="o">=</span> <span class="n">kpath_set</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;kpoints&quot;</span><span class="p">]</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">kpath_set</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">]</span>
+        <span class="n">rec_lattice</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">reciprocal_lattice</span><span class="o">.</span><span class="n">matrix</span>  <span class="c1"># with 2*pi</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">rec_lattice</span><span class="p">,</span> <span class="n">kpts</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">density</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GenKpt.get_str">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.GenKpt.get_str">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_str</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a string to be written as a gen.kpt file.&quot;&quot;&quot;</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">calc_distance</span><span class="p">(</span><span class="n">hsp1</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hsp2</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Calculate the distance between two high symmetry points.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                hsp1 (str): The name of the first high symmetry point.</span>
+<span class="sd">                hsp2 (str): The name of the second high symmetry point.</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                float: The distance between two high symmetry points. With factor of 2*pi.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">hsp1_coord</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;kpoints&quot;</span><span class="p">][</span><span class="n">hsp1</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">reciprocal_lattice</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">hsp2_coord</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;kpoints&quot;</span><span class="p">][</span><span class="n">hsp2</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">reciprocal_lattice</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">hsp2_coord</span> <span class="o">-</span> <span class="n">hsp1_coord</span><span class="p">))</span>
+
+        <span class="n">discontinue_pairs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">discontinue_pairs</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">][</span><span class="n">idx</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">][</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]])</span>
+
+        <span class="n">flatten_paths</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">tmp_hsp</span> <span class="k">for</span> <span class="n">tmp_path</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">tmp_hsp</span> <span class="ow">in</span> <span class="n">tmp_path</span><span class="p">]</span>
+        <span class="n">gen_kpt_str</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Generated by pymatgen. density=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">density</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span><span class="si">}</span><span class="s2">, &quot;</span>
+        <span class="n">gen_kpt_str</span> <span class="o">+=</span> <span class="s2">&quot;fractional coordinates in reciprocal lattice.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">flatten_paths</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">[</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">discontinue_pairs</span><span class="p">:</span>
+                <span class="n">gen_kpt_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">calc_distance</span><span class="p">(</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span><span class="w"> </span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">])</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">density</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="n">gen_kpt_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s1">&#39;kpoints&#39;</span><span class="p">][</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span><span class="p">]][</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;12.6f</span><span class="si">}</span><span class="se">\t</span><span class="s2">&quot;</span>
+                <span class="n">gen_kpt_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s1">&#39;kpoints&#39;</span><span class="p">][</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span><span class="p">]][</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;12.6f</span><span class="si">}</span><span class="se">\t</span><span class="s2">&quot;</span>
+                <span class="n">gen_kpt_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s1">&#39;kpoints&#39;</span><span class="p">][</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span><span class="p">]][</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;12.6f</span><span class="si">}</span><span class="se">\t</span><span class="s2">&quot;</span>
+                <span class="n">gen_kpt_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="n">gen_kpt_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s1">&#39;kpoints&#39;</span><span class="p">][</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">]][</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;12.6f</span><span class="si">}</span><span class="se">\t</span><span class="s2">&quot;</span>
+                <span class="n">gen_kpt_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s1">&#39;kpoints&#39;</span><span class="p">][</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">]][</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;12.6f</span><span class="si">}</span><span class="se">\t</span><span class="s2">&quot;</span>
+                <span class="n">gen_kpt_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s1">&#39;kpoints&#39;</span><span class="p">][</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">]][</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">&gt;12.6f</span><span class="si">}</span><span class="se">\t</span><span class="s2">&quot;</span>
+                <span class="n">gen_kpt_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">idx</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="n">gen_kpt_str</span></div>
+
+
+<div class="viewcode-block" id="GenKpt.write_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.GenKpt.write_file">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write gen.kpt to a file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename (PathLike): The absolute path of file to be written.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;wt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_str</span><span class="p">())</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="HighSymmetryPoint">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.HighSymmetryPoint">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">HighSymmetryPoint</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read and write HIGH_SYMMETRY_POINTS file which generate line-mode kpoints.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">reciprocal_lattice</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">kpts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">],</span>
+        <span class="n">path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+        <span class="n">density</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialization function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            reciprocal_lattice (np.array): Reciprocal lattice.</span>
+<span class="sd">            kpts (dict[str, list[float]]): Kpoints and their corresponding fractional coordinates.</span>
+<span class="sd">            path (list[list[str]]): All k-paths, with each list representing one k-path.</span>
+<span class="sd">            density (float): Density of kpoints mesh with factor of 2*pi.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reciprocal_lattice</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">reciprocal_lattice</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kpath</span> <span class="o">|=</span> <span class="p">{</span><span class="s2">&quot;kpoints&quot;</span><span class="p">:</span> <span class="n">kpts</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kpath</span> <span class="o">|=</span> <span class="p">{</span><span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">density</span> <span class="o">=</span> <span class="n">density</span>
+
+<div class="viewcode-block" id="HighSymmetryPoint.from_structure">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.HighSymmetryPoint.from_structure">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_structure</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">density</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Obtain HighSymmetry object from Structure object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure): A structure object.</span>
+<span class="sd">            dim (int): Dimension of the material system (2 or 3).</span>
+<span class="sd">            density (float, optional): Density of kpoints mesh without factor of 2*pi. Defaults to 0.01.</span>
+<span class="sd">                The program will automatically convert it to with factor of 2*pi.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">reciprocal_lattice</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">reciprocal_lattice</span><span class="o">.</span><span class="n">matrix</span>
+        <span class="n">gen_kpt</span> <span class="o">=</span> <span class="n">GenKpt</span><span class="o">.</span><span class="n">from_structure</span><span class="p">(</span><span class="n">structure</span><span class="o">=</span><span class="n">structure</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="n">density</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">reciprocal_lattice</span><span class="p">,</span>
+            <span class="n">gen_kpt</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;kpoints&quot;</span><span class="p">],</span>
+            <span class="n">gen_kpt</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">],</span>
+            <span class="n">density</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HighSymmetryPoint.get_str">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.HighSymmetryPoint.get_str">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a string describing high symmetry points in HIGH_SYMMETRY_POINTS format.&quot;&quot;&quot;</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">calc_distance</span><span class="p">(</span><span class="n">hsp1</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hsp2</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Calculate the distance of two high symmetry points.</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                float: The distance between two high symmetry points with factor of 2*pi.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">hsp1_coord</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;kpoints&quot;</span><span class="p">][</span><span class="n">hsp1</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">reciprocal_lattice</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">hsp2_coord</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;kpoints&quot;</span><span class="p">][</span><span class="n">hsp2</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">reciprocal_lattice</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">hsp2_coord</span> <span class="o">-</span> <span class="n">hsp1_coord</span><span class="p">))</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_hsp_row_str</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">coordinate</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Return string containing name, index, coordinate of the certain high symmetry point</span>
+<span class="sd">            in HIGH_SYMMETRY_POINTS format.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                label (str): Name of the high symmetry point.</span>
+<span class="sd">                index (int): Index of the high symmetry point.</span>
+<span class="sd">                coordinate (float): Coordinate in bandstructure of the high symmetry point.</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                str: String containing name, index, coordinate of the certain high symmetry point</span>
+<span class="sd">                    in HIGH_SYMMETRY_POINTS format.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">if</span> <span class="n">label</span> <span class="o">==</span> <span class="s2">&quot;GAMMA&quot;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;G            </span><span class="si">{</span><span class="n">index</span><span class="si">:</span><span class="s2">&gt;4d</span><span class="si">}</span><span class="s2">         </span><span class="si">{</span><span class="n">coordinate</span><span class="si">:</span><span class="s2">&gt;.6f</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">            </span><span class="si">{</span><span class="n">index</span><span class="si">:</span><span class="s2">&gt;4d</span><span class="si">}</span><span class="s2">         </span><span class="si">{</span><span class="n">coordinate</span><span class="si">:</span><span class="s2">&gt;.6f</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="n">discontinue_pairs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">discontinue_pairs</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">][</span><span class="n">ii</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">][</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]])</span>
+        <span class="n">flatten_paths</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">tmp_hsp</span> <span class="k">for</span> <span class="n">tmp_path</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">tmp_hsp</span> <span class="ow">in</span> <span class="n">tmp_path</span><span class="p">]</span>
+        <span class="c1"># flatten_paths = [hsp.replace(&quot;GAMMA&quot;, &quot;G&quot;) for hsp in flatten_paths]</span>
+
+        <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">coordinate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">hsp_str</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Label       Index       Coordinate</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">hsp_str</span> <span class="o">+=</span> <span class="n">get_hsp_row_str</span><span class="p">(</span><span class="n">flatten_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">index</span><span class="p">,</span> <span class="n">coordinate</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">flatten_paths</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="p">[</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">ii</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">flatten_paths</span><span class="p">[</span><span class="n">ii</span><span class="p">]]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">discontinue_pairs</span><span class="p">:</span>
+                <span class="n">coordinate</span> <span class="o">+=</span> <span class="n">calc_distance</span><span class="p">(</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">ii</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">flatten_paths</span><span class="p">[</span><span class="n">ii</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+                <span class="n">index</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">calc_distance</span><span class="p">(</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">ii</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">flatten_paths</span><span class="p">[</span><span class="n">ii</span><span class="p">])</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">density</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">coordinate</span> <span class="o">+=</span> <span class="mf">0.0</span>
+                <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">hsp_str</span> <span class="o">+=</span> <span class="n">get_hsp_row_str</span><span class="p">(</span><span class="n">flatten_paths</span><span class="p">[</span><span class="n">ii</span><span class="p">],</span> <span class="n">index</span><span class="p">,</span> <span class="n">coordinate</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">hsp_str</span></div>
+
+
+<div class="viewcode-block" id="HighSymmetryPoint.write_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.pwmat.html#pymatgen.io.pwmat.inputs.HighSymmetryPoint.write_file">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write HighSymmetryPoint to a file.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;wt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_str</span><span class="p">())</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.pwmat.inputs</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

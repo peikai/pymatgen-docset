@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.aims.sets.base &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.aims.sets.base</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.io.aims.sets.base</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Module defining base FHI-aims input set and generator.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.json</span><span class="w"> </span><span class="kn">import</span> <span class="n">MontyDecoder</span><span class="p">,</span> <span class="n">MontyEncoder</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Molecule</span><span class="p">,</span> <span class="n">Structure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.aims.inputs</span><span class="w"> </span><span class="kn">import</span> <span class="n">AimsControlIn</span><span class="p">,</span> <span class="n">AimsGeometryIn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.aims.parsers</span><span class="w"> </span><span class="kn">import</span> <span class="n">AimsParseError</span><span class="p">,</span> <span class="n">read_aims_output</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputFile</span><span class="p">,</span> <span class="n">InputGenerator</span><span class="p">,</span> <span class="n">InputSet</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Sequence</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">PathLike</span>
+
+<span class="n">TMPDIR_NAME</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;tmpdir&quot;</span>
+<span class="n">OUTPUT_FILE_NAME</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;aims.out&quot;</span>
+<span class="n">CONTROL_FILE_NAME</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;control.in&quot;</span>
+<span class="n">PARAMS_JSON_FILE_NAME</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;parameters.json&quot;</span>
+<span class="n">GEOMETRY_FILE_NAME</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;geometry.in&quot;</span>
+
+
+<span class="n">DEFAULT_AIMS_PROPERTIES</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">&quot;energy&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;free_energy&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;forces&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;stress&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;stresses&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;dipole&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;magmom&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="AimsInputSet">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.AimsInputSet">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AimsInputSet</span><span class="p">(</span><span class="n">InputSet</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A class to represent a set of Aims inputs.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
+        <span class="n">properties</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;energy&quot;</span><span class="p">,</span> <span class="s2">&quot;free_energy&quot;</span><span class="p">),</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct the AimsInputSet.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameters (dict[str, Any]): The ASE parameters object for the calculation</span>
+<span class="sd">            structure (Structure or Molecule): The Structure/Molecule objects to</span>
+<span class="sd">                create the inputs for</span>
+<span class="sd">            properties (Sequence[str]): The properties to calculate for the calculation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span> <span class="o">=</span> <span class="n">parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_structure</span> <span class="o">=</span> <span class="n">structure</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_properties</span> <span class="o">=</span> <span class="n">properties</span>
+
+        <span class="n">aims_control_in</span><span class="p">,</span> <span class="n">aims_geometry_in</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_input_files</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">inputs</span><span class="o">=</span><span class="p">{</span>
+                <span class="n">CONTROL_FILE_NAME</span><span class="p">:</span> <span class="n">aims_control_in</span><span class="p">,</span>
+                <span class="n">GEOMETRY_FILE_NAME</span><span class="p">:</span> <span class="n">aims_geometry_in</span><span class="p">,</span>
+                <span class="n">PARAMS_JSON_FILE_NAME</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">MontyEncoder</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="AimsInputSet.get_input_files">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.AimsInputSet.get_input_files">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_input_files</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the input file contents for the calculation.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[str, str]: The contents of the control.in and geometry.in file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">property_flags</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;forces&quot;</span><span class="p">:</span> <span class="s2">&quot;compute_forces&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;stress&quot;</span><span class="p">:</span> <span class="s2">&quot;compute_analytical_stress&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;stresses&quot;</span><span class="p">:</span> <span class="s2">&quot;compute_heat_flux&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">updated_params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">prop</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_properties</span><span class="p">:</span>
+            <span class="n">aims_name</span> <span class="o">=</span> <span class="n">property_flags</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">prop</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">aims_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">updated_params</span><span class="p">[</span><span class="n">aims_name</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">aims_geometry_in</span> <span class="o">=</span> <span class="n">AimsGeometryIn</span><span class="o">.</span><span class="n">from_structure</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_structure</span><span class="p">)</span>
+        <span class="n">aims_control_in</span> <span class="o">=</span> <span class="n">AimsControlIn</span><span class="p">(</span><span class="n">updated_params</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">aims_control_in</span><span class="o">.</span><span class="n">get_content</span><span class="p">(</span><span class="n">structure</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_structure</span><span class="p">),</span>
+            <span class="n">aims_geometry_in</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">control_in</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">slice</span> <span class="o">|</span> <span class="n">InputFile</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The control.in file contents.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="p">[</span><span class="n">CONTROL_FILE_NAME</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">geometry_in</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">slice</span> <span class="o">|</span> <span class="n">InputFile</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The geometry.in file contents.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="p">[</span><span class="n">GEOMETRY_FILE_NAME</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">params_json</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">slice</span> <span class="o">|</span> <span class="n">InputFile</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The JSON representation of the parameters dict.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="p">[</span><span class="n">PARAMS_JSON_FILE_NAME</span><span class="p">]</span>
+
+<div class="viewcode-block" id="AimsInputSet.set_parameters">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.AimsInputSet.set_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the parameters object for the AimsTemplate.</span>
+
+<span class="sd">        This sets the parameters object that is passed to an AimsTemplate and</span>
+<span class="sd">        resets the control.in file</span>
+
+<span class="sd">        One can pass a dictionary mapping the aims variables to their values or</span>
+<span class="sd">        the aims variables as keyword arguments. A combination of the two</span>
+<span class="sd">        options is also allowed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict[str, Any]: dictionary with the variables that have been added.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">aims_control_in</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_input_files</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="n">CONTROL_FILE_NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">aims_control_in</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="n">PARAMS_JSON_FILE_NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">MontyEncoder</span><span class="p">)</span>
+
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="nb">str</span><span class="p">(</span><span class="n">key</span><span class="p">):</span> <span class="n">val</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span></div>
+
+
+<div class="viewcode-block" id="AimsInputSet.remove_parameters">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.AimsInputSet.remove_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_parameters</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">keys</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove the aims parameters listed in keys.</span>
+
+<span class="sd">        This removes the aims variables from the parameters object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            keys (Iterable[str] or str): string or list of strings with the names of</span>
+<span class="sd">                the aims parameters to be removed.</span>
+<span class="sd">            strict (bool): whether to raise a KeyError if one of the aims parameters</span>
+<span class="sd">                to be removed is not present.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict[str, Any]: Dictionary with the variables that have been removed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">keys</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">strict</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">=}</span><span class="s2"> not in </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">)</span><span class="si">=}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsInputSet.set_structure">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.AimsInputSet.set_structure">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the structure object for this input set.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure or Molecule): The new Structure or Molecule</span>
+<span class="sd">                for the calculation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_structure</span> <span class="o">=</span> <span class="n">structure</span>
+
+        <span class="n">aims_control_in</span><span class="p">,</span> <span class="n">aims_geometry_in</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_input_files</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="n">GEOMETRY_FILE_NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">aims_geometry_in</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="n">CONTROL_FILE_NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">aims_control_in</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="nb">str</span><span class="p">(</span><span class="n">key</span><span class="p">):</span> <span class="n">val</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="AimsInputGenerator">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.AimsInputGenerator">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AimsInputGenerator</span><span class="p">(</span><span class="n">InputGenerator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A class to generate Aims input sets.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        user_params (dict[str, Any]): Updates the default</span>
+<span class="sd">            parameters for the FHI-aims calculator</span>
+<span class="sd">        user_kpoints_settings (dict[str, Any]):  The settings</span>
+<span class="sd">            used to create the k-grid parameters for FHI-aims</span>
+<span class="sd">        use_structure_charge (bool): If set to True, then the overall charge of the</span>
+<span class="sd">            structure (structure.charge) is used to set the `charge` variable in the</span>
+<span class="sd">            `control.in`. Default is False.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">user_params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">user_kpoints_settings</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">use_structure_charge</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="AimsInputGenerator.get_input_set">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.AimsInputGenerator.get_input_set">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_input_set</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">prev_dir</span><span class="p">:</span> <span class="n">PathLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">properties</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AimsInputSet</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate an AimsInputSet object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure or Molecule): Structure or</span>
+<span class="sd">                Molecule to generate the input set for.</span>
+<span class="sd">            prev_dir (str or Path): Path to the previous working directory</span>
+<span class="sd">            properties (list[str]): System properties that are being calculated</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            AimsInputSet: The input set for the calculation of structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">prev_structure</span><span class="p">,</span> <span class="n">prev_parameters</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_previous</span><span class="p">(</span><span class="n">prev_dir</span><span class="p">)</span>
+
+        <span class="n">structure</span> <span class="o">=</span> <span class="n">structure</span> <span class="ow">or</span> <span class="n">prev_structure</span>
+
+        <span class="k">if</span> <span class="n">structure</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No structure can be determined to generate the input set&quot;</span><span class="p">)</span>
+
+        <span class="n">parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_input_parameters</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">prev_parameters</span><span class="p">)</span>
+        <span class="n">properties</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_properties</span><span class="p">(</span><span class="n">properties</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">AimsInputSet</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span> <span class="n">structure</span><span class="o">=</span><span class="n">structure</span><span class="p">,</span> <span class="n">properties</span><span class="o">=</span><span class="n">properties</span><span class="p">)</span></div>
+
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_read_previous</span><span class="p">(</span>
+        <span class="n">prev_dir</span><span class="p">:</span> <span class="n">PathLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read in previous results.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            prev_dir (str or Path): The previous directory for the calculation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">prev_structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">prev_params</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">prev_results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="n">prev_dir</span><span class="p">:</span>
+            <span class="c1"># strip hostname from the directory (not good, works only with run_locally.</span>
+            <span class="c1"># Should be checked with Fireworks, will not for sure work with</span>
+            <span class="c1"># jobflow_remote)</span>
+            <span class="n">split_prev_dir</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">prev_dir</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split_prev_dir</span><span class="si">}</span><span class="s2">/parameters.json&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">param_file</span><span class="p">:</span>
+                <span class="n">prev_params</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">param_file</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">MontyDecoder</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">aims_output</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_aims_output</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split_prev_dir</span><span class="si">}</span><span class="s2">/aims.out&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="nb">slice</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">prev_structure</span> <span class="o">=</span> <span class="n">aims_output</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+                <span class="n">prev_results</span> <span class="o">=</span> <span class="n">prev_structure</span><span class="o">.</span><span class="n">properties</span>
+                <span class="n">prev_results</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">prev_structure</span><span class="o">.</span><span class="n">site_properties</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="n">AimsParseError</span><span class="p">):</span>
+                <span class="k">pass</span>
+
+        <span class="k">return</span> <span class="n">prev_structure</span><span class="p">,</span> <span class="n">prev_params</span><span class="p">,</span> <span class="n">prev_results</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_properties</span><span class="p">(</span>
+        <span class="n">properties</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the properties to calculate.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            properties (list[str]): The currently requested properties</span>
+<span class="sd">            parameters (dict[str, Any]): The parameters for this calculation</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            list[str]: The list of properties to calculate</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">properties</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">properties</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;energy&quot;</span><span class="p">,</span> <span class="s2">&quot;free_energy&quot;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">parameters</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">properties</span>
+
+        <span class="k">if</span> <span class="s2">&quot;compute_forces&quot;</span> <span class="ow">in</span> <span class="n">parameters</span> <span class="ow">and</span> <span class="s2">&quot;forces&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">properties</span><span class="p">:</span>
+            <span class="n">properties</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;forces&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;compute_heat_flux&quot;</span> <span class="ow">in</span> <span class="n">parameters</span> <span class="ow">and</span> <span class="s2">&quot;stresses&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">properties</span><span class="p">:</span>
+            <span class="n">properties</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;stress&quot;</span><span class="p">)</span>
+            <span class="n">properties</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;stresses&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;stress&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">properties</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="p">(</span><span class="s2">&quot;compute_analytical_stress&quot;</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="p">(</span><span class="s2">&quot;compute_numerical_stress&quot;</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="p">(</span><span class="s2">&quot;compute_heat_flux&quot;</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="n">properties</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;stress&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">properties</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_input_parameters</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
+        <span class="n">prev_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create the input parameters.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure | Molecule): The structure</span>
+<span class="sd">                or molecule for the system</span>
+<span class="sd">            prev_parameters (dict[str, Any]): The previous</span>
+<span class="sd">                calculation&#39;s calculation parameters</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: The input object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Get the default config</span>
+        <span class="c1"># FHI-aims recommends using their defaults so bare-bones default params</span>
+        <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;xc&quot;</span><span class="p">:</span> <span class="s2">&quot;pbe&quot;</span><span class="p">,</span> <span class="s2">&quot;relativistic&quot;</span><span class="p">:</span> <span class="s2">&quot;atomic_zora scalar&quot;</span><span class="p">}</span>
+
+        <span class="c1"># Override default parameters with previous parameters</span>
+        <span class="n">prev_parameters</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">prev_parameters</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">prev_parameters</span><span class="p">)</span>
+        <span class="n">prev_parameters</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;relax_geometry&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">prev_parameters</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;relax_unit_cell&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">kpt_settings</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">user_kpoints_settings</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">Structure</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;k_grid&quot;</span> <span class="ow">in</span> <span class="n">prev_parameters</span><span class="p">:</span>
+            <span class="n">density</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">k2d</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">prev_parameters</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;k_grid&quot;</span><span class="p">))</span>
+            <span class="k">if</span> <span class="s2">&quot;density&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kpt_settings</span><span class="p">:</span>
+                <span class="n">kpt_settings</span><span class="p">[</span><span class="s2">&quot;density&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">density</span>
+
+        <span class="n">parameter_updates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_parameter_updates</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">prev_parameters</span><span class="p">)</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">recursive_update</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">parameter_updates</span><span class="p">)</span>
+        <span class="c1"># Add the structure charge (useful for defect workflows)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_structure_charge</span><span class="p">:</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;charge&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">charge</span>
+
+        <span class="c1"># Override default parameters with user_params</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">recursive_update</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;k_grid&quot;</span> <span class="ow">in</span> <span class="n">params</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;density&quot;</span> <span class="ow">in</span> <span class="n">kpt_settings</span><span class="p">):</span>
+            <span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;WARNING: the k_grid is set in user_params and in the kpt_settings,&quot;</span>
+                <span class="s2">&quot; using the one passed in user_params.&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">Structure</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;k_grid&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">params</span><span class="p">):</span>
+            <span class="n">density</span> <span class="o">=</span> <span class="n">kpt_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;density&quot;</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)</span>
+            <span class="n">even</span> <span class="o">=</span> <span class="n">kpt_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;even&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;k_grid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">d2k</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">density</span><span class="p">,</span> <span class="n">even</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;k_grid&quot;</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+            <span class="n">warn</span><span class="p">(</span><span class="s2">&quot;WARNING: removing unnecessary k_grid information&quot;</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="k">del</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;k_grid&quot;</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">params</span>
+
+<div class="viewcode-block" id="AimsInputGenerator.get_parameter_updates">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.AimsInputGenerator.get_parameter_updates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_parameter_updates</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
+        <span class="n">prev_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the parameters for a given calculation type.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure or Molecule): The system to run</span>
+<span class="sd">            prev_parameters (dict[str, Any]): Previous calculation parameters.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: A dictionary of updates to apply.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">prev_parameters</span></div>
+
+
+<div class="viewcode-block" id="AimsInputGenerator.d2k">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.AimsInputGenerator.d2k">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">d2k</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span>
+        <span class="n">kpt_density</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+        <span class="n">even</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert k-point density to Monkhorst-Pack grid size.</span>
+
+<span class="sd">        inspired by [ase.calculators.calculator.kptdensity2monkhorstpack]</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure): Contains unit cell and</span>
+<span class="sd">                information about boundary conditions.</span>
+<span class="sd">            kpt_density (float | list[float]): Required k-point</span>
+<span class="sd">                density.  Default value is 5.0 point per Ang^-1.</span>
+<span class="sd">            even (bool): Round up to even numbers.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Monkhorst-Pack grid size in all directions</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">recip_cell</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">inv_matrix</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">d2k_recip_cell</span><span class="p">(</span><span class="n">recip_cell</span><span class="p">,</span> <span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">pbc</span><span class="p">,</span> <span class="n">kpt_density</span><span class="p">,</span> <span class="n">even</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsInputGenerator.k2d">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.AimsInputGenerator.k2d">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">k2d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">k_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="nb">int</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate the kpoint density in each direction from given k_grid.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure: Structure</span>
+<span class="sd">                Contains unit cell and information about boundary conditions.</span>
+<span class="sd">            k_grid: np.ndarray[int]</span>
+<span class="sd">                k_grid that was used.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Density of kpoints in each direction. result.mean() computes average density</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">recip_cell</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">inv_matrix</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
+        <span class="n">densities</span> <span class="o">=</span> <span class="n">k_grid</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">recip_cell</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">densities</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsInputGenerator.d2k_recip_cell">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.AimsInputGenerator.d2k_recip_cell">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">d2k_recip_cell</span><span class="p">(</span>
+        <span class="n">recip_cell</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">pbc</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">bool</span><span class="p">],</span>
+        <span class="n">kpt_density</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+        <span class="n">even</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert k-point density to Monkhorst-Pack grid size.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            recip_cell (Cell): The reciprocal cell</span>
+<span class="sd">            pbc (Sequence[bool]): If element of pbc is True</span>
+<span class="sd">                then system is periodic in that direction</span>
+<span class="sd">            kpt_density (float or list[floats]): Required k-point</span>
+<span class="sd">                density. Default value is 5 points per Ang^-1.</span>
+<span class="sd">        even(bool): Round up to even numbers.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Monkhorst-Pack grid size in all directions</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kpt_density</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+            <span class="n">kpt_density</span> <span class="o">=</span> <span class="p">(</span><span class="n">kpt_density</span><span class="p">,</span> <span class="n">kpt_density</span><span class="p">,</span> <span class="n">kpt_density</span><span class="p">)</span>
+        <span class="n">kpts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">pbc</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">recip_cell</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">kpt_density</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">even</span><span class="p">:</span>
+                    <span class="n">kpts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">k</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">kpts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">k</span><span class="p">)))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">kpts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">kpts</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="recursive_update">
+<a class="viewcode-back" href="../../../../../pymatgen.io.aims.sets.html#pymatgen.io.aims.sets.base.recursive_update">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">recursive_update</span><span class="p">(</span><span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">up</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Update a dictionary recursively and return it.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        dct (dict): Input dictionary to modify</span>
+<span class="sd">        up (dict): updates to apply</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: The updated dictionary.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        d = {&#39;activate_hybrid&#39;: {&quot;hybrid_functional&quot;: &quot;HSE06&quot;}}</span>
+<span class="sd">        u = {&#39;activate_hybrid&#39;: {&quot;cutoff_radius&quot;: 8}}</span>
+
+<span class="sd">        yields {&#39;activate_hybrid&#39;: {&quot;hybrid_functional&quot;: &quot;HSE06&quot;, &quot;cutoff_radius&quot;: 8}}}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">up</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">dct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">recursive_update</span><span class="p">(</span><span class="n">dct</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">{}),</span> <span class="n">val</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;output&quot;</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>  <span class="c1"># for all other keys the list addition is not needed (I guess)</span>
+            <span class="n">old_v</span> <span class="o">=</span> <span class="n">dct</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="n">dct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">old_v</span> <span class="o">+</span> <span class="n">val</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="k">return</span> <span class="n">dct</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.aims.sets.base</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

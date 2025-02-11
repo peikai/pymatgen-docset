@@ -1,27 +1,19 @@
-
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../../../">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.ext.cod &#8212; pymatgen 2023.1.30 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
-    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-    <script src="../../../_static/doctools.js"></script>
-    <script src="../../../_static/sphinx_highlight.js"></script>
+    <title>pymatgen.ext.cod &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../search.html" />
- 
-<script type="text/javascript">
-  var _gaq = _gaq || [];
-  _gaq.push(['_setAccount', 'UA-33990148-1']);
-  _gaq.push(['_trackPageview']);
-</script>
-
+    <link rel="search" title="Search" href="../../../search.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -30,7 +22,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.ext.cod</a></li> 
       </ul>
@@ -41,13 +33,9 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.ext.cod</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
-<span class="c1"># Distributed under the terms of the MIT License.</span>
-
-<span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">This module provides classes to interface with the Crystallography Open</span>
+<span></span><span class="sd">&quot;&quot;&quot;This module provides classes to interface with the Crystallography Open</span>
 <span class="sd">Database. If you use data from the COD, please cite the following works (as</span>
-<span class="sd">stipulated by the COD developers)::</span>
+<span class="sd">stipulated by the COD developers).</span>
 
 <span class="sd">    Merkys, A., Vaitkus, A., Butkus, J., Okulič-Kazarinas, M., Kairys, V. &amp;</span>
 <span class="sd">    Gražulis, S. (2016) &quot;COD::CIF::Parser: an error-correcting CIF parser for</span>
@@ -72,113 +60,131 @@
 <span class="sd">    Structure Database&quot;. American Mineralogist 88, 247-250.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">subprocess</span>
-<span class="kn">from</span> <span class="nn">shutil</span> <span class="kn">import</span> <span class="n">which</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
 
-<span class="kn">import</span> <span class="nn">requests</span>
-<span class="kn">from</span> <span class="nn">monty.dev</span> <span class="kn">import</span> <span class="n">requires</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.core.composition</span> <span class="kn">import</span> <span class="n">Composition</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core.composition</span><span class="w"> </span><span class="kn">import</span> <span class="n">Composition</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core.structure</span><span class="w"> </span><span class="kn">import</span> <span class="n">Structure</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
 
 
-<div class="viewcode-block" id="COD"><a class="viewcode-back" href="../../../pymatgen.ext.cod.html#pymatgen.ext.cod.COD">[docs]</a><span class="k">class</span> <span class="nc">COD</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    An interface to the Crystallography Open Database.</span>
+<div class="viewcode-block" id="COD">
+<a class="viewcode-back" href="../../../pymatgen.ext.html#pymatgen.ext.cod.COD">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">COD</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;An interface to the Crystallography Open Database.</span>
+
+<span class="sd">    Reference:</span>
+<span class="sd">        https://wiki.crystallography.net/RESTful_API/</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Blank __init__. No args required.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;www.crystallography.net&quot;</span>
-
-<div class="viewcode-block" id="COD.query"><a class="viewcode-back" href="../../../pymatgen.ext.cod.html#pymatgen.ext.cod.COD.query">[docs]</a>    <span class="k">def</span> <span class="nf">query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sql</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Perform a query.</span>
-
-<span class="sd">        :param sql: SQL string</span>
-<span class="sd">        :return: Response from SQL query.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">([</span><span class="s2">&quot;mysql&quot;</span><span class="p">,</span> <span class="s2">&quot;-u&quot;</span><span class="p">,</span> <span class="s2">&quot;cod_reader&quot;</span><span class="p">,</span> <span class="s2">&quot;-h&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="s2">&quot;-e&quot;</span><span class="p">,</span> <span class="n">sql</span><span class="p">,</span> <span class="s2">&quot;cod&quot;</span><span class="p">])</span>
-        <span class="k">return</span> <span class="n">r</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="COD.get_cod_ids"><a class="viewcode-back" href="../../../pymatgen.ext.cod.html#pymatgen.ext.cod.COD.get_cod_ids">[docs]</a>    <span class="nd">@requires</span><span class="p">(</span><span class="n">which</span><span class="p">(</span><span class="s2">&quot;mysql&quot;</span><span class="p">),</span> <span class="s2">&quot;mysql must be installed to use this query.&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">get_cod_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">formula</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Queries the COD for all cod ids associated with a formula. Requires</span>
-<span class="sd">        mysql executable to be in the path.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">60</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the COD class.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            formula (str): Formula.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            List of cod ids.</span>
+<span class="sd">            timeout (int): request timeout in seconds.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># TODO: Remove dependency on external mysql call. MySQL-python package does not support Py3!</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span> <span class="o">=</span> <span class="n">timeout</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;https://www.crystallography.net&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s2">/cod/result&quot;</span>
 
-        <span class="c1"># Standardize formula to the version used by COD.</span>
-
-        <span class="n">sql</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;select file from data where formula=&quot;- </span><span class="si">{</span><span class="n">Composition</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span><span class="o">.</span><span class="n">hill_formula</span><span class="si">}</span><span class="s1"> -&quot;&#39;</span>
-        <span class="n">text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">cod_ids</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
-            <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(\d+)&quot;</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
-                <span class="n">cod_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)))</span>
-        <span class="k">return</span> <span class="n">cod_ids</span></div>
-
-<div class="viewcode-block" id="COD.get_structure_by_id"><a class="viewcode-back" href="../../../pymatgen.ext.cod.html#pymatgen.ext.cod.COD.get_structure_by_id">[docs]</a>    <span class="k">def</span> <span class="nf">get_structure_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cod_id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Queries the COD for a structure by id.</span>
+<div class="viewcode-block" id="COD.get_cod_ids">
+<a class="viewcode-back" href="../../../pymatgen.ext.html#pymatgen.ext.cod.COD.get_cod_ids">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_cod_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">formula</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Query the COD for all COD IDs associated with a formula.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            cod_id (int): COD id.</span>
-<span class="sd">            kwargs: All kwargs supported by</span>
-<span class="sd">                :func:`pymatgen.core.structure.Structure.from_str`.</span>
+<span class="sd">            formula (str): The formula to request</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Use hill_formula format as per COD request</span>
+        <span class="n">cod_formula</span> <span class="o">=</span> <span class="n">Composition</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span><span class="o">.</span><span class="n">hill_formula</span>
+
+        <span class="c1"># Set up query parameters</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;formula&quot;</span><span class="p">:</span> <span class="n">cod_formula</span><span class="p">,</span> <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;json&quot;</span><span class="p">}</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api_url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">)</span>
+
+        <span class="c1"># Raise an exception if the request fails</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">&quot;file&quot;</span><span class="p">])</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()]</span></div>
+
+
+<div class="viewcode-block" id="COD.get_structure_by_id">
+<a class="viewcode-back" href="../../../pymatgen.ext.html#pymatgen.ext.cod.COD.get_structure_by_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_structure_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cod_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Query the COD for a structure by ID.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            cod_id (int): COD ID.</span>
+<span class="sd">            timeout (int): DEPRECATED. request timeout in seconds.</span>
+<span class="sd">            kwargs: kwargs passed to Structure.from_str.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            A Structure.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;http://</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s2">/cod/</span><span class="si">{</span><span class="n">cod_id</span><span class="si">}</span><span class="s2">.cif&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">Structure</span><span class="o">.</span><span class="n">from_str</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;cif&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+        <span class="c1"># TODO: remove timeout arg and use class level timeout after 2025-10-17</span>
+        <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;separate timeout arg is deprecated, please use class level timeout&quot;</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span>
+            <span class="p">)</span>
+        <span class="n">timeout</span> <span class="o">=</span> <span class="n">timeout</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span>
 
-<div class="viewcode-block" id="COD.get_structure_by_formula"><a class="viewcode-back" href="../../../pymatgen.ext.cod.html#pymatgen.ext.cod.COD.get_structure_by_formula">[docs]</a>    <span class="nd">@requires</span><span class="p">(</span><span class="n">which</span><span class="p">(</span><span class="s2">&quot;mysql&quot;</span><span class="p">),</span> <span class="s2">&quot;mysql must be installed to use this query.&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">get_structure_by_formula</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">formula</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Queries the COD for structures by formula. Requires mysql executable to</span>
-<span class="sd">        be in the path.</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s2">/cod/</span><span class="si">{</span><span class="n">cod_id</span><span class="si">}</span><span class="s2">.cif&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Structure</span><span class="o">.</span><span class="n">from_str</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;cif&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="COD.get_structure_by_formula">
+<a class="viewcode-back" href="../../../pymatgen.ext.html#pymatgen.ext.cod.COD.get_structure_by_formula">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_structure_by_formula</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">formula</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">,</span> <span class="s2">&quot;cod_id&quot;</span><span class="p">,</span> <span class="s2">&quot;sg&quot;</span><span class="p">],</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">Structure</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Query the COD for structures by formula.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            cod_id (int): COD id.</span>
-<span class="sd">            kwargs: All kwargs supported by</span>
-<span class="sd">                :func:`pymatgen.core.structure.Structure.from_str`.</span>
+<span class="sd">            formula (str): Chemical formula.</span>
+<span class="sd">            kwargs: All kwargs supported by Structure.from_str.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A list of dict of the format</span>
-<span class="sd">            [{&quot;structure&quot;: Structure, &quot;cod_id&quot;: cod_id, &quot;sg&quot;: &quot;P n m a&quot;}]</span>
+<span class="sd">            A list of dict of: {&quot;structure&quot;: Structure, &quot;cod_id&quot;: int, &quot;sg&quot;: &quot;P n m a&quot;}</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">structures</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">sql</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;select file, sg from data where formula=&quot;- </span><span class="si">{</span><span class="n">Composition</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span><span class="o">.</span><span class="n">hill_formula</span><span class="si">}</span><span class="s1"> -&quot;&#39;</span>
-        <span class="n">text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">text</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">l</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
-                <span class="n">cod_id</span><span class="p">,</span> <span class="n">sg</span> <span class="o">=</span> <span class="n">l</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;http://www.crystallography.net/cod/</span><span class="si">{</span><span class="n">cod_id</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="si">}</span><span class="s2">.cif&quot;</span><span class="p">)</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">s</span> <span class="o">=</span> <span class="n">Structure</span><span class="o">.</span><span class="n">from_str</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;cif&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-                    <span class="n">structures</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="n">s</span><span class="p">,</span> <span class="s2">&quot;cod_id&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">cod_id</span><span class="p">),</span> <span class="s2">&quot;sg&quot;</span><span class="p">:</span> <span class="n">sg</span><span class="p">})</span>
-                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                    <span class="kn">import</span> <span class="nn">warnings</span>
+        <span class="c1"># Prepare the query parameters</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;formula&quot;</span><span class="p">:</span> <span class="n">Composition</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span><span class="o">.</span><span class="n">hill_formula</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;json&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
 
-                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Structure.from_str failed while parsing CIF file:</span><span class="se">\n</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                    <span class="k">raise</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api_url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
 
-        <span class="k">return</span> <span class="n">structures</span></div></div>
+        <span class="n">structures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">,</span> <span class="s2">&quot;cod_id&quot;</span><span class="p">,</span> <span class="s2">&quot;sg&quot;</span><span class="p">],</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">Structure</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Parse the JSON response</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">():</span>
+            <span class="n">cod_id</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;file&quot;</span><span class="p">]</span>
+            <span class="n">sg</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sg&quot;</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">struct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_structure_by_id</span><span class="p">(</span><span class="n">cod_id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="n">structures</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="n">struct</span><span class="p">,</span> <span class="s2">&quot;cod_id&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">cod_id</span><span class="p">),</span> <span class="s2">&quot;sg&quot;</span><span class="p">:</span> <span class="n">sg</span><span class="p">})</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Structure.from_str failed while parsing CIF file for COD ID </span><span class="si">{</span><span class="n">cod_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">raise</span>
+
+        <span class="k">return</span> <span class="n">structures</span></div>
+</div>
+
 </pre></div>
 
             <div class="clearer"></div>
@@ -186,7 +192,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -195,29 +201,14 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.ext.cod</a></li> 
       </ul>
     </div>
-
     <div class="footer" role="contentinfo">
-        &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
     </div>
-<div class="footer">This page uses <a href="http://analytics.google.com/">
-Google Analytics</a> to collect statistics. You can disable it by blocking
-the JavaScript coming from www.google-analytics.com.
-<script type="text/javascript">
-  (function() {
-    var ga = document.createElement('script');
-    ga.src = ('https:' == document.location.protocol ?
-              'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-    ga.setAttribute('async', 'true');
-    document.documentElement.firstChild.appendChild(ga);
-  })();
-</script>
-</div>
-
   </body>
 </html>

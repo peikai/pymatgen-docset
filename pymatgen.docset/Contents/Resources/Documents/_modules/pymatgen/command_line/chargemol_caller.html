@@ -1,27 +1,19 @@
-
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../../../">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.command_line.chargemol_caller &#8212; pymatgen 2023.1.30 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
-    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-    <script src="../../../_static/doctools.js"></script>
-    <script src="../../../_static/sphinx_highlight.js"></script>
+    <title>pymatgen.command_line.chargemol_caller &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../search.html" />
- 
-<script type="text/javascript">
-  var _gaq = _gaq || [];
-  _gaq.push(['_setAccount', 'UA-33990148-1']);
-  _gaq.push(['_trackPageview']);
-</script>
-
+    <link rel="search" title="Search" href="../../../search.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -30,7 +22,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.command_line.chargemol_caller</a></li> 
       </ul>
@@ -41,13 +33,9 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.command_line.chargemol_caller</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
-<span class="c1"># Distributed under the terms of the MIT License.</span>
+<span></span><span class="sd">&quot;&quot;&quot;This module implements an interface to Thomas Manz&#39;s Chargemol code</span>
+<span class="sd">https://sourceforge.net/projects/ddec for calculating DDEC3, DDEC6, and CM5 population analyses.</span>
 
-<span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">This module implements an interface to Thomas Manz&#39;s</span>
-<span class="sd">Chargemol code (https://sourceforge.net/projects/ddec/files) for</span>
-<span class="sd">calculating DDEC3, DDEC6, and CM5 population analyses.</span>
 <span class="sd">This module depends on a compiled chargemol executable being available in the path.</span>
 <span class="sd">If you use this module, please cite the following based on which modules you use:</span>
 
@@ -86,22 +74,29 @@
 <span class="sd">Electrostatic Potential in Periodic and Nonperiodic Materials,” J. Chem. Theory Comput. 6</span>
 <span class="sd">(2010) 2455-2468.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">glob</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">shutil</span>
-<span class="kn">import</span> <span class="nn">subprocess</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">shutil</span> <span class="kn">import</span> <span class="n">which</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">monty.io</span> <span class="kn">import</span> <span class="n">zopen</span>
-<span class="kn">from</span> <span class="nn">monty.tempfile</span> <span class="kn">import</span> <span class="n">ScratchDir</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">platform</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">glob</span><span class="w"> </span><span class="kn">import</span> <span class="n">glob</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">shutil</span><span class="w"> </span><span class="kn">import</span> <span class="n">which</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.core</span> <span class="kn">import</span> <span class="n">Element</span>
-<span class="kn">from</span> <span class="nn">pymatgen.io.vasp.inputs</span> <span class="kn">import</span> <span class="n">Potcar</span>
-<span class="kn">from</span> <span class="nn">pymatgen.io.vasp.outputs</span> <span class="kn">import</span> <span class="n">Chgcar</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.tempfile</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScratchDir</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Element</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.vasp.inputs</span><span class="w"> </span><span class="kn">import</span> <span class="n">Potcar</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.vasp.outputs</span><span class="w"> </span><span class="kn">import</span> <span class="n">Chgcar</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Structure</span>
 
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Martin Siron, Andrew S. Rosen&quot;</span>
 <span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.1&quot;</span>
@@ -109,49 +104,41 @@
 <span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;shyuep@gmail.com&quot;</span>
 <span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;01/18/21&quot;</span>
 
-<span class="n">CHARGEMOLEXE</span> <span class="o">=</span> <span class="p">(</span>
+<span class="n">CHARGEMOL_EXE</span> <span class="o">=</span> <span class="p">(</span>
     <span class="n">which</span><span class="p">(</span><span class="s2">&quot;Chargemol_09_26_2017_linux_parallel&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">which</span><span class="p">(</span><span class="s2">&quot;Chargemol_09_26_2017_linux_serial&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">which</span><span class="p">(</span><span class="s2">&quot;chargemol&quot;</span><span class="p">)</span>
 <span class="p">)</span>
 
 
-<div class="viewcode-block" id="ChargemolAnalysis"><a class="viewcode-back" href="../../../pymatgen.command_line.chargemol_caller.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis">[docs]</a><span class="k">class</span> <span class="nc">ChargemolAnalysis</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Chargemol analysis for DDEC3, DDEC6, and/or CM5 population analyses,</span>
+<div class="viewcode-block" id="ChargemolAnalysis">
+<a class="viewcode-back" href="../../../pymatgen.command_line.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ChargemolAnalysis</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Chargemol analysis for DDEC3, DDEC6, and/or CM5 population analyses,</span>
 <span class="sd">    including the calculation of partial atomic charges, atomic spin moments,</span>
 <span class="sd">    bond orders, and related properties.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">atomic_densities_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">run_chargemol</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Initializes the Chargemol Analysis.</span>
+        <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">atomic_densities_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">run_chargemol</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the Chargemol Analysis.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            path (str): Path to the CHGCAR, POTCAR, AECCAR0, and AECCAR files.</span>
-<span class="sd">            Note that it doesn&#39;t matter if the files gzip&#39;d or not.</span>
-<span class="sd">                Default: None (current working directory).</span>
-<span class="sd">            atomic_densities_path (str|None): Path to the atomic densities directory</span>
-<span class="sd">            required by Chargemol. If None, Pymatgen assumes that this is</span>
-<span class="sd">            defined in a &quot;DDEC6_ATOMIC_DENSITIES_DIR&quot; environment variable.</span>
-<span class="sd">            Only used if run_chargemol is True.</span>
-<span class="sd">                Default: None.</span>
+<span class="sd">                The files can be gzipped or not. Default: None (current working directory).</span>
+<span class="sd">            atomic_densities_path (str | None): Path to the atomic densities directory</span>
+<span class="sd">                required by Chargemol. If None, Pymatgen assumes that this is</span>
+<span class="sd">                defined in a &quot;DDEC6_ATOMIC_DENSITIES_DIR&quot; environment variable.</span>
+<span class="sd">                Only used if run_chargemol is True. Default: None.</span>
 <span class="sd">            run_chargemol (bool): Whether to run the Chargemol analysis. If False,</span>
-<span class="sd">            the existing Chargemol output files will be read from path.</span>
-<span class="sd">                Default: True.</span>
+<span class="sd">                the existing Chargemol output files will be read from path. Default: True.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
-            <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">run_chargemol</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span>
-            <span class="n">which</span><span class="p">(</span><span class="s2">&quot;Chargemol_09_26_2017_linux_parallel&quot;</span><span class="p">)</span>
-            <span class="ow">or</span> <span class="n">which</span><span class="p">(</span><span class="s2">&quot;Chargemol_09_26_2017_linux_serial&quot;</span><span class="p">)</span>
-            <span class="ow">or</span> <span class="n">which</span><span class="p">(</span><span class="s2">&quot;chargemol&quot;</span><span class="p">),</span>
-        <span class="p">):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">path</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">run_chargemol</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">CHARGEMOL_EXE</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span>
-                <span class="s2">&quot;ChargemolAnalysis requires the Chargemol executable to be in the path.&quot;</span>
+                <span class="s2">&quot;ChargemolAnalysis requires the Chargemol executable to be in PATH.&quot;</span>
                 <span class="s2">&quot; Please download the library at https://sourceforge.net/projects/ddec/files&quot;</span>
                 <span class="s2">&quot;and follow the instructions.&quot;</span>
             <span class="p">)</span>
@@ -159,27 +146,32 @@
             <span class="n">atomic_densities_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_atomic_densities_path</span> <span class="o">=</span> <span class="n">atomic_densities_path</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_chgcarpath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filepath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;CHGCAR&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_potcarpath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filepath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;POTCAR&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar0path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filepath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;AECCAR0&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar2path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filepath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;AECCAR2&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">run_chargemol</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_chgcarpath</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_potcarpath</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar0path</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar2path</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_chgcar_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filepath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;CHGCAR&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_potcar_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filepath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;POTCAR&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar0_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filepath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;AECCAR0&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar2_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filepath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;AECCAR2&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">run_chargemol</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_chgcar_path</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_potcar_path</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar0_path</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar2_path</span>
+        <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="s2">&quot;CHGCAR, AECCAR0, AECCAR2, and POTCAR are all needed for Chargemol.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chgcarpath</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">chgcar</span> <span class="o">=</span> <span class="n">Chgcar</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_chgcarpath</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">chgcar</span><span class="o">.</span><span class="n">structure</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">natoms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">chgcar</span><span class="o">.</span><span class="n">poscar</span><span class="o">.</span><span class="n">natoms</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chgcar_path</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">chgcar</span><span class="p">:</span> <span class="n">Chgcar</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Chgcar</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_chgcar_path</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">chgcar</span><span class="o">.</span><span class="n">structure</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">natoms</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">chgcar</span><span class="o">.</span><span class="n">poscar</span><span class="o">.</span><span class="n">natoms</span>
+
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">chgcar</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">natoms</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;No CHGCAR found. Some properties may be unavailable.&quot;</span><span class="p">,</span> <span class="ne">UserWarning</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_potcarpath</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">potcar</span> <span class="o">=</span> <span class="n">Potcar</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_potcarpath</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">chgcar</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">natoms</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;No CHGCAR found. Some properties may be unavailable.&quot;</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_potcar_path</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">potcar</span> <span class="o">=</span> <span class="n">Potcar</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_potcar_path</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;No POTCAR found. Some properties may be unavailable.&quot;</span><span class="p">,</span> <span class="ne">UserWarning</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">aeccar0</span> <span class="o">=</span> <span class="n">Chgcar</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_aeccar0path</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar0path</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">aeccar2</span> <span class="o">=</span> <span class="n">Chgcar</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_aeccar2path</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar2path</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;No POTCAR found. Some properties may be unavailable.&quot;</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">aeccar0</span> <span class="o">=</span> <span class="n">Chgcar</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_aeccar0_path</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar0_path</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aeccar2</span> <span class="o">=</span> <span class="n">Chgcar</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_aeccar2_path</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aeccar2_path</span> <span class="k">else</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="n">run_chargemol</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_execute_chargemol</span><span class="p">()</span>
@@ -187,9 +179,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_from_data_dir</span><span class="p">(</span><span class="n">chargemol_output_path</span><span class="o">=</span><span class="n">path</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_get_filepath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns the full path to the filename in the path. Works even if the file has</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_filepath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the full path to the filename in the path. Works even if the file has</span>
 <span class="sd">        a .gz extension.</span>
 
 <span class="sd">        Args:</span>
@@ -198,10 +189,10 @@
 <span class="sd">            suffix (str): Optional suffix at the end of the filename.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            (str): Absolute path to the file.</span>
+<span class="sd">            str: Absolute path to the file.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">name_pattern</span> <span class="o">=</span> <span class="n">filename</span> <span class="o">+</span> <span class="n">suffix</span> <span class="o">+</span> <span class="s2">&quot;*&quot;</span> <span class="k">if</span> <span class="n">filename</span> <span class="o">!=</span> <span class="s2">&quot;POTCAR&quot;</span> <span class="k">else</span> <span class="n">filename</span> <span class="o">+</span> <span class="s2">&quot;*&quot;</span>
-        <span class="n">paths</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">name_pattern</span><span class="p">))</span>
+        <span class="n">name_pattern</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filename</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">*&quot;</span> <span class="k">if</span> <span class="n">filename</span> <span class="o">!=</span> <span class="s2">&quot;POTCAR&quot;</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">*&quot;</span>
+        <span class="n">paths</span> <span class="o">=</span> <span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">name_pattern</span><span class="p">))</span>
         <span class="n">fpath</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
             <span class="c1"># using reverse=True because, if multiple files are present,</span>
@@ -209,57 +200,51 @@
             <span class="c1"># and this would give &#39;static&#39; over &#39;relax2&#39; over &#39;relax&#39;</span>
             <span class="c1"># however, better to use &#39;suffix&#39; kwarg to avoid this!</span>
             <span class="n">paths</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">warning_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Multiple files detected, using </span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">warning_msg</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Multiple files detected, using </span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
             <span class="n">fpath</span> <span class="o">=</span> <span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">fpath</span>
 
-    <span class="k">def</span> <span class="nf">_execute_chargemol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">jobcontrol_kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Internal function to run Chargemol.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_execute_chargemol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">job_control_kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Internal function to run Chargemol.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            atomic_densities_path (str): Path to the atomic densities directory</span>
 <span class="sd">            required by Chargemol. If None, Pymatgen assumes that this is</span>
 <span class="sd">            defined in a &quot;DDEC6_ATOMIC_DENSITIES_DIR&quot; environment variable.</span>
 <span class="sd">                Default: None.</span>
-<span class="sd">            jobcontrol_kwargs: Keyword arguments for _write_jobscript_for_chargemol.</span>
+<span class="sd">            job_control_kwargs: Keyword arguments for _write_jobscript_for_chargemol.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">with</span> <span class="n">ScratchDir</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">):</span>
-            <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_chgcarpath</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_in</span><span class="p">:</span>
-                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;CHGCAR&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_out</span><span class="p">:</span>
-                    <span class="n">shutil</span><span class="o">.</span><span class="n">copyfileobj</span><span class="p">(</span><span class="n">f_in</span><span class="p">,</span> <span class="n">f_out</span><span class="p">)</span>
-            <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_potcarpath</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_in</span><span class="p">:</span>
-                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;POTCAR&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_out</span><span class="p">:</span>
-                    <span class="n">shutil</span><span class="o">.</span><span class="n">copyfileobj</span><span class="p">(</span><span class="n">f_in</span><span class="p">,</span> <span class="n">f_out</span><span class="p">)</span>
-            <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_aeccar0path</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_in</span><span class="p">:</span>
-                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;AECCAR0&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_out</span><span class="p">:</span>
-                    <span class="n">shutil</span><span class="o">.</span><span class="n">copyfileobj</span><span class="p">(</span><span class="n">f_in</span><span class="p">,</span> <span class="n">f_out</span><span class="p">)</span>
-            <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_aeccar2path</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_in</span><span class="p">:</span>
-                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;AECCAR2&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_out</span><span class="p">:</span>
-                    <span class="n">shutil</span><span class="o">.</span><span class="n">copyfileobj</span><span class="p">(</span><span class="n">f_in</span><span class="p">,</span> <span class="n">f_out</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_chgcar_path</span><span class="p">,</span> <span class="s2">&quot;./CHGCAR&quot;</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_potcar_path</span><span class="p">,</span> <span class="s2">&quot;./POTCAR&quot;</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_aeccar0_path</span><span class="p">,</span> <span class="s2">&quot;./AECCAR0&quot;</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_aeccar2_path</span><span class="p">,</span> <span class="s2">&quot;./AECCAR2&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error creating symbolic link: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
             <span class="c1"># write job_script file:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_write_jobscript_for_chargemol</span><span class="p">(</span><span class="o">**</span><span class="n">jobcontrol_kwargs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_jobscript_for_chargemol</span><span class="p">(</span><span class="o">**</span><span class="n">job_control_kwargs</span><span class="p">)</span>
 
             <span class="c1"># Run Chargemol</span>
             <span class="k">with</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
-                <span class="n">CHARGEMOLEXE</span><span class="p">,</span>
+                <span class="n">CHARGEMOL_EXE</span><span class="p">,</span>
                 <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
                 <span class="n">stdin</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
                 <span class="n">close_fds</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span> <span class="k">as</span> <span class="n">rs</span><span class="p">:</span>
-                <span class="n">rs</span><span class="o">.</span><span class="n">communicate</span><span class="p">()</span>
+                <span class="n">_stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">communicate</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">returncode</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Chargemol exited with return code </span><span class="si">{</span><span class="n">rs</span><span class="o">.</span><span class="n">returncode</span><span class="si">}</span><span class="s2">. Please check your Chargemol installation.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">CHARGEMOL_EXE</span><span class="si">}</span><span class="s2"> exit code: </span><span class="si">{</span><span class="n">rs</span><span class="o">.</span><span class="n">returncode</span><span class="si">}</span><span class="s2">, error message: </span><span class="si">{</span><span class="n">stderr</span><span class="si">!s}</span><span class="s2">. &quot;</span>
+                    <span class="s2">&quot;Please check your Chargemol installation.&quot;</span>
                 <span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_from_data_dir</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_from_data_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chargemol_output_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Internal command to parse Chargemol files from a directory.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_from_data_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chargemol_output_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Internal command to parse Chargemol files from a directory.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            chargemol_output_path (str): Path to the folder containing the</span>
@@ -267,53 +252,53 @@
 <span class="sd">                Default: None (current working directory).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">chargemol_output_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">chargemol_output_path</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">chargemol_output_path</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span>
 
-        <span class="n">charge_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chargemol_output_path</span><span class="p">,</span> <span class="s2">&quot;DDEC6_even_tempered_net_atomic_charges.xyz&quot;</span><span class="p">)</span>
+        <span class="n">charge_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chargemol_output_path</span><span class="si">}</span><span class="s2">/DDEC6_even_tempered_net_atomic_charges.xyz&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ddec_charges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_from_xyz</span><span class="p">(</span><span class="n">charge_path</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dipoles</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_dipole_info</span><span class="p">(</span><span class="n">charge_path</span><span class="p">)</span>
 
-        <span class="n">bond_order_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chargemol_output_path</span><span class="p">,</span> <span class="s2">&quot;DDEC6_even_tempered_bond_orders.xyz&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">bond_order_path</span><span class="p">):</span>
+        <span class="n">bond_order_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chargemol_output_path</span><span class="si">}</span><span class="s2">/DDEC6_even_tempered_bond_orders.xyz&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">bond_order_path</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">bond_order_sums</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_from_xyz</span><span class="p">(</span><span class="n">bond_order_path</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">bond_order_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_bond_order_info</span><span class="p">(</span><span class="n">bond_order_path</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">bond_order_sums</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">bond_order_dict</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bond_order_sums</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bond_order_dict</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">spin_moment_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chargemol_output_path</span><span class="p">,</span> <span class="s2">&quot;DDEC6_even_tempered_atomic_spin_moments.xyz&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">spin_moment_path</span><span class="p">):</span>
+        <span class="n">spin_moment_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chargemol_output_path</span><span class="si">}</span><span class="s2">/DDEC6_even_tempered_atomic_spin_moments.xyz&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">spin_moment_path</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ddec_spin_moments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_from_xyz</span><span class="p">(</span><span class="n">spin_moment_path</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ddec_spin_moments</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">rsquared_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chargemol_output_path</span><span class="p">,</span> <span class="s2">&quot;DDEC_atomic_Rsquared_moments.xyz&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">rsquared_path</span><span class="p">):</span>
+        <span class="n">rsquared_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chargemol_output_path</span><span class="si">}</span><span class="s2">/DDEC_atomic_Rsquared_moments.xyz&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">rsquared_path</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ddec_rsquared_moments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_from_xyz</span><span class="p">(</span><span class="n">rsquared_path</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ddec_rsquared_moments</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">rcubed_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chargemol_output_path</span><span class="p">,</span> <span class="s2">&quot;DDEC_atomic_Rcubed_moments.xyz&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">rcubed_path</span><span class="p">):</span>
+        <span class="n">rcubed_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chargemol_output_path</span><span class="si">}</span><span class="s2">/DDEC_atomic_Rcubed_moments.xyz&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">rcubed_path</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ddec_rcubed_moments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_from_xyz</span><span class="p">(</span><span class="n">rcubed_path</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ddec_rcubed_moments</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">rfourth_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chargemol_output_path</span><span class="p">,</span> <span class="s2">&quot;DDEC_atomic_Rfourth_moments.xyz&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">rfourth_path</span><span class="p">):</span>
+        <span class="n">rfourth_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chargemol_output_path</span><span class="si">}</span><span class="s2">/DDEC_atomic_Rfourth_moments.xyz&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">rfourth_path</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ddec_rfourth_moments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_from_xyz</span><span class="p">(</span><span class="n">rfourth_path</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ddec_rfourth_moments</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">ddec_analysis_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chargemol_output_path</span><span class="p">,</span> <span class="s2">&quot;VASP_DDEC_analysis.output&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">ddec_analysis_path</span><span class="p">):</span>
+        <span class="n">ddec_analysis_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chargemol_output_path</span><span class="si">}</span><span class="s2">/VASP_DDEC_analysis.output&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">ddec_analysis_path</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">cm5_charges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_cm5_data_from_output</span><span class="p">(</span><span class="n">ddec_analysis_path</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">cm5_charges</span> <span class="o">=</span> <span class="kc">None</span>
 
-<div class="viewcode-block" id="ChargemolAnalysis.get_charge_transfer"><a class="viewcode-back" href="../../../pymatgen.command_line.chargemol_caller.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis.get_charge_transfer">[docs]</a>    <span class="k">def</span> <span class="nf">get_charge_transfer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">,</span> <span class="n">charge_type</span><span class="o">=</span><span class="s2">&quot;ddec&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns the charge transferred for a particular atom. A positive value means</span>
+<div class="viewcode-block" id="ChargemolAnalysis.get_charge_transfer">
+<a class="viewcode-back" href="../../../pymatgen.command_line.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis.get_charge_transfer">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_charge_transfer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">,</span> <span class="n">charge_type</span><span class="o">=</span><span class="s2">&quot;ddec&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the charge transferred for a particular atom. A positive value means</span>
 <span class="sd">        that the site has gained electron density (i.e. exhibits anionic character)</span>
 <span class="sd">        whereas a negative value means the site has lost electron density (i.e. exhibits</span>
 <span class="sd">        cationic character). This is the same thing as the negative of the partial atomic</span>
@@ -326,17 +311,19 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            float: charge transferred at atom_index</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">charge_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ddec&quot;</span><span class="p">,</span> <span class="s2">&quot;cm5&quot;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid charge_type: </span><span class="si">{</span><span class="n">charge_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">charge_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;ddec&quot;</span><span class="p">:</span>
-            <span class="n">charge_transfer</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">ddec_charges</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
-        <span class="k">elif</span> <span class="n">charge_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;cm5&quot;</span><span class="p">:</span>
-            <span class="n">charge_transfer</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">cm5_charges</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">charge_transfer</span></div>
+            <span class="k">return</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">ddec_charges</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
 
-<div class="viewcode-block" id="ChargemolAnalysis.get_charge"><a class="viewcode-back" href="../../../pymatgen.command_line.chargemol_caller.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis.get_charge">[docs]</a>    <span class="k">def</span> <span class="nf">get_charge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">,</span> <span class="n">nelect</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">charge_type</span><span class="o">=</span><span class="s2">&quot;ddec&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Convenience method to get the charge on a particular atom using the same</span>
+        <span class="k">if</span> <span class="n">charge_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;cm5&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">cm5_charges</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid </span><span class="si">{</span><span class="n">charge_type</span><span class="si">=}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ChargemolAnalysis.get_charge">
+<a class="viewcode-back" href="../../../pymatgen.command_line.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis.get_charge">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_charge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">,</span> <span class="n">nelect</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">charge_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;ddec&quot;</span><span class="p">,</span> <span class="s2">&quot;cm5&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;ddec&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convenience method to get the charge on a particular atom using the same</span>
 <span class="sd">        sign convention as the BaderAnalysis. Note that this is *not* the partial</span>
 <span class="sd">        atomic charge. This value is nelect (e.g. ZVAL from the POTCAR) + the</span>
 <span class="sd">        charge transferred. If you want the partial atomic charge, use</span>
@@ -359,34 +346,38 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">potcar</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">natoms</span><span class="p">:</span>
             <span class="n">charge</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">potcar_indices</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">natoms</span><span class="p">):</span>
-                <span class="n">potcar_indices</span> <span class="o">+=</span> <span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">natoms</span><span class="p">):</span>
+                <span class="n">potcar_indices</span> <span class="o">+=</span> <span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">*</span> <span class="n">val</span>
             <span class="n">nelect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">potcar</span><span class="p">[</span><span class="n">potcar_indices</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]]</span><span class="o">.</span><span class="n">nelectrons</span>
             <span class="n">charge</span> <span class="o">=</span> <span class="n">nelect</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_charge_transfer</span><span class="p">(</span><span class="n">atom_index</span><span class="p">,</span> <span class="n">charge_type</span><span class="o">=</span><span class="n">charge_type</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">charge</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">charge</span></div>
 
-<div class="viewcode-block" id="ChargemolAnalysis.get_partial_charge"><a class="viewcode-back" href="../../../pymatgen.command_line.chargemol_caller.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis.get_partial_charge">[docs]</a>    <span class="k">def</span> <span class="nf">get_partial_charge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">,</span> <span class="n">charge_type</span><span class="o">=</span><span class="s2">&quot;ddec&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Convenience method to get the partial atomic charge on a particular atom.</span>
+
+<div class="viewcode-block" id="ChargemolAnalysis.get_partial_charge">
+<a class="viewcode-back" href="../../../pymatgen.command_line.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis.get_partial_charge">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_partial_charge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom_index</span><span class="p">,</span> <span class="n">charge_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;ddec&quot;</span><span class="p">,</span> <span class="s2">&quot;cm5&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;ddec&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convenience method to get the partial atomic charge on a particular atom.</span>
 <span class="sd">        This is the value printed in the Chargemol analysis.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            atom_index (int): Index of atom to get charge for.</span>
 <span class="sd">            charge_type (str): Type of charge to use (&quot;ddec&quot; or &quot;cm5&quot;).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">charge_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ddec&quot;</span><span class="p">,</span> <span class="s2">&quot;cm5&quot;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid charge_type: </span><span class="si">{</span><span class="n">charge_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">charge_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;ddec&quot;</span><span class="p">:</span>
-            <span class="n">partial_charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ddec_charges</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
-        <span class="k">elif</span> <span class="n">charge_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;cm5&quot;</span><span class="p">:</span>
-            <span class="n">partial_charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cm5_charges</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">partial_charge</span></div>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ddec_charges</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
 
-<div class="viewcode-block" id="ChargemolAnalysis.get_bond_order"><a class="viewcode-back" href="../../../pymatgen.command_line.chargemol_caller.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis.get_bond_order">[docs]</a>    <span class="k">def</span> <span class="nf">get_bond_order</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index_from</span><span class="p">,</span> <span class="n">index_to</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Convenience method to get the bond order between two atoms.</span>
+        <span class="k">if</span> <span class="n">charge_type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;cm5&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cm5_charges</span><span class="p">[</span><span class="n">atom_index</span><span class="p">]</span>
+
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid charge_type: </span><span class="si">{</span><span class="n">charge_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ChargemolAnalysis.get_bond_order">
+<a class="viewcode-back" href="../../../pymatgen.command_line.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis.get_bond_order">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_bond_order</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index_from</span><span class="p">,</span> <span class="n">index_to</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convenience method to get the bond order between two atoms.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            index_from (int): Index of atom to get bond order from.</span>
@@ -397,21 +388,17 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">bonded_set</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bond_order_dict</span><span class="p">[</span><span class="n">index_from</span><span class="p">][</span><span class="s2">&quot;bonded_to&quot;</span><span class="p">]</span>
         <span class="n">bond_orders</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="s2">&quot;bond_order&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">bonded_set</span> <span class="k">if</span> <span class="n">v</span><span class="p">[</span><span class="s2">&quot;index&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">index_to</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">bond_orders</span> <span class="o">==</span> <span class="p">[]:</span>
-            <span class="n">sum_bo</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">sum_bo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">bond_orders</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">sum_bo</span></div>
+        <span class="k">return</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="n">bond_orders</span> <span class="o">==</span> <span class="p">[]</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">bond_orders</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_write_jobscript_for_chargemol</span><span class="p">(</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_write_jobscript_for_chargemol</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">net_charge</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
         <span class="n">periodicity</span><span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
         <span class="n">method</span><span class="o">=</span><span class="s2">&quot;ddec6&quot;</span><span class="p">,</span>
         <span class="n">compute_bond_orders</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Writes job_script.txt for Chargemol execution</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write job_script.txt for Chargemol execution.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            net_charge (float): Net charge of the system.</span>
@@ -419,8 +406,8 @@
 <span class="sd">            periodicity (tuple[bool]): Periodicity of the system.</span>
 <span class="sd">                Default: (True, True, True).</span>
 <span class="sd">            method (str): Method to use for the analysis. Options include &quot;ddec6&quot;</span>
-<span class="sd">            and &quot;ddec3&quot;.</span>
-<span class="sd">                Default: &quot;ddec6&quot;</span>
+<span class="sd">                and &quot;ddec3&quot;. Default: &quot;ddec6&quot;</span>
+<span class="sd">            compute_bond_orders (bool): Whether to compute bond orders. Default: True.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">net_charge</span> <span class="o">=</span> <span class="n">net_charge</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">periodicity</span> <span class="o">=</span> <span class="n">periodicity</span>
@@ -443,22 +430,21 @@
             <span class="p">)</span>
 
         <span class="c1"># atomic_densities dir</span>
-        <span class="n">atomic_densities_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_atomic_densities_path</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;DDEC6_ATOMIC_DENSITIES_DIR&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">atomic_densities_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_atomic_densities_path</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;DDEC6_ATOMIC_DENSITIES_DIR&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">atomic_densities_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span>
                 <span class="s2">&quot;The DDEC6_ATOMIC_DENSITIES_DIR environment variable must be set or the atomic_densities_path must&quot;</span>
                 <span class="s2">&quot; be specified&quot;</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">atomic_densities_path</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot find the path to the atomic densities at </span><span class="si">{</span><span class="n">atomic_densities_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">atomic_densities_path</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">atomic_densities_path</span><span class="si">=}</span><span class="s2"> does not exist&quot;</span><span class="p">)</span>
 
         <span class="c1"># This is to fix a Chargemol filepath nuance</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;nt&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Windows&quot;</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">atomic_densities_path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">:</span>
                 <span class="n">atomic_densities_path</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">atomic_densities_path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;/&quot;</span><span class="p">:</span>
-                <span class="n">atomic_densities_path</span> <span class="o">+=</span> <span class="s2">&quot;/&quot;</span>
+        <span class="k">elif</span> <span class="n">atomic_densities_path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;/&quot;</span><span class="p">:</span>
+            <span class="n">atomic_densities_path</span> <span class="o">+=</span> <span class="s2">&quot;/&quot;</span>
 
         <span class="n">lines</span> <span class="o">+=</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&lt;atomic densities directory complete path&gt;</span><span class="se">\n</span><span class="si">{</span><span class="n">atomic_densities_path</span><span class="si">}</span><span class="se">\n</span><span class="s2">&lt;/atomic densities directory &quot;</span>
@@ -472,39 +458,37 @@
             <span class="n">bo</span> <span class="o">=</span> <span class="s2">&quot;.true.&quot;</span> <span class="k">if</span> <span class="n">compute_bond_orders</span> <span class="k">else</span> <span class="s2">&quot;.false.&quot;</span>
             <span class="n">lines</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&lt;compute BOs&gt;</span><span class="se">\n</span><span class="si">{</span><span class="n">bo</span><span class="si">}</span><span class="se">\n</span><span class="s2">&lt;/compute BOs&gt;</span><span class="se">\n</span><span class="s2">&quot;</span>
 
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;job_control.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
-            <span class="n">fh</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;job_control.txt&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_get_dipole_info</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Internal command to process dipoles</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_dipole_info</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Internal command to process dipoles.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            filepath (str): The path to the DDEC6_even_tempered_net_atomic_charges.xyz file</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">start</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">dipoles</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span> <span class="k">as</span> <span class="n">r</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">r</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
                 <span class="k">if</span> <span class="s2">&quot;The following XYZ&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
                     <span class="n">start</span> <span class="o">=</span> <span class="kc">True</span>
-                    <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
                     <span class="k">continue</span>
                 <span class="k">if</span> <span class="n">start</span> <span class="ow">and</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
                     <span class="k">break</span>
-                <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
-                    <span class="n">dipoles</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">7</span><span class="p">:</span><span class="mi">10</span><span class="p">]])</span>
+                <span class="k">if</span> <span class="n">idx</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">dipoles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">6</span><span class="p">:</span><span class="mi">9</span><span class="p">])))</span>
                 <span class="k">if</span> <span class="n">start</span><span class="p">:</span>
-                    <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
 
         <span class="k">return</span> <span class="n">dipoles</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_get_bond_order_info</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Internal command to process pairwise bond order information</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_bond_order_info</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Internal command to process pairwise bond order information.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            filename (str): The path to the DDEC6_even_tempered_bond_orders.xyz file</span>
@@ -512,39 +496,42 @@
         <span class="c1"># Get where relevant info for each atom starts</span>
         <span class="n">bond_order_info</span> <span class="o">=</span> <span class="p">{}</span>
 
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">r</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">r</span><span class="p">:</span>
-                <span class="n">l</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">start_idx</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">split</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
                 <span class="k">if</span> <span class="s2">&quot;Printing BOs&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
-                    <span class="n">start_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">l</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span>
-                    <span class="n">start_el</span> <span class="o">=</span> <span class="n">Element</span><span class="p">(</span><span class="n">l</span><span class="p">[</span><span class="mi">7</span><span class="p">])</span>
+                    <span class="n">start_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">split</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span>
+                    <span class="n">start_el</span> <span class="o">=</span> <span class="n">Element</span><span class="p">(</span><span class="n">split</span><span class="p">[</span><span class="mi">7</span><span class="p">])</span>
                     <span class="n">bond_order_info</span><span class="p">[</span><span class="n">start_idx</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;element&quot;</span><span class="p">:</span> <span class="n">start_el</span><span class="p">,</span> <span class="s2">&quot;bonded_to&quot;</span><span class="p">:</span> <span class="p">[]}</span>
+
                 <span class="k">elif</span> <span class="s2">&quot;Bonded to the&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
-                    <span class="n">direction</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;)&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">l</span><span class="p">[</span><span class="mi">4</span><span class="p">:</span><span class="mi">7</span><span class="p">])</span>
-                    <span class="n">end_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">l</span><span class="p">[</span><span class="mi">12</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span>
-                    <span class="n">end_el</span> <span class="o">=</span> <span class="n">Element</span><span class="p">(</span><span class="n">l</span><span class="p">[</span><span class="mi">14</span><span class="p">])</span>
-                    <span class="n">bo</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">l</span><span class="p">[</span><span class="mi">20</span><span class="p">])</span>
-                    <span class="n">spin_bo</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">l</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-                    <span class="n">bond_order_info</span><span class="p">[</span><span class="n">start_idx</span><span class="p">][</span><span class="s2">&quot;bonded_to&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                        <span class="p">{</span>
-                            <span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="n">end_idx</span><span class="p">,</span>
-                            <span class="s2">&quot;element&quot;</span><span class="p">:</span> <span class="n">end_el</span><span class="p">,</span>
-                            <span class="s2">&quot;bond_order&quot;</span><span class="p">:</span> <span class="n">bo</span><span class="p">,</span>
-                            <span class="s2">&quot;direction&quot;</span><span class="p">:</span> <span class="n">direction</span><span class="p">,</span>
-                            <span class="s2">&quot;spin_polarization&quot;</span><span class="p">:</span> <span class="n">spin_bo</span><span class="p">,</span>
-                        <span class="p">}</span>
-                    <span class="p">)</span>
+                    <span class="n">direction</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;)&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">split</span><span class="p">[</span><span class="mi">4</span><span class="p">:</span><span class="mi">7</span><span class="p">])</span>
+                    <span class="n">end_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">split</span><span class="p">[</span><span class="mi">12</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span>
+                    <span class="n">end_el</span> <span class="o">=</span> <span class="n">Element</span><span class="p">(</span><span class="n">split</span><span class="p">[</span><span class="mi">14</span><span class="p">])</span>
+                    <span class="n">bo</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">split</span><span class="p">[</span><span class="mi">20</span><span class="p">])</span>
+                    <span class="n">spin_bo</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">split</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                    <span class="n">bonded_to</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="n">end_idx</span><span class="p">,</span>
+                        <span class="s2">&quot;element&quot;</span><span class="p">:</span> <span class="n">end_el</span><span class="p">,</span>
+                        <span class="s2">&quot;bond_order&quot;</span><span class="p">:</span> <span class="n">bo</span><span class="p">,</span>
+                        <span class="s2">&quot;direction&quot;</span><span class="p">:</span> <span class="n">direction</span><span class="p">,</span>
+                        <span class="s2">&quot;spin_polarization&quot;</span><span class="p">:</span> <span class="n">spin_bo</span><span class="p">,</span>
+                    <span class="p">}</span>
+                    <span class="n">bond_order_info</span><span class="p">[</span><span class="n">start_idx</span><span class="p">][</span><span class="s2">&quot;bonded_to&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bonded_to</span><span class="p">)</span>
+
                 <span class="k">elif</span> <span class="s2">&quot;The sum of bond orders for this atom&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
-                    <span class="n">bond_order_info</span><span class="p">[</span><span class="n">start_idx</span><span class="p">][</span><span class="s2">&quot;bond_order_sum&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">l</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                    <span class="n">bond_order_info</span><span class="p">[</span><span class="n">start_idx</span><span class="p">][</span><span class="s2">&quot;bond_order_sum&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">split</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
 
         <span class="k">return</span> <span class="n">bond_order_info</span>
 
-<div class="viewcode-block" id="ChargemolAnalysis.get_property_decorated_structure"><a class="viewcode-back" href="../../../pymatgen.command_line.chargemol_caller.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis.get_property_decorated_structure">[docs]</a>    <span class="k">def</span> <span class="nf">get_property_decorated_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Takes CHGCAR&#39;s structure object and updates it with properties</span>
+<div class="viewcode-block" id="ChargemolAnalysis.get_property_decorated_structure">
+<a class="viewcode-back" href="../../../pymatgen.command_line.html#pymatgen.command_line.chargemol_caller.ChargemolAnalysis.get_property_decorated_structure">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_property_decorated_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Takes CHGCAR&#39;s structure object and updates it with properties</span>
 <span class="sd">        from the Chargemol analysis.</span>
 
-<span class="sd">        Returns</span>
+<span class="sd">        Returns:</span>
 <span class="sd">            Pymatgen structure with site properties added</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">struct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -559,29 +546,27 @@
             <span class="n">struct</span><span class="o">.</span><span class="n">add_site_property</span><span class="p">(</span><span class="s2">&quot;partial_charge_cm5&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cm5_charges</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">struct</span></div>
 
+
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns a dictionary summary of the Chargemol analysis</span>
-<span class="sd">            {</span>
-<span class="sd">                &quot;ddec&quot;: {</span>
-<span class="sd">                            &quot;partial_charges&quot;: List[float],</span>
-<span class="sd">                            &quot;spin_moments&quot;: List[float],</span>
-<span class="sd">                            &quot;dipoles&quot;: List[float],</span>
-<span class="sd">                            &quot;rsquared_moments&quot;: List[float],</span>
-<span class="sd">                            &quot;rcubed_moments&quot;: List[float],</span>
-<span class="sd">                            &quot;rfourth_moments&quot;: List[float],</span>
-<span class="sd">                            &quot;bond_order_dict&quot;: Dict</span>
-<span class="sd">                        },</span>
-<span class="sd">                &quot;cm5&quot;: {</span>
-<span class="sd">                            &quot;partial_charges&quot;: List[float],</span>
-<span class="sd">                        }</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A dictionary summary of the Chargemol analysis</span>
+<span class="sd">        {</span>
+<span class="sd">            &quot;ddec&quot;: {</span>
+<span class="sd">                &quot;partial_charges&quot;: list[float],</span>
+<span class="sd">                &quot;spin_moments&quot;: list[float],</span>
+<span class="sd">                &quot;dipoles&quot;: list[float],</span>
+<span class="sd">                &quot;rsquared_moments&quot;: list[float],</span>
+<span class="sd">                &quot;rcubed_moments&quot;: list[float],</span>
+<span class="sd">                &quot;rfourth_moments&quot;: list[float],</span>
+<span class="sd">                &quot;bond_order_dict&quot;: dict</span>
+<span class="sd">            },</span>
+<span class="sd">            &quot;cm5&quot;: {</span>
+<span class="sd">                &quot;partial_charges&quot;: list[float],</span>
 <span class="sd">            }</span>
+<span class="sd">        }.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">summary</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">ddec_summary</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;partial_charges&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ddec_charges</span><span class="p">,</span>
-        <span class="p">}</span>
+        <span class="n">ddec_summary</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;partial_charges&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ddec_charges</span><span class="p">}</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bond_order_sums</span><span class="p">:</span>
             <span class="n">ddec_summary</span><span class="p">[</span><span class="s2">&quot;bond_order_sums&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bond_order_sums</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ddec_spin_moments</span><span class="p">:</span>
@@ -597,10 +582,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bond_order_dict</span><span class="p">:</span>
             <span class="n">ddec_summary</span><span class="p">[</span><span class="s2">&quot;bond_order_dict&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bond_order_dict</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cm5_charges</span><span class="p">:</span>
-            <span class="n">cm5_summary</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;partial_charges&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cm5_charges</span><span class="p">}</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">cm5_summary</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">cm5_summary</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;partial_charges&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cm5_charges</span><span class="p">}</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cm5_charges</span> <span class="k">else</span> <span class="kc">None</span>
 
         <span class="n">summary</span><span class="p">[</span><span class="s2">&quot;ddec&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ddec_summary</span>
         <span class="n">summary</span><span class="p">[</span><span class="s2">&quot;cm5&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cm5_summary</span>
@@ -608,9 +590,8 @@
         <span class="k">return</span> <span class="n">summary</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_get_data_from_xyz</span><span class="p">(</span><span class="n">xyz_path</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Internal command to process Chargemol XYZ files</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_data_from_xyz</span><span class="p">(</span><span class="n">xyz_path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Internal command to process Chargemol XYZ files.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            xyz_path (str): Path to XYZ file</span>
@@ -619,10 +600,10 @@
 <span class="sd">            list[float]: site-specific properties</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">props</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">xyz_path</span><span class="p">):</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">xyz_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">r</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">xyz_path</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">xyz_path</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">file</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">idx</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
                         <span class="k">continue</span>
                     <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
                         <span class="k">break</span>
@@ -633,9 +614,8 @@
         <span class="k">return</span> <span class="n">props</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_get_cm5_data_from_output</span><span class="p">(</span><span class="n">ddec_analysis_path</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Internal command to process Chargemol CM5 data</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_cm5_data_from_output</span><span class="p">(</span><span class="n">ddec_analysis_path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Internal command to process Chargemol CM5 data.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            ddec_analysis_path (str): Path VASP_DDEC_analysis.output file</span>
@@ -644,10 +624,10 @@
 <span class="sd">            list[float]: CM5 charges</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">props</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">ddec_analysis_path</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">ddec_analysis_path</span><span class="p">):</span>
             <span class="n">start</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">ddec_analysis_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">r</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">r</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">ddec_analysis_path</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
                     <span class="k">if</span> <span class="s2">&quot;computed CM5&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
                         <span class="n">start</span> <span class="o">=</span> <span class="kc">True</span>
                         <span class="k">continue</span>
@@ -659,6 +639,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ddec_analysis_path</span><span class="si">}</span><span class="s2"> not found&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">props</span></div>
+
 </pre></div>
 
             <div class="clearer"></div>
@@ -666,7 +647,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -675,29 +656,14 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.command_line.chargemol_caller</a></li> 
       </ul>
     </div>
-
     <div class="footer" role="contentinfo">
-        &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
     </div>
-<div class="footer">This page uses <a href="http://analytics.google.com/">
-Google Analytics</a> to collect statistics. You can disable it by blocking
-the JavaScript coming from www.google-analytics.com.
-<script type="text/javascript">
-  (function() {
-    var ga = document.createElement('script');
-    ga.src = ('https:' == document.location.protocol ?
-              'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-    ga.setAttribute('async', 'true');
-    document.documentElement.firstChild.appendChild(ga);
-  })();
-</script>
-</div>
-
   </body>
 </html>

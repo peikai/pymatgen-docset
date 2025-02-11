@@ -1,27 +1,19 @@
-
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../../../../">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.lammps.inputs &#8212; pymatgen 2023.1.30 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
-    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-    <script src="../../../../_static/doctools.js"></script>
-    <script src="../../../../_static/sphinx_highlight.js"></script>
+    <title>pymatgen.io.lammps.inputs &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../../search.html" />
- 
-<script type="text/javascript">
-  var _gaq = _gaq || [];
-  _gaq.push(['_setAccount', 'UA-33990148-1']);
-  _gaq.push(['_trackPageview']);
-</script>
-
+    <link rel="search" title="Search" href="../../../../search.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -30,7 +22,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.lammps.inputs</a></li> 
       </ul>
@@ -41,57 +33,953 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.io.lammps.inputs</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
-<span class="c1"># Distributed under the terms of the MIT License.</span>
-
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module implements methods for reading/manipulating/writing LAMMPS input files.</span>
+<span class="sd">It does not implement methods for automatically creating inputs based on a structure</span>
+<span class="sd">and computation type. For this, see the InputSet and InputGenerator in sets.py, or</span>
+<span class="sd">https://github.com/Matgenix/atomate2-lammps.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">This module implements methods for writing LAMMPS input files.</span>
-<span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">shutil</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">string</span> <span class="kn">import</span> <span class="n">Template</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">string</span><span class="w"> </span><span class="kn">import</span> <span class="n">Template</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
 
-<span class="kn">from</span> <span class="nn">monty.dev</span> <span class="kn">import</span> <span class="n">deprecated</span>
-<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.dev</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">zopen</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.json</span><span class="w"> </span><span class="kn">import</span> <span class="n">MSONable</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.io.lammps.data</span> <span class="kn">import</span> <span class="n">CombinedData</span><span class="p">,</span> <span class="n">LammpsData</span>
-<span class="kn">from</span> <span class="nn">pymatgen.io.template</span> <span class="kn">import</span> <span class="n">TemplateInputGen</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span> <span class="k">as</span> <span class="n">CURRENT_VER</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputFile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.lammps.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">CombinedData</span><span class="p">,</span> <span class="n">LammpsData</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.template</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemplateInputGen</span>
 
-<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Kiran Mathew, Brandon Wood, Zhi Deng&quot;</span>
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">os</span><span class="w"> </span><span class="kn">import</span> <span class="n">PathLike</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputSet</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Kiran Mathew, Brandon Wood, Zhi Deng, Manas Likhit, Guillaume Brunin (Matgenix)&quot;</span>
 <span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2018, The Materials Virtual Lab&quot;</span>
-<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;1.0&quot;</span>
-<span class="n">__maintainer__</span> <span class="o">=</span> <span class="s2">&quot;Zhi Deng&quot;</span>
-<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;z4deng@eng.ucsd.edu&quot;</span>
-<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;Aug 1, 2018&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;2.0&quot;</span>
+<span class="n">__maintainer__</span> <span class="o">=</span> <span class="s2">&quot;Zhi Deng, Guillaume Brunin (Matgenix)&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;z4deng@eng.ucsd.edu, info@matgenix.com&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;Nov 2022&quot;</span>
+
+<span class="n">MODULE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+<span class="n">TEMPLATE_DIR</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">MODULE_DIR</span><span class="si">}</span><span class="s2">/templates&quot;</span>
 
 
-<div class="viewcode-block" id="LammpsRun"><a class="viewcode-back" href="../../../../pymatgen.io.lammps.inputs.html#pymatgen.io.lammps.inputs.LammpsRun">[docs]</a><span class="k">class</span> <span class="nc">LammpsRun</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Examples for various simple LAMMPS runs with given simulation box,</span>
+<div class="viewcode-block" id="LammpsInputFile">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LammpsInputFile</span><span class="p">(</span><span class="n">InputFile</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;LAMMPS input settings file such as `in.lammps`.</span>
+<span class="sd">    Allows for LAMMPS input generation in line/stage wise manner. A stage</span>
+<span class="sd">    here is defined as a block of LAMMPS input commands usually performing a</span>
+<span class="sd">    specific task during the simulation such as energy minimization or</span>
+<span class="sd">    NPT/NVT runs. But more broadly, a stage can also be a block of LAMMPS</span>
+<span class="sd">    input where the simulation box is set up, a set of variables are declared or</span>
+<span class="sd">    quantities are computed.</span>
+
+<span class="sd">    The LammpsInputFile is defined by the attribute `stages`,</span>
+<span class="sd">    i.e. a list of dicts each with keys `stage_name` and `commands`,</span>
+<span class="sd">    defining the stage names and the corresponding LAMMPS input settings (list of tuples of two strings each).</span>
+<span class="sd">    The structure is the following:</span>
+<span class="sd">    ```</span>
+<span class="sd">    stages = [</span>
+<span class="sd">        {&quot;stage_name&quot;: &quot;Stage 1&quot;, &quot;commands&quot;: [(cmd1, args1), (cmd2, args2)]},</span>
+<span class="sd">        {&quot;stage_name&quot;: &quot;Stage 2&quot;, &quot;commands&quot;: [(cmd3, args3)]},</span>
+<span class="sd">    ]</span>
+<span class="sd">    ```</span>
+<span class="sd">    where cmd&#39;s are the LAMMPS command names (e.g., &quot;units&quot;, or &quot;pair_coeff&quot;)</span>
+<span class="sd">    and the args are the corresponding arguments.</span>
+<span class="sd">    &quot;Stage 1&quot; and &quot;Stage 2&quot; are examples of stage names.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stages</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            stages: list of LAMMPS input settings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stages</span> <span class="o">=</span> <span class="n">stages</span> <span class="ow">or</span> <span class="p">[]</span>
+
+        <span class="c1"># Enforce that all stage names are unique</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Stage names should be unique.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Check the format of each stage:</span>
+        <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_stage_format</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stages_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List of names for all the stages present in `stages`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">stage</span><span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nstages</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of stages in the current LammpsInputFile.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ncomments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of comments in the current LammpsInputFile. Includes the blocks of comments as well</span>
+<span class="sd">        as inline comments (comment lines within blocks of LAMMPS commands).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">n_comments</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">:</span>
+            <span class="c1"># Block of comment = 1 comment</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">cmd</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span> <span class="ow">in</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;commands&quot;</span><span class="p">]):</span>
+                <span class="n">n_comments</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Else, inline comment each count as one</span>
+                <span class="n">n_comments</span> <span class="o">+=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">cmd</span><span class="p">,</span> <span class="n">_args</span> <span class="ow">in</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;commands&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">cmd</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">n_comments</span>
+
+<div class="viewcode-block" id="LammpsInputFile.get_args">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.get_args">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span> <span class="o">|</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Given a command, returns the corresponding arguments (or list of arguments) in the LammpsInputFile.</span>
+<span class="sd">        A stage name can be given; in this case the search will happen only for this stage.</span>
+<span class="sd">        If a stage name is not given, the command will be searched for through all of them.</span>
+<span class="sd">        If the command is not found, an empty list is returned.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            command (str): String with the command to find in the input file (e.g., &quot;units&quot;).</span>
+<span class="sd">            stage_name (str): String giving the stage name where the change should take place.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Value of the argument corresponding to the command.</span>
+<span class="sd">            List if the same command is used multiple times.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">stages_to_look</span> <span class="o">=</span> <span class="p">[</span><span class="n">stage_name</span><span class="p">]</span> <span class="k">if</span> <span class="n">stage_name</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span>
+
+        <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">stages_to_look</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">cmd</span><span class="p">,</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;commands&quot;</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="n">cmd</span><span class="p">:</span>
+                        <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">args</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.contains_command">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.contains_command">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">contains_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get whether a given command is present in the LammpsInputFile.</span>
+<span class="sd">        A stage name can be given; in this case the search will happen only for this stage.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            command (str): String with the command to find in the input file (e.g., &quot;units&quot;).</span>
+<span class="sd">            stage_name (str): String giving the stage name where the change should take place.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if the command is present, False if not.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_args</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.set_args">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.set_args">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_args</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">argument</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">how</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the arguments for the given command to the given string.</span>
+<span class="sd">        If the command is not found, nothing is done. Use LammpsInputFile.add_commands instead.</span>
+<span class="sd">        If a stage name is specified, it will be replaced or set only for this stage.</span>
+<span class="sd">        If no stage name is given, it will apply the change in all of them that contain the given command.</span>
+<span class="sd">        If the command is set multiple times in the file/stage, it will be replaced based on &quot;how&quot;:</span>
+<span class="sd">        either the first occurrence, all of them, or the index of the occurrence.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            command (str): String representing the command to change, e.g. &quot;units&quot;.</span>
+<span class="sd">            argument (str): String with the new value for the command, e.g. &quot;atomic&quot;.</span>
+<span class="sd">            stage_name (str): String giving the stage name where the change should take place.</span>
+<span class="sd">            how (str or int or list): &quot;all&quot; for changing all occurrences of the command within the stage_name</span>
+<span class="sd">                or the whole InputFile, &quot;first&quot; for the first occurrence, int i for the i-th time the command</span>
+<span class="sd">                is present in the stage_name or the whole InputFile, starting at 0. Can be a list of indexes as well.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Get the stages to look in</span>
+        <span class="n">stages_to_look</span> <span class="o">=</span> <span class="p">[</span><span class="n">stage_name</span><span class="p">]</span> <span class="k">if</span> <span class="n">stage_name</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span>
+
+        <span class="c1"># Translates how into range of indices</span>
+        <span class="k">if</span> <span class="n">how</span> <span class="o">==</span> <span class="s2">&quot;first&quot;</span><span class="p">:</span>
+            <span class="n">how</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">how</span> <span class="o">==</span> <span class="s2">&quot;all&quot;</span><span class="p">:</span>
+            <span class="n">getargs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_args</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">)</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">getargs</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">getargs</span><span class="p">)</span>
+            <span class="n">how</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">how</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">how</span> <span class="o">=</span> <span class="p">[</span><span class="n">how</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">how</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">how</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;The argument &#39;how&#39; should be a &#39;first&#39;, &#39;all&#39;, an integer or a list of integers.&quot;&quot;&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Look for occurrences in the relevant stages</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">i_stage</span><span class="p">,</span> <span class="n">stage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">stages_to_look</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i_cmd</span><span class="p">,</span> <span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">stage</span><span class="p">[</span><span class="s2">&quot;commands&quot;</span><span class="p">]):</span>
+                    <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="n">cmd</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">how</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">[</span><span class="n">i_stage</span><span class="p">][</span><span class="s2">&quot;commands&quot;</span><span class="p">][</span><span class="n">i_cmd</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">argument</span><span class="p">)</span>
+                        <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.add_stage">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.add_stage">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_stage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">stage</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">commands</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">after_stage</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Adds a new stage to the LammpsInputFile, either from a whole stage (dict) or</span>
+<span class="sd">        from a stage_name and commands. Both ways are mutually exclusive.</span>
+
+<span class="sd">        Examples:</span>
+<span class="sd">            1) In order to add a stage defining the force field to be used, you can use:</span>
+<span class="sd">            ```</span>
+<span class="sd">            your_input_file.add_stage(</span>
+<span class="sd">                commands=[&quot;pair_coeff 1 1 morse 0.0580 3.987 3.404&quot;, &quot;pair_coeff 1 4 morse 0.0408 1.399 3.204&quot;],</span>
+<span class="sd">                stage_name=&quot;Definition of the force field&quot;,</span>
+<span class="sd">            )</span>
+<span class="sd">            ```</span>
+<span class="sd">            or</span>
+<span class="sd">            ```</span>
+<span class="sd">            your_input_file.add_stage(</span>
+<span class="sd">                {</span>
+<span class="sd">                    &quot;stage_name&quot;: &quot;Definition of the force field&quot;,</span>
+<span class="sd">                    &quot;commands&quot;: [</span>
+<span class="sd">                        (&quot;pair_coeff&quot;, &quot;1 1 morse 0.0580 3.987 3.404&quot;),</span>
+<span class="sd">                        (&quot;pair_coeff&quot;, &quot;1 4 morse 0.0408 1.399 3.204&quot;),</span>
+<span class="sd">                    ],</span>
+<span class="sd">                }</span>
+<span class="sd">            )</span>
+<span class="sd">            ```</span>
+<span class="sd">            2) Another stage could consist in an energy minimization. In that case, the commands could look like</span>
+<span class="sd">            ```</span>
+<span class="sd">            commands = [</span>
+<span class="sd">                &quot;thermo 1&quot;,</span>
+<span class="sd">                &quot;thermo_style custom step lx ly lz press pxx pyy pzz pe&quot;,</span>
+<span class="sd">                &quot;dump dmp all atom 5 run.dump&quot;,</span>
+<span class="sd">                &quot;min_style cg&quot;,</span>
+<span class="sd">                &quot;fix 1 all box/relax iso 0.0 vmax 0.001&quot;,</span>
+<span class="sd">                &quot;minimize 1.0e-16 1.0e-16 5000 10000&quot;,</span>
+<span class="sd">                &quot;write_data run.data&quot;,</span>
+<span class="sd">            ]</span>
+<span class="sd">            ```</span>
+<span class="sd">            or a dictionary such as `{&quot;thermo&quot;: 1, ...}`, or a string with a single command (e.g., &quot;units atomic&quot;).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            stage (dict): if provided, this is the stage that will be added to the LammpsInputFile.stages</span>
+<span class="sd">            commands (str or list or dict): if provided, these are the LAMMPS command(s)</span>
+<span class="sd">                that will be included in the stage to add.</span>
+<span class="sd">                Can pass a list of LAMMPS commands with their arguments.</span>
+<span class="sd">                Also accepts a dictionary of LAMMPS commands and</span>
+<span class="sd">                corresponding arguments as key, value pairs.</span>
+<span class="sd">                A single string can also be passed (single command together with its arguments).</span>
+<span class="sd">                Not used in case a whole stage is given.</span>
+<span class="sd">            stage_name (str): If a stage name is mentioned, the commands are added</span>
+<span class="sd">                under that stage block, else the new stage is named from numbering.</span>
+<span class="sd">                If given, stage_name cannot be one of the already present stage names.</span>
+<span class="sd">                Not used in case a whole stage is given.</span>
+<span class="sd">            after_stage (str): Name of the stage after which this stage should be added.</span>
+<span class="sd">                If None, the stage is added at the end of the LammpsInputFile.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Get the index of the stage to add</span>
+        <span class="k">if</span> <span class="n">after_stage</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">index_insert</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">after_stage</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">index_insert</span> <span class="o">=</span> <span class="n">after_stage</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">after_stage</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">:</span>
+            <span class="n">index_insert</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">after_stage</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">index_insert</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">):</span>
+                <span class="n">index_insert</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The stage after which this one should be added does not exist.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Adds a stage depending on the given inputs.</span>
+        <span class="c1"># If a stage is given, we check its format and insert it where it should directly.</span>
+        <span class="k">if</span> <span class="n">stage</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">commands</span> <span class="ow">or</span> <span class="n">stage_name</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;A stage has been passed together with commands and stage_name. This is incompatible. &quot;</span>
+                    <span class="s2">&quot;Only the stage will be used.&quot;</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="c1"># Make sure the given stage has the correct format</span>
+            <span class="k">if</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The provided stage name is already present in LammpsInputFile.stages.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_stage_format</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span>
+
+            <span class="c1"># Insert the stage in the LammpsInputFile.stages</span>
+            <span class="k">if</span> <span class="n">index_insert</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">index_insert</span><span class="p">,</span> <span class="n">stage</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Initialize the stage (even if no commands are given)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_stage</span><span class="p">(</span><span class="n">stage_name</span><span class="o">=</span><span class="n">stage_name</span><span class="p">,</span> <span class="n">stage_index</span><span class="o">=</span><span class="n">index_insert</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">commands</span><span class="p">:</span>
+                <span class="c1"># Adds the commands to the created stage</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">add_commands</span><span class="p">(</span><span class="n">stage_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">[</span><span class="n">index_insert</span><span class="p">],</span> <span class="n">commands</span><span class="o">=</span><span class="n">commands</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.remove_stage">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.remove_stage">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_stage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Removes a whole stage from the LammpsInputFile.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            stage_name (str): name of the stage to remove.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">stage_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">stage_name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">LookupError</span><span class="p">(</span><span class="s2">&quot;The given stage name is not present in this LammpsInputFile.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.rename_stage">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.rename_stage">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rename_stage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">new_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Renames a stage `stage_name` from LammpsInputFile into `new_name`.</span>
+<span class="sd">        First checks that the stage to rename is present, and that</span>
+<span class="sd">        the new name is not already a stage name.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            stage_name (str): name of the stage to rename.</span>
+<span class="sd">            new_name (str): new name of the stage.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">stage_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">new_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The provided stage name is already present in LammpsInputFile.stages.&quot;</span><span class="p">)</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">stage_name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">LookupError</span><span class="p">(</span><span class="s2">&quot;The given stage name is not present in this LammpsInputFile.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.merge_stages">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.merge_stages">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">merge_stages</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Merges multiple stages of a LammpsInputFile together.</span>
+<span class="sd">        The merged stage will be at the same index as the first of the stages to be merged.</span>
+<span class="sd">        The others will appear in the same order as provided in the list. Other non-merged stages will follow.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            stage_names (list): list of strings giving the names of the stages to be merged.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">stage</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span> <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="n">stage_names</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;At least one of the stages to be merged is not in the LammpsInputFile.&quot;</span><span class="p">)</span>
+
+        <span class="n">indices_stages_to_merge</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span> <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="n">stage_names</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">indices_stages_to_merge</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span> <span class="o">&gt;=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">indices_stages_to_merge</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;The provided stages are not in the right order. You should merge stages in the order of appearance</span>
+<span class="sd">                in your LammpsInputFile. If you want to reorder stages, modify LammpsInputFile.stages directly. &quot;&quot;&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">stages</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">[:</span> <span class="n">indices_stages_to_merge</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+
+        <span class="n">merge_name</span> <span class="o">=</span> <span class="s2">&quot;Merge of: &quot;</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices_stages_to_merge</span><span class="p">])</span>
+        <span class="n">merged_commands</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices_stages_to_merge</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;commands&quot;</span><span class="p">])):</span>
+                <span class="n">merged_commands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;commands&quot;</span><span class="p">][</span><span class="n">j</span><span class="p">])</span>
+
+        <span class="n">merged_stages</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;stage_name&quot;</span><span class="p">:</span> <span class="n">merge_name</span><span class="p">,</span> <span class="s2">&quot;commands&quot;</span><span class="p">:</span> <span class="n">merged_commands</span><span class="p">}</span>
+        <span class="n">stages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">merged_stages</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i_stage</span><span class="p">,</span> <span class="n">stage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i_stage</span> <span class="o">&gt;</span> <span class="n">indices_stages_to_merge</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">i_stage</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">indices_stages_to_merge</span><span class="p">:</span>
+                <span class="n">stages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">stages</span> <span class="o">=</span> <span class="n">stages</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.add_commands">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.add_commands">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_commands</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">commands</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method to add a LAMMPS commands and their arguments to a stage of</span>
+<span class="sd">        the LammpsInputFile. The stage name should be provided: a default behavior</span>
+<span class="sd">        is avoided here to avoid mistakes (e.g., the commands are added to the wrong stage).</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            In order to add the command ``pair_coeff 1 1 morse 0.0580 3.987 3.404``</span>
+<span class="sd">            to the stage &quot;Definition of the potential&quot;, simply use</span>
+<span class="sd">            ```</span>
+<span class="sd">            your_input_file.add_commands(</span>
+<span class="sd">                stage_name=&quot;Definition of the potential&quot;, commands=&quot;pair_coeff 1 1 morse 0.0580 3.987 3.404&quot;</span>
+<span class="sd">            )</span>
+<span class="sd">            ```</span>
+<span class="sd">            To add multiple commands, use a dict or a list, e.g.</span>
+<span class="sd">            ```</span>
+<span class="sd">            your_input_file.add_commands(</span>
+<span class="sd">                stage_name=&quot;Definition of the potential&quot;,</span>
+<span class="sd">                commands=[&quot;pair_coeff 1 1 morse 0.0580 3.987 3.404&quot;, &quot;units atomic&quot;],</span>
+<span class="sd">            )</span>
+<span class="sd">            your_input_file.add_commands(</span>
+<span class="sd">                stage_name=&quot;Definition of the potential&quot;,</span>
+<span class="sd">                commands={&quot;pair_coeff&quot;: &quot;1 1 morse 0.0580 3.987 3.404&quot;, &quot;units&quot;: &quot;atomic&quot;},</span>
+<span class="sd">            )</span>
+<span class="sd">            ```</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            stage_name (str): name of the stage to which the command should be added.</span>
+<span class="sd">            commands (str or list or dict): LAMMPS command, with or without the arguments.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">stage_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The provided stage name does not correspond to one of the LammpsInputFile.stages.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Handle the different input formats to add commands to the stage</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">commands</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_add_command</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="n">commands</span><span class="p">,</span> <span class="n">stage_name</span><span class="o">=</span><span class="n">stage_name</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">commands</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">comm</span> <span class="ow">in</span> <span class="n">commands</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">comm</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;#&quot;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_add_comment</span><span class="p">(</span>
+                        <span class="n">comment</span><span class="o">=</span><span class="n">comm</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
+                        <span class="n">inline</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">stage_name</span><span class="o">=</span><span class="n">stage_name</span><span class="p">,</span>
+                        <span class="n">index_comment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_add_command</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="n">comm</span><span class="p">,</span> <span class="n">stage_name</span><span class="o">=</span><span class="n">stage_name</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">commands</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">comm</span><span class="p">,</span> <span class="n">args</span> <span class="ow">in</span> <span class="n">commands</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">comm</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;#&quot;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_add_comment</span><span class="p">(</span>
+                        <span class="n">comment</span><span class="o">=</span><span class="n">comm</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
+                        <span class="n">inline</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">stage_name</span><span class="o">=</span><span class="n">stage_name</span><span class="p">,</span>
+                        <span class="n">index_comment</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_add_command</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="n">comm</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">args</span><span class="p">,</span> <span class="n">stage_name</span><span class="o">=</span><span class="n">stage_name</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The command should be a string, list of strings or dictionary.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.remove_command">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.remove_command">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_command</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">remove_empty_stages</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Removes a given command from a given stage. If no stage is given, removes all occurrences of the command.</span>
+<span class="sd">        In case removing a command completely empties a stage, the choice whether to keep this stage in the</span>
+<span class="sd">        LammpsInputFile is given by remove_empty_stages.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            command (str): command to be removed.</span>
+<span class="sd">            stage_name (str or list): names of the stages where the command should be removed.</span>
+<span class="sd">            remove_empty_stages (bool): whether to remove the stages emptied by removing the command or not.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">stage_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">stage_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">stage_name</span> <span class="o">=</span> <span class="p">[</span><span class="n">stage_name</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage_name</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;If given, stage_name should be a string or a list of strings.&quot;</span><span class="p">)</span>
+
+        <span class="n">n_removed</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">indices_to_remove</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">new_list_of_stages</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i_stage</span><span class="p">,</span> <span class="n">stage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">stage_name</span><span class="p">:</span>
+                <span class="n">new_commands</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i_cmd</span><span class="p">,</span> <span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">stage</span><span class="p">[</span><span class="s2">&quot;commands&quot;</span><span class="p">]):</span>
+                    <span class="k">if</span> <span class="n">cmd</span> <span class="o">==</span> <span class="n">command</span><span class="p">:</span>
+                        <span class="n">n_removed</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">new_commands</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">cmd</span><span class="p">,</span> <span class="n">arg</span><span class="p">))</span>
+                        <span class="n">indices_to_remove</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">i_stage</span><span class="p">,</span> <span class="n">i_cmd</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">new_commands</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">remove_empty_stages</span><span class="p">:</span>
+                    <span class="n">new_list_of_stages</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;stage_name&quot;</span><span class="p">:</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">],</span> <span class="s2">&quot;commands&quot;</span><span class="p">:</span> <span class="n">new_commands</span><span class="p">})</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_list_of_stages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">stages</span> <span class="o">=</span> <span class="n">new_list_of_stages</span>
+
+        <span class="k">if</span> <span class="n">n_removed</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2"> not found in the LammpsInputFile.&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.append">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.append">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">append</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lmp_input_file</span><span class="p">:</span> <span class="n">LammpsInputFile</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Appends a LammpsInputFile to another. The `stages` are merged,</span>
+<span class="sd">        and the numbering of stages/comments is either kept the same or updated.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            lmp_input_file (LammpsInputFile): LammpsInputFile to append.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Renumbering comments and stages of the lmp_input_file.stages</span>
+        <span class="n">new_list_to_add</span> <span class="o">=</span> <span class="n">lmp_input_file</span><span class="o">.</span><span class="n">stages</span>
+        <span class="k">for</span> <span class="n">i_stage</span><span class="p">,</span> <span class="n">stage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lmp_input_file</span><span class="o">.</span><span class="n">stages</span><span class="p">):</span>
+            <span class="n">stage_name</span> <span class="o">=</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">stage_name</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Comment&quot;</span> <span class="ow">and</span> <span class="n">stage_name</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+                <span class="n">i_comment</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">stage_name</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncomments</span>
+                <span class="n">new_list_to_add</span><span class="p">[</span><span class="n">i_stage</span><span class="p">][</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Comment </span><span class="si">{</span><span class="n">i_comment</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">stage_name</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Stage&quot;</span> <span class="ow">and</span> <span class="n">stage_name</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+                <span class="n">this_stage</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">stage_name</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">nstages</span>
+                <span class="n">new_list_to_add</span><span class="p">[</span><span class="n">i_stage</span><span class="p">][</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Stage </span><span class="si">{</span><span class="n">this_stage</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="c1"># Making sure no stage_name of lmp_input_file clash with those from self.</span>
+        <span class="c1"># If it is the case, we rename them.</span>
+        <span class="k">for</span> <span class="n">i_stage</span><span class="p">,</span> <span class="n">stage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lmp_input_file</span><span class="o">.</span><span class="n">stages</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">:</span>
+                <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Stage </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nstages</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i_stage</span><span class="si">}</span><span class="s2"> (previously </span><span class="si">{</span><span class="n">stage</span><span class="p">[</span><span class="s1">&#39;stage_name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+        <span class="c1"># Append the two list of stages</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stages</span> <span class="o">+=</span> <span class="n">new_list_to_add</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.get_str">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.get_str">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ignore_comments</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">keep_stages</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate and ² the string representation of the LammpsInputFile.</span>
+<span class="sd">        Stages are separated by empty lines.</span>
+<span class="sd">        The headers of the stages will be put in comments preceding each stage.</span>
+<span class="sd">        Other comments will be put inline within stages, where they have been added.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            ignore_comments (bool): True if only the commands should be kept from the InputFile.</span>
+<span class="sd">            keep_stages (bool): If True, the string is formatted in a block structure with stage names</span>
+<span class="sd">                and newlines that differentiate commands in the respective stages of the InputFile.</span>
+<span class="sd">                If False, stage names are not printed and all commands appear in a single block.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: String representation of the LammpsInputFile.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lammps_input</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;# LAMMPS input generated from LammpsInputFile with pymatgen v</span><span class="si">{</span><span class="n">CURRENT_VER</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_stages</span><span class="p">:</span>
+            <span class="n">lammps_input</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">keep_stages</span><span class="p">:</span>
+                <span class="c1"># Print first the name of the stage in a comment.</span>
+                <span class="c1"># We print this even if ignore_comments is True.</span>
+                <span class="k">if</span> <span class="s2">&quot;Comment&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">lammps_input</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"># </span><span class="si">{</span><span class="n">stage</span><span class="p">[</span><span class="s1">&#39;stage_name&#39;</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+                <span class="c1"># In case of a block of comment, the header is not printed (useless)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">lammps_input</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+            <span class="c1"># Then print the commands and arguments (including inline comments)</span>
+            <span class="k">for</span> <span class="n">command</span><span class="p">,</span> <span class="n">args</span> <span class="ow">in</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;commands&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">ignore_comments</span> <span class="ow">and</span> <span class="s2">&quot;#&quot;</span> <span class="ow">in</span> <span class="n">command</span><span class="p">):</span>
+                    <span class="n">lammps_input</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">return</span> <span class="n">lammps_input</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.write_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.write_file">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_file</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">,</span>
+        <span class="n">ignore_comments</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">keep_stages</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write LAMMPS input file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename (str or path): The filename to output to, including path.</span>
+<span class="sd">            ignore_comments (bool): True if only the commands should be kept from the InputFile.</span>
+<span class="sd">            keep_stages (bool): True if the block structure from the InputFile should be kept.</span>
+<span class="sd">                If False, a single block is assumed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">Path</span><span class="p">)</span> <span class="k">else</span> <span class="n">Path</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;wt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_str</span><span class="p">(</span><span class="n">ignore_comments</span><span class="o">=</span><span class="n">ignore_comments</span><span class="p">,</span> <span class="n">keep_stages</span><span class="o">=</span><span class="n">keep_stages</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.from_str">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.from_str">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_str</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">contents</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ignore_comments</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">keep_stages</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Helper method to parse string representation of LammpsInputFile.</span>
+<span class="sd">        If you created the input file by hand, there is no guarantee that the representation</span>
+<span class="sd">        will be perfect as it is difficult to account for all the cosmetic changes you</span>
+<span class="sd">        could have done on your input script. Always check that you have what you want !</span>
+<span class="sd">        By default, a single stage containing all the input settings is created.</span>
+<span class="sd">        If the block structure of your input file should be kept and stored as</span>
+<span class="sd">        different stages, set keep_stages to True.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            contents (str): String representation of LammpsInputFile.</span>
+<span class="sd">            ignore_comments (bool): True if only the commands should be kept from the input file.</span>
+<span class="sd">            keep_stages (bool): True if the block structure from the input file should be kept.</span>
+<span class="sd">                If False, a single block is assumed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            LammpsInputFile</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lammps_in_file</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
+
+        <span class="c1"># Strip string from starting and/or ending white spaces</span>
+        <span class="n">contents</span> <span class="o">=</span> <span class="n">contents</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+        <span class="c1"># Remove &quot;&amp;&quot; symbols at the end of lines</span>
+        <span class="k">while</span> <span class="s2">&quot;&amp;&quot;</span> <span class="ow">in</span> <span class="n">contents</span><span class="p">:</span>
+            <span class="n">sequence</span> <span class="o">=</span> <span class="s2">&quot;&amp;&quot;</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">contents</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;&amp;&quot;</span><span class="p">)</span>
+            <span class="n">next_symbol</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">next_symbol</span> <span class="o">!=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">:</span>
+                <span class="n">sequence</span> <span class="o">+=</span> <span class="n">next_symbol</span>
+                <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">next_symbol</span> <span class="o">=</span> <span class="n">contents</span><span class="p">[</span><span class="n">index</span> <span class="o">+</span> <span class="n">idx</span><span class="p">]</span>
+            <span class="n">contents</span> <span class="o">=</span> <span class="n">contents</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sequence</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Remove unwanted lines from the string</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_clean_lines</span><span class="p">(</span><span class="n">contents</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(),</span> <span class="n">ignore_comments</span><span class="o">=</span><span class="n">ignore_comments</span><span class="p">)</span>
+        <span class="c1"># Split the string into blocks based on the empty lines of the input file</span>
+        <span class="n">blocks</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_get_blocks</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">keep_stages</span><span class="o">=</span><span class="n">keep_stages</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+            <span class="n">keep_block</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="c1"># Block of comment(s)</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;#&quot;</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">block</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">ignore_comments</span><span class="p">:</span>
+                    <span class="n">keep_block</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">lammps_in_file</span><span class="o">.</span><span class="n">_add_comment</span><span class="p">(</span><span class="n">comment</span><span class="o">=</span><span class="n">block</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span> <span class="n">inline</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="n">stage_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Comment </span><span class="si">{</span><span class="n">lammps_in_file</span><span class="o">.</span><span class="n">ncomments</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">block</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">block</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+                            <span class="n">lammps_in_file</span><span class="o">.</span><span class="n">_add_comment</span><span class="p">(</span>
+                                <span class="n">comment</span><span class="o">=</span><span class="n">line</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
+                                <span class="n">inline</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                <span class="n">stage_name</span><span class="o">=</span><span class="n">stage_name</span><span class="p">,</span>
+                            <span class="p">)</span>
+
+            <span class="c1"># Header of a stage</span>
+            <span class="k">elif</span> <span class="n">block</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;#&quot;</span> <span class="ow">and</span> <span class="n">keep_block</span><span class="p">:</span>
+                <span class="c1"># Find the name of the header.</span>
+                <span class="c1"># If the comment is on multiple lines, the header will be the whole text</span>
+                <span class="n">n_comm_max</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">block</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">line</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;#&quot;</span> <span class="ow">and</span> <span class="n">idx</span> <span class="o">&lt;=</span> <span class="n">n_comm_max</span><span class="p">:</span>
+                        <span class="n">n_comm_max</span> <span class="o">=</span> <span class="n">idx</span>
+
+                <span class="n">comments</span> <span class="o">=</span> <span class="n">block</span><span class="p">[:</span><span class="n">n_comm_max</span><span class="p">]</span>
+                <span class="n">header</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">line</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="si">}</span><span class="s2"> &quot;</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">comments</span><span class="p">)</span>
+
+                <span class="n">header</span> <span class="o">=</span> <span class="n">header</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="n">stage_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Stage </span><span class="si">{</span><span class="n">lammps_in_file</span><span class="o">.</span><span class="n">nstages</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="p">(</span><span class="n">ignore_comments</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">keep_stages</span><span class="p">)</span> <span class="k">else</span> <span class="n">header</span>
+                <span class="n">commands</span> <span class="o">=</span> <span class="n">block</span><span class="p">[</span><span class="n">n_comm_max</span><span class="p">:]</span>
+                <span class="n">lammps_in_file</span><span class="o">.</span><span class="n">add_stage</span><span class="p">(</span><span class="n">commands</span><span class="o">=</span><span class="n">commands</span><span class="p">,</span> <span class="n">stage_name</span><span class="o">=</span><span class="n">stage_name</span><span class="p">)</span>
+
+            <span class="c1"># Stage with no header</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">stage_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Stage </span><span class="si">{</span><span class="n">lammps_in_file</span><span class="o">.</span><span class="n">nstages</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">lammps_in_file</span><span class="o">.</span><span class="n">add_stage</span><span class="p">(</span><span class="n">commands</span><span class="o">=</span><span class="n">block</span><span class="p">,</span> <span class="n">stage_name</span><span class="o">=</span><span class="n">stage_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">lammps_in_file</span></div>
+
+
+<div class="viewcode-block" id="LammpsInputFile.from_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsInputFile.from_file">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">ignore_comments</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">keep_stages</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates an InputFile object from a file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path (str or path): Filename to read, including path.</span>
+<span class="sd">            ignore_comments (bool): True if only the commands should be kept from the input file.</span>
+<span class="sd">            keep_stages (bool): True if the block structure from the input file should be kept.</span>
+<span class="sd">                If False, a single block is assumed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            LammpsInputFile</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">path</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">Path</span><span class="p">)</span> <span class="k">else</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_str</span><span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">ignore_comments</span><span class="o">=</span><span class="n">ignore_comments</span><span class="p">,</span> <span class="n">keep_stages</span><span class="o">=</span><span class="n">keep_stages</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_str</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_initialize_stage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stage_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize an empty stage with the given name in the LammpsInputFile.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            stage_name (str): If a stage name is mentioned, the command is added</span>
+<span class="sd">                under that stage block, else the new stage is named from numbering.</span>
+<span class="sd">                If given, stage_name cannot be one of the already present stage names.</span>
+<span class="sd">            stage_index (int): Index of the stage where it should be added.</span>
+<span class="sd">                If None, the stage is added at the end of the LammpsInputFile.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">stage_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">stage_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Stage </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nstages</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">stage_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">:</span>
+                <span class="c1"># This situation can happen when some stages have been removed, then others added</span>
+                <span class="n">stage_numbers</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="nb">int</span><span class="p">(</span><span class="n">stage_name</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
+                    <span class="k">for</span> <span class="n">stage_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span>
+                    <span class="k">if</span> <span class="n">stage_name</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Stage&quot;</span> <span class="ow">and</span> <span class="n">stage_name</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span>
+                <span class="p">]</span>
+                <span class="n">stage_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Stage </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">stage_numbers</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Stage names should be strings.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">stage_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The provided stage name is already present in LammpsInputFile.stages.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Initialize the stage</span>
+        <span class="k">if</span> <span class="n">stage_index</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">stage_index</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;stage_name&quot;</span><span class="p">:</span> <span class="n">stage_name</span><span class="p">,</span> <span class="s2">&quot;commands&quot;</span><span class="p">:</span> <span class="p">[]})</span>
+        <span class="k">elif</span> <span class="n">stage_index</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span><span class="s2">&quot;The provided index is too large with respect to the current number of stages.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">stage_index</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;stage_name&quot;</span><span class="p">:</span> <span class="n">stage_name</span><span class="p">,</span> <span class="s2">&quot;commands&quot;</span><span class="p">:</span> <span class="p">[]})</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_stage_format</span><span class="p">(</span><span class="n">stage</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">list</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span> <span class="o">!=</span> <span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">,</span> <span class="s2">&quot;commands&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                <span class="s2">&quot;The provided stage does not have the correct keys. It should be &#39;stage_name&#39; and &#39;commands&#39;.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage</span><span class="p">[</span><span class="s2">&quot;stage_name&quot;</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The value of &#39;stage_name&#39; should be a string.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage</span><span class="p">[</span><span class="s2">&quot;commands&quot;</span><span class="p">],</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The provided commands should be a list.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stage</span><span class="p">[</span><span class="s2">&quot;commands&quot;</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">cmdargs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">cmdargs</span> <span class="ow">in</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;commands&quot;</span><span class="p">])</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span> <span class="ow">in</span> <span class="n">stage</span><span class="p">[</span><span class="s2">&quot;commands&quot;</span><span class="p">])</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The provided commands should be a list of 2-strings tuples.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Helper method to add a single LAMMPS command and its arguments to</span>
+<span class="sd">        the LammpsInputFile. The stage name should be provided: a default behavior</span>
+<span class="sd">        is avoided here to avoid mistakes.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            In order to add the command ``pair_coeff 1 1 morse 0.0580 3.987 3.404``</span>
+<span class="sd">            to the stage &quot;Definition of the potential&quot;, simply use</span>
+<span class="sd">            ```</span>
+<span class="sd">            your_input_file._add_command(</span>
+<span class="sd">                stage_name=&quot;Definition of the potential&quot;, command=&quot;pair_coeff 1 1 morse 0.0580 3.987 3.404&quot;</span>
+<span class="sd">            )</span>
+<span class="sd">            ```</span>
+<span class="sd">            or</span>
+<span class="sd">            ```</span>
+<span class="sd">            your_input_file._add_command(</span>
+<span class="sd">                stage_name=&quot;Definition of the potential&quot;, command=&quot;pair_coeff&quot;, args=&quot;1 1 morse 0.0580 3.987 3.404&quot;</span>
+<span class="sd">            )</span>
+<span class="sd">            ```</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            stage_name (str): name of the stage to which the command should be added.</span>
+<span class="sd">            command (str): LAMMPS command, with or without the arguments.</span>
+<span class="sd">            args (str): Arguments for the LAMMPS command.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">args</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">string_split</span> <span class="o">=</span> <span class="n">command</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="n">command</span> <span class="o">=</span> <span class="n">string_split</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">string_split</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+
+        <span class="c1"># Find where the command should be added (stage index instead of stage name)</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">stage_name</span><span class="p">)</span>
+        <span class="c1"># Add the command</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="s2">&quot;commands&quot;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="s2">&quot;commands&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[(</span><span class="n">command</span><span class="p">,</span> <span class="n">args</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="s2">&quot;commands&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">command</span><span class="p">,</span> <span class="n">args</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_comment</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">comment</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">inline</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">index_comment</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method to add a comment inside a stage (between actual commands)</span>
+<span class="sd">        or as a whole stage (which will do nothing when LAMMPS runs).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            comment (str): Comment string to be added. The comment will be</span>
+<span class="sd">                preceded by &#39;#&#39; in the generated input.</span>
+<span class="sd">            inline (bool): True if the comment should be inline within a given block of commands.</span>
+<span class="sd">            stage_name (str): set the stage_name to which the comment will be written. Required if inline is True.</span>
+<span class="sd">            index_comment (bool): True if the comment should start with &quot;Comment x&quot; with x its number in the ordering.</span>
+<span class="sd">                Used only for inline comments.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># &quot;Stage&quot; of comments only</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">inline</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">stage_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">stage_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Comment </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ncomments</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;stage_name&quot;</span><span class="p">:</span> <span class="n">stage_name</span><span class="p">,</span> <span class="s2">&quot;commands&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="s2">&quot;#&quot;</span><span class="p">,</span> <span class="n">comment</span><span class="p">)]})</span>
+            <span class="k">elif</span> <span class="n">stage_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stages_names</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_add_command</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="s2">&quot;#&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">comment</span><span class="p">,</span> <span class="n">stage_name</span><span class="o">=</span><span class="n">stage_name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stages</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;stage_name&quot;</span><span class="p">:</span> <span class="n">stage_name</span><span class="p">,</span> <span class="s2">&quot;commands&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="s2">&quot;#&quot;</span><span class="p">,</span> <span class="n">comment</span><span class="p">)]})</span>
+
+        <span class="c1"># Inline comment</span>
+        <span class="k">elif</span> <span class="n">stage_name</span><span class="p">:</span>
+            <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;#&quot;</span>
+            <span class="k">if</span> <span class="n">index_comment</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s2">&quot;Comment&quot;</span> <span class="ow">in</span> <span class="n">comment</span> <span class="ow">and</span> <span class="n">comment</span><span class="o">.</span><span class="n">strip</span><span class="p">()[</span><span class="mi">9</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;:&quot;</span><span class="p">:</span>
+                    <span class="n">args</span> <span class="o">=</span> <span class="s2">&quot;:&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">comment</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">:])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">args</span> <span class="o">=</span> <span class="n">comment</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">args</span> <span class="o">=</span> <span class="n">comment</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_add_command</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="n">command</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">args</span><span class="p">,</span> <span class="n">stage_name</span><span class="o">=</span><span class="n">stage_name</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;If you want to add an inline comment, please specify the stage name.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_clean_lines</span><span class="p">(</span><span class="n">string_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">ignore_comments</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Helper method to strips whitespaces, carriage returns and redundant empty</span>
+<span class="sd">        lines from a list of strings.</span>
+<span class="sd">        Transforms &quot;&amp; \n&quot; and &quot;&amp;\n&quot; into &quot;&quot; as the &amp; symbol means the line continues.</span>
+<span class="sd">        Also removes lines with &quot;# LAMMPS input generated from LammpsInputFile&quot;</span>
+<span class="sd">        to avoid possible repetitions.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            string_list (list): List of strings.</span>
+<span class="sd">            ignore_comments (bool): True if the strings starting with # should be ignored.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of strings</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">string_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">all</span><span class="p">(</span><span class="n">s</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">string_list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The list of strings should contain some non-empty strings.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Remove the first comment line possibly added by previous input creations</span>
+        <span class="k">while</span> <span class="s2">&quot;# LAMMPS input generated from LammpsInputFile&quot;</span> <span class="ow">in</span> <span class="n">string_list</span><span class="p">:</span>
+            <span class="n">string_list</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;# LAMMPS input generated from LammpsInputFile&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Get rid of possible initial empty lines</span>
+        <span class="c1"># and final empty lines</span>
+        <span class="n">imin</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">string_list</span><span class="p">)</span>
+        <span class="n">imax</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">string</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">string_list</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">string</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span> <span class="ow">and</span> <span class="n">idx</span> <span class="o">&lt;=</span> <span class="n">imin</span><span class="p">:</span>
+                <span class="n">imin</span> <span class="o">=</span> <span class="n">idx</span>
+            <span class="k">if</span> <span class="n">string</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span> <span class="ow">and</span> <span class="n">idx</span> <span class="o">&gt;=</span> <span class="n">imax</span><span class="p">:</span>
+                <span class="n">imax</span> <span class="o">=</span> <span class="n">idx</span>
+        <span class="n">string_list</span> <span class="o">=</span> <span class="n">string_list</span><span class="p">[</span><span class="n">imin</span> <span class="p">:</span> <span class="n">imax</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Get rid of empty comments that are there just for cosmetic reasons</span>
+        <span class="n">new_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">string</span> <span class="ow">in</span> <span class="n">string_list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">string</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">string</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;#&quot;</span><span class="p">):</span>
+                <span class="n">new_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+        <span class="n">string_list</span> <span class="o">=</span> <span class="n">new_list</span>
+
+        <span class="c1"># Keep only a single empty lines when there are multiple ones</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">string_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">string</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">string_list</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">string</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">string</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;#&quot;</span> <span class="ow">and</span> <span class="n">ignore_comments</span><span class="p">))</span> <span class="ow">or</span> <span class="p">(</span>
+                <span class="n">string</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="ow">and</span> <span class="n">string_list</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span>
+            <span class="p">):</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">string_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">lines</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_blocks</span><span class="p">(</span><span class="n">string_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">keep_stages</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Helper method to return a list of blocks of LAMMPS commands,</span>
+<span class="sd">        separated from &quot;&quot; in a list of all commands.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            string_list (list): List of strings.</span>
+<span class="sd">            keep_stages (bool): True if the block structure from the input file should be kept.</span>
+<span class="sd">                         If False, a single block is assumed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of list of strings containing the different blocks</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[[]]</span>
+        <span class="n">i_block</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">string_list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">s</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+                <span class="n">blocks</span><span class="p">[</span><span class="n">i_block</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">s</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="ow">and</span> <span class="n">keep_stages</span><span class="p">:</span>
+                <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+                <span class="n">i_block</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">return</span> <span class="n">blocks</span></div>
+
+
+
+<div class="viewcode-block" id="LammpsRun">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsRun">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LammpsRun</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Examples for various simple LAMMPS runs with given simulation box,</span>
 <span class="sd">    force field and a few more settings. Experienced LAMMPS users should</span>
 <span class="sd">    consider using write_lammps_inputs method with more sophisticated</span>
 <span class="sd">    templates.</span>
-
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">template_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)),</span> <span class="s2">&quot;templates&quot;</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">script_template</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">script_filename</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">script_template</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">settings</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">LammpsData</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">script_filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Base constructor.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            script_template (str): String template for input script</span>
 <span class="sd">                with placeholders. The format for placeholders has to</span>
-<span class="sd">                be &#39;$variable_name&#39;, e.g., &#39;$temperature&#39;</span>
+<span class="sd">                be &#39;$variable_name&#39;, e.g. &#39;$temperature&#39;</span>
 <span class="sd">            settings (dict): Contains values to be written to the</span>
-<span class="sd">                placeholders, e.g., {&#39;temperature&#39;: 1}.</span>
+<span class="sd">                placeholders, e.g. {&#39;temperature&#39;: 1}.</span>
 <span class="sd">            data (LammpsData or str): Data file as a LammpsData</span>
 <span class="sd">                instance or path to an existing data file. Default to</span>
 <span class="sd">                None, i.e., no data file supplied. Useful only when</span>
@@ -103,28 +991,42 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">script_filename</span> <span class="o">=</span> <span class="n">script_filename</span>
 
-<div class="viewcode-block" id="LammpsRun.write_inputs"><a class="viewcode-back" href="../../../../pymatgen.io.lammps.inputs.html#pymatgen.io.lammps.inputs.LammpsRun.write_inputs">[docs]</a>    <span class="k">def</span> <span class="nf">write_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Writes all input files (input script, and data if needed).</span>
+<div class="viewcode-block" id="LammpsRun.write_inputs">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsRun.write_inputs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write all input files (input script, and data if needed).</span>
 <span class="sd">        Other supporting files are not handled at this moment.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            output_dir (str): Directory to output the input files.</span>
 <span class="sd">            **kwargs: kwargs supported by LammpsData.write_file.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">write_lammps_inputs</span><span class="p">(</span>
-            <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
-            <span class="n">script_template</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">script_template</span><span class="p">,</span>
-            <span class="n">settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">,</span>
-            <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
-            <span class="n">script_filename</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">script_filename</span><span class="p">,</span>
-            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
-        <span class="p">)</span></div>
+        <span class="c1"># TODO: write_lammps_inputs is deprecated</span>
+        <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s2">&quot;write_lammps_inputs is deprecated&quot;</span><span class="p">)</span>
 
-<div class="viewcode-block" id="LammpsRun.md"><a class="viewcode-back" href="../../../../pymatgen.io.lammps.inputs.html#pymatgen.io.lammps.inputs.LammpsRun.md">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">md</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">force_field</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">other_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Example for a simple MD run based on template md.txt.</span>
+            <span class="n">write_lammps_inputs</span><span class="p">(</span>
+                <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
+                <span class="n">script_template</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">script_template</span><span class="p">,</span>
+                <span class="n">settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">,</span>
+                <span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+                <span class="n">script_filename</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">script_filename</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LammpsRun.md">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsRun.md">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">md</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">LammpsData</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">force_field</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">temperature</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">nsteps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">other_settings</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LammpsRun</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Example for a simple MD run based on template md.template.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            data (LammpsData or str): Data file as a LammpsData</span>
@@ -136,23 +1038,30 @@
 <span class="sd">            other_settings (dict): other settings to be filled into</span>
 <span class="sd">                placeholders.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">template_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">template_dir</span><span class="p">,</span> <span class="s2">&quot;md.txt&quot;</span><span class="p">)</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">template_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">script_template</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-        <span class="n">settings</span> <span class="o">=</span> <span class="n">other_settings</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">other_settings</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
-        <span class="n">settings</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;force_field&quot;</span><span class="p">:</span> <span class="n">force_field</span><span class="p">,</span> <span class="s2">&quot;temperature&quot;</span><span class="p">:</span> <span class="n">temperature</span><span class="p">,</span> <span class="s2">&quot;nsteps&quot;</span><span class="p">:</span> <span class="n">nsteps</span><span class="p">})</span>
+        <span class="n">template_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TEMPLATE_DIR</span><span class="p">,</span> <span class="s2">&quot;md.template&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">template_path</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">script_template</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">other_settings</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">other_settings</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">settings</span> <span class="o">|=</span> <span class="p">{</span>
+            <span class="s2">&quot;force_field&quot;</span><span class="p">:</span> <span class="n">force_field</span><span class="p">,</span>
+            <span class="s2">&quot;temperature&quot;</span><span class="p">:</span> <span class="n">temperature</span><span class="p">,</span>
+            <span class="s2">&quot;nsteps&quot;</span><span class="p">:</span> <span class="n">nsteps</span><span class="p">,</span>
+        <span class="p">}</span>
         <span class="n">script_filename</span> <span class="o">=</span> <span class="s2">&quot;in.md&quot;</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">script_template</span><span class="o">=</span><span class="n">script_template</span><span class="p">,</span>
             <span class="n">settings</span><span class="o">=</span><span class="n">settings</span><span class="p">,</span>
             <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
             <span class="n">script_filename</span><span class="o">=</span><span class="n">script_filename</span><span class="p">,</span>
-        <span class="p">)</span></div></div>
+        <span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="LammpsTemplateGen"><a class="viewcode-back" href="../../../../pymatgen.io.lammps.inputs.html#pymatgen.io.lammps.inputs.LammpsTemplateGen">[docs]</a><span class="k">class</span> <span class="nc">LammpsTemplateGen</span><span class="p">(</span><span class="n">TemplateInputGen</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Creates an InputSet object for a LAMMPS run based on a template file.</span>
+
+<div class="viewcode-block" id="LammpsTemplateGen">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsTemplateGen">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LammpsTemplateGen</span><span class="p">(</span><span class="n">TemplateInputGen</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create an InputSet object for a LAMMPS run based on a template file.</span>
 <span class="sd">    The input script is constructed by substituting variables into placeholders</span>
 <span class="sd">    in the template file using python&#39;s Template.safe_substitute() function.</span>
 <span class="sd">    The data file containing coordinates and topology information can be provided</span>
@@ -164,21 +1073,23 @@
 <span class="sd">    See pymatgen.io.template.py for additional documentation of this method.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="LammpsTemplateGen.get_input_set"><a class="viewcode-back" href="../../../../pymatgen.io.lammps.inputs.html#pymatgen.io.lammps.inputs.LammpsTemplateGen.get_input_set">[docs]</a>    <span class="k">def</span> <span class="nf">get_input_set</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+<div class="viewcode-block" id="LammpsTemplateGen.get_input_set">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.LammpsTemplateGen.get_input_set">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_input_set</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">script_template</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">script_template</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
         <span class="n">settings</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">script_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;in.lammps&quot;</span><span class="p">,</span>
         <span class="n">data</span><span class="p">:</span> <span class="n">LammpsData</span> <span class="o">|</span> <span class="n">CombinedData</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">data_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;system.data&quot;</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">InputSet</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            script_template: String template for input script with</span>
 <span class="sd">                placeholders. The format for placeholders has to be</span>
-<span class="sd">                &#39;$variable_name&#39;, e.g., &#39;$temperature&#39;</span>
+<span class="sd">                &#39;$variable_name&#39;, e.g. &#39;$temperature&#39;</span>
 <span class="sd">            settings: Contains values to be written to the</span>
-<span class="sd">                placeholders, e.g., {&#39;temperature&#39;: 1}. Default to None.</span>
+<span class="sd">                placeholders, e.g. {&#39;temperature&#39;: 1}. Default to None.</span>
 <span class="sd">            data: Data file as a LammpsData instance. Default to None, i.e., no</span>
 <span class="sd">                data file supplied. Note that a matching &#39;read_data&#39; command</span>
 <span class="sd">                must be provided in the script template in order for the data</span>
@@ -189,22 +1100,26 @@
         <span class="n">input_set</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_input_set</span><span class="p">(</span><span class="n">template</span><span class="o">=</span><span class="n">script_template</span><span class="p">,</span> <span class="n">variables</span><span class="o">=</span><span class="n">settings</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">script_filename</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
-            <span class="n">input_set</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">data_filename</span><span class="p">:</span> <span class="n">data</span><span class="p">})</span>
-        <span class="k">return</span> <span class="n">input_set</span></div></div>
+            <span class="n">input_set</span> <span class="o">|=</span> <span class="p">{</span><span class="n">data_filename</span><span class="p">:</span> <span class="n">data</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">input_set</span></div>
+</div>
 
 
-<span class="nd">@deprecated</span><span class="p">(</span><span class="n">LammpsTemplateGen</span><span class="p">,</span> <span class="s2">&quot;This method will be retired in the future. Consider using LammpsTemplateSet instead.&quot;</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">write_lammps_inputs</span><span class="p">(</span>
-    <span class="n">output_dir</span><span class="p">,</span>
-    <span class="n">script_template</span><span class="p">,</span>
-    <span class="n">settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">script_filename</span><span class="o">=</span><span class="s2">&quot;in.lammps&quot;</span><span class="p">,</span>
-    <span class="n">make_dir_if_not_present</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+
+<div class="viewcode-block" id="write_lammps_inputs">
+<a class="viewcode-back" href="../../../../pymatgen.io.lammps.html#pymatgen.io.lammps.inputs.write_lammps_inputs">[docs]</a>
+<span class="nd">@deprecated</span><span class="p">(</span><span class="n">LammpsTemplateGen</span><span class="p">,</span> <span class="s2">&quot;This function will be removed in the future.&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_lammps_inputs</span><span class="p">(</span>
+    <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">script_template</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">settings</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">LammpsData</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">script_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;in.lammps&quot;</span><span class="p">,</span>
+    <span class="n">make_dir_if_not_present</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
-<span class="p">):</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Writes input files for a LAMMPS run. Input script is constructed</span>
+<span class="sd">    Write input files for a LAMMPS run. Input script is constructed</span>
 <span class="sd">    from a str template with placeholders to be filled by custom</span>
 <span class="sd">    settings. Data file is either written from a LammpsData</span>
 <span class="sd">    instance or copied from an existing file if read_data cmd is</span>
@@ -215,9 +1130,9 @@
 <span class="sd">        output_dir (str): Directory to output the input files.</span>
 <span class="sd">        script_template (str): String template for input script with</span>
 <span class="sd">            placeholders. The format for placeholders has to be</span>
-<span class="sd">            &#39;$variable_name&#39;, e.g., &#39;$temperature&#39;</span>
+<span class="sd">            &#39;$variable_name&#39;, e.g. &#39;$temperature&#39;</span>
 <span class="sd">        settings (dict): Contains values to be written to the</span>
-<span class="sd">            placeholders, e.g., {&#39;temperature&#39;: 1}. Default to None.</span>
+<span class="sd">            placeholders, e.g. {&#39;temperature&#39;: 1}. Default to None.</span>
 <span class="sd">        data (LammpsData or str): Data file as a LammpsData instance or</span>
 <span class="sd">            path to an existing data file. Default to None, i.e., no</span>
 <span class="sd">            data file supplied. Useful only when read_data cmd is in</span>
@@ -250,10 +1165,9 @@
 <span class="sd">        ... timestep        0.005</span>
 <span class="sd">        ...</span>
 <span class="sd">        ... run             $nsteps&#39;&#39;&#39;</span>
-<span class="sd">        &gt;&gt;&gt; write_lammps_inputs(&#39;.&#39;, eam_template, settings={&#39;temperature&#39;: 1600.0, &#39;nsteps&#39;: 100})</span>
-<span class="sd">        &gt;&gt;&gt; with open(&#39;in.lammps&#39;) as f:</span>
-<span class="sd">        ...     script = f.read()</span>
-<span class="sd">        ...</span>
+<span class="sd">        &gt;&gt;&gt; write_lammps_inputs(&quot;.&quot;, eam_template, settings={&quot;temperature&quot;: 1600.0, &quot;nsteps&quot;: 100})</span>
+<span class="sd">        &gt;&gt;&gt; with open(&quot;in.lammps&quot;, encoding=&quot;utf-8&quot;) as file:</span>
+<span class="sd">        ...     script = file.read()</span>
 <span class="sd">        &gt;&gt;&gt; print(script)</span>
 <span class="sd">        units           metal</span>
 <span class="sd">        atom_style      atomic</span>
@@ -276,25 +1190,27 @@
 <span class="sd">        timestep        0.005</span>
 
 <span class="sd">        run             100</span>
-
-
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">variables</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">settings</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">settings</span>
     <span class="n">template</span> <span class="o">=</span> <span class="n">Template</span><span class="p">(</span><span class="n">script_template</span><span class="p">)</span>
     <span class="n">input_script</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">safe_substitute</span><span class="p">(</span><span class="o">**</span><span class="n">variables</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">make_dir_if_not_present</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_dir</span><span class="p">):</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">script_filename</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">input_script</span><span class="p">)</span>
-    <span class="n">read_data</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;read_data\s+(.*)\n&quot;</span><span class="p">,</span> <span class="n">input_script</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">read_data</span><span class="p">:</span>
-        <span class="n">data_filename</span> <span class="o">=</span> <span class="n">read_data</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">make_dir_if_not_present</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">script_filename</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+        <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">input_script</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">read_data</span> <span class="o">:=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;read_data\s+(.*)\n&quot;</span><span class="p">,</span> <span class="n">input_script</span><span class="p">):</span>
+        <span class="n">data_filename</span> <span class="o">=</span> <span class="n">read_data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">LammpsData</span><span class="p">):</span>
             <span class="n">data</span><span class="o">.</span><span class="n">write_file</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">data_filename</span><span class="p">),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">data_filename</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No data file supplied. Skip writing </span><span class="si">{</span><span class="n">data_filename</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;No data file supplied. Skip writing </span><span class="si">{</span><span class="n">data_filename</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
 </pre></div>
 
             <div class="clearer"></div>
@@ -302,7 +1218,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -311,29 +1227,14 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.lammps.inputs</a></li> 
       </ul>
     </div>
-
     <div class="footer" role="contentinfo">
-        &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
     </div>
-<div class="footer">This page uses <a href="http://analytics.google.com/">
-Google Analytics</a> to collect statistics. You can disable it by blocking
-the JavaScript coming from www.google-analytics.com.
-<script type="text/javascript">
-  (function() {
-    var ga = document.createElement('script');
-    ga.src = ('https:' == document.location.protocol ?
-              'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-    ga.setAttribute('async', 'true');
-    document.documentElement.firstChild.appendChild(ga);
-  })();
-</script>
-</div>
-
   </body>
 </html>

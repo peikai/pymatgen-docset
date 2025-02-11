@@ -1,27 +1,19 @@
-
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../../../../">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.io.exciting.inputs &#8212; pymatgen 2023.1.30 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css" />
-    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-    <script src="../../../../_static/doctools.js"></script>
-    <script src="../../../../_static/sphinx_highlight.js"></script>
+    <title>pymatgen.io.exciting.inputs &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../../search.html" />
- 
-<script type="text/javascript">
-  var _gaq = _gaq || [];
-  _gaq.push(['_setAccount', 'UA-33990148-1']);
-  _gaq.push(['_trackPageview']);
-</script>
-
+    <link rel="search" title="Search" href="../../../../search.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -30,7 +22,7 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.exciting.inputs</a></li> 
       </ul>
@@ -41,27 +33,31 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.io.exciting.inputs</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
-<span class="c1"># Distributed under the terms of the MIT License.</span>
+<span></span><span class="sd">&quot;&quot;&quot;Classes for reading/manipulating/writing exciting input files.&quot;&quot;&quot;</span>
 
-<span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Classes for reading/manipulating/writing exciting input files.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xml.etree.ElementTree</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ET</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
 
-<span class="kn">import</span> <span class="nn">xml.etree.ElementTree</span> <span class="k">as</span> <span class="nn">ET</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.constants</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">const</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">zopen</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.json</span><span class="w"> </span><span class="kn">import</span> <span class="n">MSONable</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.constants</span> <span class="k">as</span> <span class="nn">const</span>
-<span class="kn">from</span> <span class="nn">monty.io</span> <span class="kn">import</span> <span class="n">zopen</span>
-<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Element</span><span class="p">,</span> <span class="n">Lattice</span><span class="p">,</span> <span class="n">Structure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.symmetry.analyzer</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpacegroupAnalyzer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.symmetry.bandstructure</span><span class="w"> </span><span class="kn">import</span> <span class="n">HighSymmKpath</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.core.lattice</span> <span class="kn">import</span> <span class="n">Lattice</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">Element</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.structure</span> <span class="kn">import</span> <span class="n">Structure</span>
-<span class="kn">from</span> <span class="nn">pymatgen.symmetry.analyzer</span> <span class="kn">import</span> <span class="n">SpacegroupAnalyzer</span>
-<span class="kn">from</span> <span class="nn">pymatgen.symmetry.bandstructure</span> <span class="kn">import</span> <span class="n">HighSymmKpath</span>
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Literal</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">NDArray</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">PathLike</span>
 
 <span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Christian Vorwerk&quot;</span>
 <span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2016&quot;</span>
@@ -72,29 +68,31 @@
 <span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;Nov 28, 2016&quot;</span>
 
 
-<div class="viewcode-block" id="ExcitingInput"><a class="viewcode-back" href="../../../../pymatgen.io.exciting.inputs.html#pymatgen.io.exciting.inputs.ExcitingInput">[docs]</a><span class="k">class</span> <span class="nc">ExcitingInput</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<div class="viewcode-block" id="ExcitingInput">
+<a class="viewcode-back" href="../../../../pymatgen.io.exciting.html#pymatgen.io.exciting.inputs.ExcitingInput">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ExcitingInput</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Object for representing the data stored in the structure part of the</span>
 <span class="sd">    exciting input.</span>
 
-<span class="sd">    .. attribute:: structure</span>
-
-<span class="sd">        Associated Structure.</span>
-
-<span class="sd">    .. attribute:: title</span>
-
-<span class="sd">        Optional title string.</span>
-
-<span class="sd">    .. attribute:: lockxyz</span>
-
-<span class="sd">        Lockxyz attribute for each site if available. A Nx3 array of</span>
-<span class="sd">        booleans.</span>
+<span class="sd">    Attributes:</span>
+<span class="sd">        structure (Structure): Associated Structure.</span>
+<span class="sd">        title (str): Optional title string.</span>
+<span class="sd">        lockxyz (Nx3 NDArray of booleans): Lockxyz attribute for each site if available.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lockxyz</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="c1"># Conversion factor between Bohr radius and Angstrom</span>
+    <span class="n">bohr2ang</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Bohr radius&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Angstrom star&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span><span class="p">,</span>
+        <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">lockxyz</span><span class="p">:</span> <span class="n">ArrayLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
-<span class="sd">            structure (Structure):  Structure object.</span>
+<span class="sd">            structure (Structure): Structure object.</span>
 <span class="sd">            title (str): Optional title for exciting input. Defaults to unit</span>
 <span class="sd">                cell formula of structure. Defaults to None.</span>
 <span class="sd">            lockxyz (Nx3 array): bool values for selective dynamics,</span>
@@ -103,42 +101,47 @@
         <span class="k">if</span> <span class="n">structure</span><span class="o">.</span><span class="n">is_ordered</span><span class="p">:</span>
             <span class="n">site_properties</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">if</span> <span class="n">lockxyz</span><span class="p">:</span>
-                <span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;selective_dynamics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lockxyz</span>
+                <span class="n">site_properties</span><span class="p">[</span><span class="s2">&quot;selective_dynamics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">lockxyz</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">site_properties</span><span class="o">=</span><span class="n">site_properties</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">formula</span> <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">title</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Structure with partial occupancies cannot be converted into exciting input!&quot;</span><span class="p">)</span>
 
-    <span class="c1"># define conversion factor between Bohr radius and Angstrom</span>
-    <span class="n">bohr2ang</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Bohr radius&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Angstrom star&quot;</span><span class="p">)</span>
-
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">lockxyz</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :return: Selective dynamics site properties.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">lockxyz</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Selective dynamics site properties.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;selective_dynamics&quot;</span><span class="p">)</span>
 
     <span class="nd">@lockxyz</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">lockxyz</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lockxyz</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">lockxyz</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lockxyz</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">add_site_property</span><span class="p">(</span><span class="s2">&quot;selective_dynamics&quot;</span><span class="p">,</span> <span class="n">lockxyz</span><span class="p">)</span>
 
-<div class="viewcode-block" id="ExcitingInput.from_string"><a class="viewcode-back" href="../../../../pymatgen.io.exciting.inputs.html#pymatgen.io.exciting.inputs.ExcitingInput.from_string">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">from_string</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Reads the exciting input from a string</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">root</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">fromstring</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-        <span class="n">speciesnode</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;structure&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">iter</span><span class="p">(</span><span class="s2">&quot;species&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="ExcitingInput.from_str">
+<a class="viewcode-back" href="../../../../pymatgen.io.exciting.html#pymatgen.io.exciting.inputs.ExcitingInput.from_str">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_str</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reads the exciting input from a string.&quot;&quot;&quot;</span>
+        <span class="n">root</span><span class="p">:</span> <span class="n">ET</span><span class="o">.</span><span class="n">Element</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">fromstring</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">struct</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;structure&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">struct</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No structure found in input file!&quot;</span><span class="p">)</span>
+
+        <span class="n">species_node</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">iter</span><span class="p">(</span><span class="s2">&quot;species&quot;</span><span class="p">)</span>
         <span class="n">elements</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">positions</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">vectors</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">lockxyz</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="c1"># get title</span>
-        <span class="n">title_in</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;title&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+        <span class="n">_title</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;title&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_title</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;title cannot be None.&quot;</span><span class="p">)</span>
+        <span class="n">title_in</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">_title</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
         <span class="c1"># Read elements and coordinates</span>
-        <span class="k">for</span> <span class="n">nodes</span> <span class="ow">in</span> <span class="n">speciesnode</span><span class="p">:</span>
-            <span class="n">symbol</span> <span class="o">=</span> <span class="n">nodes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;speciesfile&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">nodes</span> <span class="ow">in</span> <span class="n">species_node</span><span class="p">:</span>
+            <span class="n">_speciesfile</span> <span class="o">=</span> <span class="n">nodes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;speciesfile&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">_speciesfile</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;speciesfile cannot be None.&quot;</span><span class="p">)</span>
+            <span class="n">symbol</span> <span class="o">=</span> <span class="n">_speciesfile</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">symbol</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="n">symbol</span> <span class="o">=</span> <span class="n">symbol</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">Element</span><span class="o">.</span><span class="n">is_valid_symbol</span><span class="p">(</span><span class="n">symbol</span><span class="p">):</span>
@@ -146,46 +149,54 @@
                 <span class="n">element</span> <span class="o">=</span> <span class="n">symbol</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown element!&quot;</span><span class="p">)</span>
+
             <span class="k">for</span> <span class="n">atom</span> <span class="ow">in</span> <span class="n">nodes</span><span class="o">.</span><span class="n">iter</span><span class="p">(</span><span class="s2">&quot;atom&quot;</span><span class="p">):</span>
-                <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;coord&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="n">_coord</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;coord&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">_coord</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;coordinate cannot be None.&quot;</span><span class="p">)</span>
+                <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">_coord</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
                 <span class="n">positions</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">y</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">z</span><span class="p">)])</span>
                 <span class="n">elements</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
                 <span class="c1"># Obtain lockxyz for each atom</span>
-                <span class="k">if</span> <span class="n">atom</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;lockxyz&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">atom</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;lockxyz&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">lockxyz</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
                     <span class="n">lxyz</span> <span class="o">=</span> <span class="p">[]</span>
-                    <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">atom</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;lockxyz&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">():</span>
-                        <span class="k">if</span> <span class="n">l</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;True&quot;</span><span class="p">,</span> <span class="s2">&quot;true&quot;</span><span class="p">):</span>
+
+                    <span class="n">_lockxyz</span> <span class="o">=</span> <span class="n">atom</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;lockxyz&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">_lockxyz</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;lockxyz cannot be None.&quot;</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">_lockxyz</span><span class="o">.</span><span class="n">split</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="n">line</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;True&quot;</span><span class="p">,</span> <span class="s2">&quot;true&quot;</span><span class="p">):</span>
                             <span class="n">lxyz</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
                         <span class="k">else</span><span class="p">:</span>
                             <span class="n">lxyz</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
                     <span class="n">lockxyz</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lxyz</span><span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">lockxyz</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">])</span>
+
         <span class="c1"># check the atomic positions type</span>
-        <span class="k">if</span> <span class="s2">&quot;cartesian&quot;</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;structure&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">attrib</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;structure&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s2">&quot;cartesian&quot;</span><span class="p">]:</span>
-                <span class="n">cartesian</span> <span class="o">=</span> <span class="kc">True</span>
-                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">positions</span><span class="p">:</span>
-                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
-                        <span class="n">p</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">ExcitingInput</span><span class="o">.</span><span class="n">bohr2ang</span>
-                <span class="nb">print</span><span class="p">(</span><span class="n">positions</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">cartesian</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">cartesian</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">struct</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cartesian&quot;</span><span class="p">):</span>
+            <span class="n">cartesian</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)):</span>
+                <span class="n">p</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*=</span> <span class="n">ExcitingInput</span><span class="o">.</span><span class="n">bohr2ang</span>
+
+        <span class="n">_crystal</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;crystal&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_crystal</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;crystal cannot be None.&quot;</span><span class="p">)</span>
+
         <span class="c1"># get the scale attribute</span>
-        <span class="n">scale_in</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;structure&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;crystal&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scale&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">scale_in</span><span class="p">:</span>
-            <span class="n">scale</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">scale_in</span><span class="p">)</span> <span class="o">*</span> <span class="n">ExcitingInput</span><span class="o">.</span><span class="n">bohr2ang</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">scale</span> <span class="o">=</span> <span class="n">ExcitingInput</span><span class="o">.</span><span class="n">bohr2ang</span>
+        <span class="n">scale_in</span> <span class="o">=</span> <span class="n">_crystal</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scale&quot;</span><span class="p">)</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">scale_in</span><span class="p">)</span> <span class="o">*</span> <span class="n">ExcitingInput</span><span class="o">.</span><span class="n">bohr2ang</span> <span class="k">if</span> <span class="n">scale_in</span> <span class="k">else</span> <span class="n">ExcitingInput</span><span class="o">.</span><span class="n">bohr2ang</span>
+
         <span class="c1"># get the stretch attribute</span>
-        <span class="n">stretch_in</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;structure&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;crystal&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;stretch&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">stretch_in</span><span class="p">:</span>
-            <span class="n">stretch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">stretch_in</span><span class="p">])</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">stretch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>
+        <span class="n">stretch_in</span> <span class="o">=</span> <span class="n">_crystal</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;stretch&quot;</span><span class="p">)</span>
+        <span class="n">stretch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">stretch_in</span><span class="p">])</span> <span class="k">if</span> <span class="n">stretch_in</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>
+
         <span class="c1"># get basis vectors and scale them accordingly</span>
-        <span class="n">basisnode</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;structure&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;crystal&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">iter</span><span class="p">(</span><span class="s2">&quot;basevect&quot;</span><span class="p">)</span>
+        <span class="n">basisnode</span> <span class="o">=</span> <span class="n">_crystal</span><span class="o">.</span><span class="n">iter</span><span class="p">(</span><span class="s2">&quot;basevect&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">vect</span> <span class="ow">in</span> <span class="n">basisnode</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">vect</span><span class="o">.</span><span class="n">text</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;vect.text cannot be None.&quot;</span><span class="p">)</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">vect</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
             <span class="n">vectors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="p">[</span>
@@ -198,39 +209,50 @@
         <span class="n">lattice_in</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="n">vectors</span><span class="p">)</span>
         <span class="n">structure_in</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">(</span><span class="n">lattice_in</span><span class="p">,</span> <span class="n">elements</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="n">cartesian</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">ExcitingInput</span><span class="p">(</span><span class="n">structure_in</span><span class="p">,</span> <span class="n">title_in</span><span class="p">,</span> <span class="n">lockxyz</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">structure_in</span><span class="p">,</span> <span class="n">title_in</span><span class="p">,</span> <span class="n">lockxyz</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ExcitingInput.from_file"><a class="viewcode-back" href="../../../../pymatgen.io.exciting.inputs.html#pymatgen.io.exciting.inputs.ExcitingInput.from_file">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+
+<div class="viewcode-block" id="ExcitingInput.from_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.exciting.html#pymatgen.io.exciting.inputs.ExcitingInput.from_file">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param filename: Filename</span>
-<span class="sd">        :return: ExcitingInput</span>
+<span class="sd">        Args:</span>
+<span class="sd">            filename: Filename.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ExcitingInput</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">ExcitingInput</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_str</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ExcitingInput.write_etree"><a class="viewcode-back" href="../../../../pymatgen.io.exciting.inputs.html#pymatgen.io.exciting.inputs.ExcitingInput.write_etree">[docs]</a>    <span class="k">def</span> <span class="nf">write_etree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">celltype</span><span class="p">,</span> <span class="n">cartesian</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">bandstr</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">symprec</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.4</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Writes the exciting input parameters to an xml object.</span>
+
+<div class="viewcode-block" id="ExcitingInput.write_etree">
+<a class="viewcode-back" href="../../../../pymatgen.io.exciting.html#pymatgen.io.exciting.inputs.ExcitingInput.write_etree">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_etree</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">celltype</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;unchanged&quot;</span><span class="p">,</span> <span class="s2">&quot;conventional&quot;</span><span class="p">,</span> <span class="s2">&quot;primitive&quot;</span><span class="p">],</span>
+        <span class="n">cartesian</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">bandstr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">symprec</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.4</span><span class="p">,</span>
+        <span class="n">angle_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ET</span><span class="o">.</span><span class="n">Element</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert the exciting input parameters to an XML Element object.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            celltype (str): Choice of unit cell. Can be either the unit cell</span>
-<span class="sd">            from self.structure (&quot;unchanged&quot;), the conventional cell</span>
-<span class="sd">            (&quot;conventional&quot;), or the primitive unit cell (&quot;primitive&quot;).</span>
-
+<span class="sd">                from self.structure (&quot;unchanged&quot;), the conventional cell</span>
+<span class="sd">                (&quot;conventional&quot;), or the primitive unit cell (&quot;primitive&quot;).</span>
 <span class="sd">            cartesian (bool): Whether the atomic positions are provided in</span>
-<span class="sd">            Cartesian or unit-cell coordinates. Default is False.</span>
-
+<span class="sd">                Cartesian or unit-cell coordinates. Default is False.</span>
 <span class="sd">            bandstr (bool): Whether the bandstructure path along the</span>
-<span class="sd">            HighSymmKpath is included in the input file. Only supported if the</span>
-<span class="sd">            celltype is set to &quot;primitive&quot;. Default is False.</span>
-
+<span class="sd">                HighSymmKpath is included in the input file. Only supported if the</span>
+<span class="sd">                celltype is set to &quot;primitive&quot;. Default is False.</span>
 <span class="sd">            symprec (float): Tolerance for the symmetry finding. Default is 0.4.</span>
-
 <span class="sd">            angle_tolerance (float): Angle tolerance for the symmetry finding.</span>
-<span class="sd">            Default is 5.</span>
-
+<span class="sd">                Default is 5.</span>
 <span class="sd">            **kwargs: Additional parameters for the input file.</span>
 
 <span class="sd">        Returns:</span>
@@ -266,12 +288,12 @@
         <span class="c1"># write lattice</span>
         <span class="n">basis</span> <span class="o">=</span> <span class="n">new_struct</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span>
         <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
-            <span class="n">basevect</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="s2">&quot;basevect&quot;</span><span class="p">)</span>
-            <span class="n">basevect</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basis</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">basis</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">basis</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">base_vec</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="s2">&quot;basevect&quot;</span><span class="p">)</span>
+            <span class="n">base_vec</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basis</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">basis</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">basis</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="c1"># write atomic positions for each species</span>
         <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">new_struct</span><span class="o">.</span><span class="n">types_of_species</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">el</span><span class="p">:</span> <span class="n">el</span><span class="o">.</span><span class="n">X</span><span class="p">):</span>
-            <span class="n">species</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="s2">&quot;species&quot;</span><span class="p">,</span> <span class="n">speciesfile</span><span class="o">=</span><span class="n">elem</span><span class="o">.</span><span class="n">symbol</span> <span class="o">+</span> <span class="s2">&quot;.xml&quot;</span><span class="p">)</span>
+            <span class="n">species</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="s2">&quot;species&quot;</span><span class="p">,</span> <span class="n">speciesfile</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">elem</span><span class="o">.</span><span class="n">symbol</span><span class="si">}</span><span class="s2">.xml&quot;</span><span class="p">)</span>
             <span class="n">sites</span> <span class="o">=</span> <span class="n">new_struct</span><span class="o">.</span><span class="n">indices_from_symbol</span><span class="p">(</span><span class="n">elem</span><span class="o">.</span><span class="n">symbol</span><span class="p">)</span>
 
             <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">sites</span><span class="p">:</span>
@@ -290,94 +312,108 @@
                     <span class="n">coord</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">coord2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">coord2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">coord2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2">&quot;</span>
 
                 <span class="c1"># write atomic positions</span>
-                <span class="n">index</span> <span class="o">=</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
                 <span class="n">_</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">species</span><span class="p">,</span> <span class="s2">&quot;atom&quot;</span><span class="p">,</span> <span class="n">coord</span><span class="o">=</span><span class="n">coord</span><span class="p">)</span>
+
         <span class="c1"># write bandstructure if needed</span>
-        <span class="k">if</span> <span class="n">bandstr</span> <span class="ow">and</span> <span class="n">celltype</span> <span class="o">==</span> <span class="s2">&quot;primitive&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">bandstr</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">celltype</span> <span class="o">!=</span> <span class="s2">&quot;primitive&quot;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Bandstructure is only implemented for the standard primitive unit cell!&quot;</span><span class="p">)</span>
+
             <span class="n">kpath</span> <span class="o">=</span> <span class="n">HighSymmKpath</span><span class="p">(</span><span class="n">new_struct</span><span class="p">,</span> <span class="n">symprec</span><span class="o">=</span><span class="n">symprec</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="n">angle_tolerance</span><span class="p">)</span>
             <span class="n">prop</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="s2">&quot;properties&quot;</span><span class="p">)</span>
-            <span class="n">bandstrct</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">prop</span><span class="p">,</span> <span class="s2">&quot;bandstructure&quot;</span><span class="p">)</span>
+            <span class="n">band_struct</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">prop</span><span class="p">,</span> <span class="s2">&quot;bandstructure&quot;</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">kpath</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">])):</span>
-                <span class="n">plot</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">bandstrct</span><span class="p">,</span> <span class="s2">&quot;plot1d&quot;</span><span class="p">)</span>
+                <span class="n">plot</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">band_struct</span><span class="p">,</span> <span class="s2">&quot;plot1d&quot;</span><span class="p">)</span>
                 <span class="n">path</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">plot</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="s2">&quot;100&quot;</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">kpath</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">][</span><span class="n">idx</span><span class="p">])):</span>
                     <span class="n">symbol</span> <span class="o">=</span> <span class="n">kpath</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">][</span><span class="n">idx</span><span class="p">][</span><span class="n">j</span><span class="p">]</span>
                     <span class="n">coords</span> <span class="o">=</span> <span class="n">kpath</span><span class="o">.</span><span class="n">kpath</span><span class="p">[</span><span class="s2">&quot;kpoints&quot;</span><span class="p">][</span><span class="n">symbol</span><span class="p">]</span>
                     <span class="n">coord</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">coords</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2">16.8f</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="k">if</span> <span class="n">symbol</span> <span class="o">==</span> <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">Gamma&quot;</span><span class="p">:</span>
-                        <span class="n">symbol</span> <span class="o">=</span> <span class="s2">&quot;GAMMA&quot;</span>
+                    <span class="n">symbol_map</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">Gamma&quot;</span><span class="p">:</span> <span class="s2">&quot;GAMMA&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">Sigma&quot;</span><span class="p">:</span> <span class="s2">&quot;SIGMA&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">Delta&quot;</span><span class="p">:</span> <span class="s2">&quot;DELTA&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">Lambda&quot;</span><span class="p">:</span> <span class="s2">&quot;LAMBDA&quot;</span><span class="p">,</span>
+                    <span class="p">}</span>
+                    <span class="n">symbol</span> <span class="o">=</span> <span class="n">symbol_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">symbol</span><span class="p">)</span>
                     <span class="n">_</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;point&quot;</span><span class="p">,</span> <span class="n">coord</span><span class="o">=</span><span class="n">coord</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">symbol</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">bandstr</span> <span class="ow">and</span> <span class="n">celltype</span> <span class="o">!=</span> <span class="s2">&quot;primitive&quot;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Bandstructure is only implemented for the </span><span class="se">\</span>
-<span class="s2">                              standard primitive unit cell!&quot;</span>
-            <span class="p">)</span>
 
         <span class="c1"># write extra parameters from kwargs if provided</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_dicttoxml</span><span class="p">(</span><span class="n">kwargs</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">root</span></div>
 
-<div class="viewcode-block" id="ExcitingInput.write_string"><a class="viewcode-back" href="../../../../pymatgen.io.exciting.inputs.html#pymatgen.io.exciting.inputs.ExcitingInput.write_string">[docs]</a>    <span class="k">def</span> <span class="nf">write_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">celltype</span><span class="p">,</span> <span class="n">cartesian</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">bandstr</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">symprec</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.4</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Writes exciting input.xml as a string.</span>
+
+<div class="viewcode-block" id="ExcitingInput.write_string">
+<a class="viewcode-back" href="../../../../pymatgen.io.exciting.html#pymatgen.io.exciting.inputs.ExcitingInput.write_string">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_string</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">celltype</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;unchanged&quot;</span><span class="p">,</span> <span class="s2">&quot;conventional&quot;</span><span class="p">,</span> <span class="s2">&quot;primitive&quot;</span><span class="p">],</span>
+        <span class="n">cartesian</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">bandstr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">symprec</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.4</span><span class="p">,</span>
+        <span class="n">angle_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert exciting input to a string.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            celltype (str): Choice of unit cell. Can be either the unit cell</span>
-<span class="sd">            from self.structure (&quot;unchanged&quot;), the conventional cell</span>
-<span class="sd">            (&quot;conventional&quot;), or the primitive unit cell (&quot;primitive&quot;).</span>
-
+<span class="sd">                from self.structure (&quot;unchanged&quot;), the conventional cell</span>
+<span class="sd">                (&quot;conventional&quot;), or the primitive unit cell (&quot;primitive&quot;).</span>
 <span class="sd">            cartesian (bool): Whether the atomic positions are provided in</span>
-<span class="sd">            Cartesian or unit-cell coordinates. Default is False.</span>
-
+<span class="sd">                Cartesian or unit-cell coordinates. Default is False.</span>
 <span class="sd">            bandstr (bool): Whether the bandstructure path along the</span>
-<span class="sd">            HighSymmKpath is included in the input file. Only supported if the</span>
-<span class="sd">            celltype is set to &quot;primitive&quot;. Default is False.</span>
-
+<span class="sd">                HighSymmKpath is included in the input file. Only supported if the</span>
+<span class="sd">                celltype is set to &quot;primitive&quot;. Default is False.</span>
 <span class="sd">            symprec (float): Tolerance for the symmetry finding. Default is 0.4.</span>
-
 <span class="sd">            angle_tolerance (float): Angle tolerance for the symmetry finding.</span>
-<span class="sd">            Default is 5.</span>
-
+<span class="sd">                Default is 5.</span>
 <span class="sd">            **kwargs: Additional parameters for the input file.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            String</span>
+<span class="sd">            str</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_etree</span><span class="p">(</span><span class="n">celltype</span><span class="p">,</span> <span class="n">cartesian</span><span class="p">,</span> <span class="n">bandstr</span><span class="p">,</span> <span class="n">symprec</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_indent</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
             <span class="c1"># output should be a string not a bytes object</span>
             <span class="n">string</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">root</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Incorrect celltype!&quot;</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="n">string</span></div>
 
-<div class="viewcode-block" id="ExcitingInput.write_file"><a class="viewcode-back" href="../../../../pymatgen.io.exciting.inputs.html#pymatgen.io.exciting.inputs.ExcitingInput.write_file">[docs]</a>    <span class="k">def</span> <span class="nf">write_file</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">celltype</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">cartesian</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">bandstr</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">symprec</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.4</span><span class="p">,</span> <span class="n">angle_tolerance</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
-    <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Writes exciting input file.</span>
+
+<div class="viewcode-block" id="ExcitingInput.write_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.exciting.html#pymatgen.io.exciting.inputs.ExcitingInput.write_file">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_file</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">celltype</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;unchanged&quot;</span><span class="p">,</span> <span class="s2">&quot;conventional&quot;</span><span class="p">,</span> <span class="s2">&quot;primitive&quot;</span><span class="p">],</span>
+        <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+        <span class="n">cartesian</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">bandstr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">symprec</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.4</span><span class="p">,</span>
+        <span class="n">angle_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write exciting input file.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            celltype (str): Choice of unit cell. Can be either the unit cell</span>
-<span class="sd">            from self.structure (&quot;unchanged&quot;), the conventional cell</span>
-<span class="sd">            (&quot;conventional&quot;), or the primitive unit cell (&quot;primitive&quot;).</span>
-
-<span class="sd">            filename (str): Filename for exciting input.</span>
-
+<span class="sd">                from self.structure (&quot;unchanged&quot;), the conventional cell</span>
+<span class="sd">                (&quot;conventional&quot;), or the primitive unit cell (&quot;primitive&quot;).</span>
+<span class="sd">            filename (PathLike): Filename for exciting input.</span>
 <span class="sd">            cartesian (bool): Whether the atomic positions are provided in</span>
-<span class="sd">            Cartesian or unit-cell coordinates. Default is False.</span>
-
+<span class="sd">                Cartesian or unit-cell coordinates. Default is False.</span>
 <span class="sd">            bandstr (bool): Whether the bandstructure path along the</span>
-<span class="sd">            HighSymmKpath is included in the input file. Only supported if the</span>
-<span class="sd">            celltype is set to &quot;primitive&quot;. Default is False.</span>
-
+<span class="sd">                HighSymmKpath is included in the input file. Only supported if the</span>
+<span class="sd">                celltype is set to &quot;primitive&quot;. Default is False.</span>
 <span class="sd">            symprec (float): Tolerance for the symmetry finding. Default is 0.4.</span>
-
 <span class="sd">            angle_tolerance (float): Angle tolerance for the symmetry finding.</span>
-<span class="sd">            Default is 5.</span>
-
+<span class="sd">                Default is 5.</span>
 <span class="sd">            **kwargs: Additional parameters for the input file.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
@@ -388,46 +424,51 @@
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Incorrect celltype!&quot;</span><span class="p">)</span></div>
 
-    <span class="c1"># Missing PrettyPrint option in the current version of xml.etree.cElementTree</span>
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_indent</span><span class="p">(</span><span class="n">elem</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Helper method to indent elements.</span>
 
-<span class="sd">        :param elem:</span>
-<span class="sd">        :param level:</span>
-<span class="sd">        :return:</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_indent</span><span class="p">(</span><span class="n">elem</span><span class="p">:</span> <span class="n">ET</span><span class="o">.</span><span class="n">Element</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Helper method to indent elements, as missing PrettyPrint option</span>
+<span class="sd">        in the current version of xml.etree.cElementTree.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            elem (ET.Element): The Element to process.</span>
+<span class="sd">            level (int): The indentation level.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">i</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">level</span> <span class="o">*</span> <span class="s2">&quot;  &quot;</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">elem</span><span class="p">):</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">elem</span><span class="o">.</span><span class="n">text</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">elem</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
-                <span class="n">elem</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="s2">&quot;  &quot;</span>
+                <span class="n">elem</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">  &quot;</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">elem</span><span class="o">.</span><span class="n">tail</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">elem</span><span class="o">.</span><span class="n">tail</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
                 <span class="n">elem</span><span class="o">.</span><span class="n">tail</span> <span class="o">=</span> <span class="n">i</span>
             <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">elem</span><span class="p">:</span>
                 <span class="n">ExcitingInput</span><span class="o">.</span><span class="n">_indent</span><span class="p">(</span><span class="n">el</span><span class="p">,</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">elem</span><span class="o">.</span><span class="n">tail</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">elem</span><span class="o">.</span><span class="n">tail</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
                 <span class="n">elem</span><span class="o">.</span><span class="n">tail</span> <span class="o">=</span> <span class="n">i</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">level</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">elem</span><span class="o">.</span><span class="n">tail</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">elem</span><span class="o">.</span><span class="n">tail</span><span class="o">.</span><span class="n">strip</span><span class="p">()):</span>
-                <span class="n">elem</span><span class="o">.</span><span class="n">tail</span> <span class="o">=</span> <span class="n">i</span>
+        <span class="k">elif</span> <span class="n">level</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">elem</span><span class="o">.</span><span class="n">tail</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">elem</span><span class="o">.</span><span class="n">tail</span><span class="o">.</span><span class="n">strip</span><span class="p">()):</span>
+            <span class="n">elem</span><span class="o">.</span><span class="n">tail</span> <span class="o">=</span> <span class="n">i</span>
 
-    <span class="k">def</span> <span class="nf">_dicttoxml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">paramdict_</span><span class="p">,</span> <span class="n">element</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_dicttoxml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">paramdict_</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">element</span><span class="p">:</span> <span class="n">ET</span><span class="o">.</span><span class="n">Element</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">paramdict_</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;text()&quot;</span><span class="p">:</span>
                 <span class="n">element</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="n">value</span>
+
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="n">element</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
                 <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_dicttoxml</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">key</span><span class="p">))</span>
+
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="k">if</span> <span class="n">element</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">==</span> <span class="p">[]:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_dicttoxml</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">key</span><span class="p">))</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_dicttoxml</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">element</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">key</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+
             <span class="k">else</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;cannot deal with&quot;</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="s2">&quot;=&quot;</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cannot deal with </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span></div>
+
 </pre></div>
 
             <div class="clearer"></div>
@@ -435,7 +476,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -444,29 +485,14 @@
         <li class="right" >
           <a href="../../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.io.exciting.inputs</a></li> 
       </ul>
     </div>
-
     <div class="footer" role="contentinfo">
-        &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
     </div>
-<div class="footer">This page uses <a href="http://analytics.google.com/">
-Google Analytics</a> to collect statistics. You can disable it by blocking
-the JavaScript coming from www.google-analytics.com.
-<script type="text/javascript">
-  (function() {
-    var ga = document.createElement('script');
-    ga.src = ('https:' == document.location.protocol ?
-              'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-    ga.setAttribute('async', 'true');
-    document.documentElement.firstChild.appendChild(ga);
-  })();
-</script>
-</div>
-
   </body>
 </html>

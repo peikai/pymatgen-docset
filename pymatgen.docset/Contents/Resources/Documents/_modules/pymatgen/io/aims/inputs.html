@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.io.aims.inputs &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.aims.inputs</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.io.aims.inputs</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Classes for reading/manipulating/writing FHI-aims input files.</span>
+
+<span class="sd">Works for aims cube objects, geometry.in and control.in</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">textwrap</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">zopen</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.json</span><span class="w"> </span><span class="kn">import</span> <span class="n">MontyDecoder</span><span class="p">,</span> <span class="n">MSONable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.os.path</span><span class="w"> </span><span class="kn">import</span> <span class="n">zpath</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">SETTINGS</span><span class="p">,</span> <span class="n">Element</span><span class="p">,</span> <span class="n">Lattice</span><span class="p">,</span> <span class="n">Molecule</span><span class="p">,</span> <span class="n">Species</span><span class="p">,</span> <span class="n">Structure</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple3Floats</span><span class="p">,</span> <span class="n">Tuple3Ints</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Thomas A. R. Purcell&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;1.0&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;purcellt@arizona.edu&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;November 2023&quot;</span>
+
+
+<div class="viewcode-block" id="AimsGeometryIn">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsGeometryIn">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AimsGeometryIn</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Representation of an aims geometry.in file.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        _content (str): The content of the input file</span>
+<span class="sd">        _structure (Structure | Molecule): The structure or molecule</span>
+<span class="sd">            representation of the file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_content</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">_structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span>
+
+<div class="viewcode-block" id="AimsGeometryIn.from_str">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsGeometryIn.from_str">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_str</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">contents</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create an input from the content of an input file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            contents (str): The content of the file</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The AimsGeometryIn file for the string contents</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">content_lines</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">contents</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;#&quot;</span>
+        <span class="p">]</span>
+
+        <span class="n">species</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">is_frac</span><span class="p">,</span> <span class="n">lattice_vectors</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="n">charges_dct</span><span class="p">,</span> <span class="n">moments_dct</span><span class="p">,</span> <span class="n">velocities_dct</span> <span class="o">=</span> <span class="p">{},</span> <span class="p">{},</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">content_lines</span><span class="p">:</span>
+            <span class="n">inp</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;atom&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;atom_frac&quot;</span><span class="p">):</span>
+                <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">]])</span>
+                <span class="n">species</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+                <span class="n">is_frac</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;atom_frac&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">inp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;lattice_vector&quot;</span><span class="p">:</span>
+                <span class="n">lattice_vectors</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">]])</span>
+            <span class="k">if</span> <span class="n">inp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;initial_moment&quot;</span><span class="p">:</span>
+                <span class="n">moments_dct</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">inp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;initial_charge&quot;</span><span class="p">:</span>
+                <span class="n">charges_dct</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">inp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;velocity&quot;</span><span class="p">:</span>
+                <span class="n">velocities_dct</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inp</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span>
+
+        <span class="n">charge</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">charges_dct</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">charge</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+        <span class="n">magmom</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">moments_dct</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">magmom</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+        <span class="n">velocity</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="kc">None</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">velocities_dct</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">velocity</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lattice_vectors</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">lattice</span> <span class="o">=</span> <span class="n">Lattice</span><span class="p">(</span><span class="n">lattice_vectors</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">cc</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">is_frac</span><span class="p">[</span><span class="n">cc</span><span class="p">]:</span>
+                    <span class="n">coords</span><span class="p">[</span><span class="n">cc</span><span class="p">]</span> <span class="o">=</span> <span class="n">lattice</span><span class="o">.</span><span class="n">get_cartesian_coords</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="n">cc</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">lattice_vectors</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">lattice</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">is_frac</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Fractional coordinates given in file with no lattice vectors.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Incorrect number of lattice vectors passed.&quot;</span><span class="p">)</span>
+
+        <span class="n">site_props</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;magmom&quot;</span><span class="p">:</span> <span class="n">magmom</span><span class="p">,</span> <span class="s2">&quot;charge&quot;</span><span class="p">:</span> <span class="n">charge</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">velocities_dct</span><span class="p">:</span>
+            <span class="n">site_props</span><span class="p">[</span><span class="s2">&quot;velocity&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">velocity</span>
+
+        <span class="k">if</span> <span class="n">lattice</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">structure</span> <span class="o">=</span> <span class="n">Molecule</span><span class="p">(</span><span class="n">species</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">charge</span><span class="p">),</span> <span class="n">site_properties</span><span class="o">=</span><span class="n">site_props</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">structure</span> <span class="o">=</span> <span class="n">Structure</span><span class="p">(</span>
+                <span class="n">lattice</span><span class="p">,</span>
+                <span class="n">species</span><span class="p">,</span>
+                <span class="n">coords</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">charge</span><span class="p">),</span>
+                <span class="n">coords_are_cartesian</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">site_properties</span><span class="o">=</span><span class="n">site_props</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_content</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">content_lines</span><span class="p">),</span> <span class="n">_structure</span><span class="o">=</span><span class="n">structure</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsGeometryIn.from_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsGeometryIn.from_file">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create an AimsGeometryIn from an input file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filepath (str | Path): The path to the input file (either plain text of gzipped)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            AimsGeometryIn: The input object represented in the file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">in_file</span><span class="p">:</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">in_file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_str</span><span class="p">(</span><span class="n">content</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsGeometryIn.from_structure">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsGeometryIn.from_structure">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_structure</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct an input file from an input structure.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure | Molecule): The structure for the file</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            AimsGeometryIn: The input object for the structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">content_lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">Structure</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">lv</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">lattice</span><span class="o">.</span><span class="n">matrix</span><span class="p">:</span>
+                <span class="n">content_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;lattice_vector </span><span class="si">{</span><span class="n">lv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">lv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">lv</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="n">structure</span><span class="p">:</span>
+            <span class="n">element</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">species_string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,spin=&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">charge</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;charge&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">spin</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;magmom&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">coord</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">coords</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;velocity&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="p">,</span> <span class="n">Species</span><span class="p">)</span> <span class="ow">and</span> <span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">spin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">spin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">spin</span> <span class="o">!=</span> <span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">spin</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;species.spin and magnetic moments don&#39;t agree. Please only define one&quot;</span><span class="p">)</span>
+                <span class="n">spin</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">spin</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="p">,</span> <span class="n">Species</span><span class="p">)</span> <span class="ow">and</span> <span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">oxi_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">charge</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">charge</span> <span class="o">!=</span> <span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">oxi_state</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;species.oxi_state and charge don&#39;t agree. Please only define one&quot;</span><span class="p">)</span>
+                <span class="n">charge</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">oxi_state</span>
+
+            <span class="n">content_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;atom </span><span class="si">{</span><span class="n">coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">coord</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">coord</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">element</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">charge</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">content_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;     initial_charge </span><span class="si">{</span><span class="n">charge</span><span class="si">:</span><span class="s2">.12e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">spin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">spin</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="n">content_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;     initial_moment </span><span class="si">{</span><span class="n">spin</span><span class="si">:</span><span class="s2">.12e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">v_i</span> <span class="o">!=</span> <span class="mf">0.0</span> <span class="k">for</span> <span class="n">v_i</span> <span class="ow">in</span> <span class="n">v</span><span class="p">):</span>
+                <span class="n">content_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;     velocity   </span><span class="si">{</span><span class="s1">&#39;  &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">v_i</span><span class="si">:</span><span class="s1">.12e</span><span class="si">}</span><span class="s1">&#39;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">v_i</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">v</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_content</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">content_lines</span><span class="p">),</span> <span class="n">_structure</span><span class="o">=</span><span class="n">structure</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">structure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Access structure for the file.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_structure</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">content</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Access the contents of the file.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_content</span>
+
+<div class="viewcode-block" id="AimsGeometryIn.get_header">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsGeometryIn.get_header">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_header</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A header of geometry.in file</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename (str): A name of the file for the header</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">textwrap</span><span class="o">.</span><span class="n">dedent</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
+<span class="s2">        #</span><span class="si">{</span><span class="s2">&quot;=&quot;</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">72</span><span class="si">}</span>
+<span class="s2">        # FHI-aims geometry file: </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span>
+<span class="s2">        # File generated from pymatgen</span>
+<span class="s2">        # </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">asctime</span><span class="p">()</span><span class="si">}</span>
+<span class="s2">        #</span><span class="si">{</span><span class="s2">&quot;=&quot;</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">72</span><span class="si">}</span>
+<span class="s2">        &quot;&quot;&quot;</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsGeometryIn.write_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsGeometryIn.write_file">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write the geometry.in file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            directory (str | Path | None): The directory to write the geometry.in file</span>
+<span class="sd">            overwrite (bool): If True allow to overwrite existing files</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">directory</span> <span class="o">=</span> <span class="n">directory</span> <span class="ow">or</span> <span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">()</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">directory</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;geometry.in&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">overwrite</span> <span class="ow">and</span> <span class="n">file_name</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;geometry.in file exists in </span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s2">/geometry.in&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_header</span><span class="p">(</span><span class="n">file_name</span><span class="o">.</span><span class="n">as_posix</span><span class="p">()))</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsGeometryIn.as_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsGeometryIn.as_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a dictionary representation of the geometry.in file.&quot;&quot;&quot;</span>
+        <span class="n">dct</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;@module&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;@class&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;content&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure</span>
+        <span class="k">return</span> <span class="n">dct</span></div>
+
+
+<div class="viewcode-block" id="AimsGeometryIn.from_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsGeometryIn.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize from dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dct (dict[str, Any]): The MontyEncoded dictionary of the AimsGeometryIn object</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The input object represented by the dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">decoded</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">MontyDecoder</span><span class="p">()</span><span class="o">.</span><span class="n">process_decoded</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">dct</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)}</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_content</span><span class="o">=</span><span class="n">decoded</span><span class="p">[</span><span class="s2">&quot;content&quot;</span><span class="p">],</span> <span class="n">_structure</span><span class="o">=</span><span class="n">decoded</span><span class="p">[</span><span class="s2">&quot;structure&quot;</span><span class="p">])</span></div>
+</div>
+
+
+
+<span class="n">ALLOWED_AIMS_CUBE_TYPES</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">&quot;delta_density&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;spin_density&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;stm&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;total_density&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;total_density_integrable&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;long_range_potential&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;hartree_potential&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;xc_potential&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;delta_v&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ion_dens&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;dielec_func&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;elf&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">ALLOWED_AIMS_CUBE_TYPES_STATE</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">&quot;first_order_density&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;eigenstate&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;eigenstate_imag&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;eigenstate_density&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">ALLOWED_AIMS_CUBE_FORMATS</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">&quot;cube&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;gOpenMol&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;xsf&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="AimsCube">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsCube">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AimsCube</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The FHI-aims cubes.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        type (str): The value to be outputted as a cube file</span>
+<span class="sd">        origin (Sequence[float] or tuple[float, float, float]): The origin of the cube</span>
+<span class="sd">        edges (Sequence[Sequence[float]]): Specifies the edges of a cube: dx, dy, dz</span>
+<span class="sd">            dx (float): The length of the step in the x direction</span>
+<span class="sd">            dy (float): The length of the step in the y direction</span>
+<span class="sd">            dx (float): The length of the step in the x direction</span>
+<span class="sd">        points (Sequence[int] or tuple[int, int, int]): The number of points</span>
+<span class="sd">            along each edge</span>
+<span class="sd">        spin_state (int): The spin-channel to use either 1 or 2</span>
+<span class="sd">        kpoint (int): The k-point to use (the index of the list printed from</span>
+<span class="sd">            `output k_point_list`)</span>
+<span class="sd">        filename (str): The filename to use</span>
+<span class="sd">        format (str): The format to output the cube file in: cube, gOpenMol, or xsf</span>
+<span class="sd">        elf_type (int): The type of electron localization function to use (</span>
+<span class="sd">            see FHI-aims manual)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">origin</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="n">Tuple3Floats</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+    <span class="n">edges</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+    <span class="n">points</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="n">Tuple3Ints</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+    <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cube&quot;</span>
+    <span class="n">spin_state</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">kpoint</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">elf_type</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if two cubes are equal to each other.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">AimsCube</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">type</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">origin</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">edges</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">edges</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">points</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">format</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spin_state</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">spin_state</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kpoint</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">kpoint</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">filename</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">elf_type</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">elf_type</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check the inputted variables to make sure they are correct.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If any of the inputs is invalid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">split_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="n">cube_type</span> <span class="o">=</span> <span class="n">split_type</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">split_type</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">ALLOWED_AIMS_CUBE_TYPES</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">split_type</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cube_type</span><span class="si">=}</span><span class="s2"> can not have a state associated with it&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">split_type</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">ALLOWED_AIMS_CUBE_TYPES_STATE</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">split_type</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cube_type</span><span class="si">=}</span><span class="s2"> must have a state associated with it&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cube type undefined&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ALLOWED_AIMS_CUBE_FORMATS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">format</span><span class="si">}</span><span class="s2"> is invalid. Cube files must have a format of </span><span class="si">{</span><span class="n">ALLOWED_AIMS_CUBE_FORMATS</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">valid_spins</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spin_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">valid_spins</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Spin state must be one of </span><span class="si">{</span><span class="n">valid_spins</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The cube origin must have 3 components&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The number of points per edge must have 3 components&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">edges</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only three cube edges can be passed&quot;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">edge</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">edges</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">edge</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Each cube edge must have 3 components&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">elf_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;elf&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;elf_type is only used when the cube type is elf. Otherwise it must be None&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">control_block</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The block of text for the control.in file of the Cube.&quot;&quot;&quot;</span>
+        <span class="n">cb</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;output cube </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">cb</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;    cube origin </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="n">cb</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;    cube edge </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">points</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="si">}</span><span class="s2"> &quot;</span>
+            <span class="n">cb</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">edges</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="s2"> &quot;</span>
+            <span class="n">cb</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">edges</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="s2"> &quot;</span>
+            <span class="n">cb</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">edges</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s2"> .12e</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">cb</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;    cube format </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">format</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spin_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cb</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;    cube spinstate </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">spin_state</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kpoint</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cb</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;    cube kpoint </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">kpoint</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cb</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;    cube filename </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">elf_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cb</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;    cube elf_type </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">elf_type</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">return</span> <span class="n">cb</span>
+
+<div class="viewcode-block" id="AimsCube.as_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsCube.as_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a dictionary representation of the geometry.in file.&quot;&quot;&quot;</span>
+        <span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;@module&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;@class&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;origin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;edges&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">edges</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;points&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">points</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;format&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;spin_state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spin_state</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;kpoint&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kpoint</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;filename&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;elf_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">elf_type</span>
+        <span class="k">return</span> <span class="n">dct</span></div>
+
+
+<div class="viewcode-block" id="AimsCube.from_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsCube.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize from dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dct (dict[str, Any]): The MontyEncoded dictionary</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            AimsCube</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">attrs</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;origin&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;edges&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;points&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;spin_state&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;kpoint&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;filename&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;elf_type&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">decoded</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">MontyDecoder</span><span class="p">()</span><span class="o">.</span><span class="n">process_decoded</span><span class="p">(</span><span class="n">dct</span><span class="p">[</span><span class="n">key</span><span class="p">])</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">attrs</span><span class="p">}</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">decoded</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="AimsControlIn">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsControlIn">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AimsControlIn</span><span class="p">(</span><span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;An FHI-aims control.in file.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        _parameters (dict[str, Any]): The parameters dictionary containing all input</span>
+<span class="sd">            flags (key) and values for the control.in file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the output list of _parameters.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;output&quot;</span><span class="p">,</span> <span class="p">[])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get an input parameter.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The parameter to get</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The setting for that parameter</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            KeyError: If the key is not in self._parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> not set in AimsControlIn&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set an attribute of the class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The parameter to get</span>
+<span class="sd">            value (Any): The value for that parameter</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;output&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+                <span class="k">return</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="p">[</span><span class="n">value</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+=</span> <span class="n">value</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Delete a parameter from the input object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">        key (str): The key in the parameter to remove</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Either the value of the deleted parameter or None if key is</span>
+<span class="sd">            not in self._parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The dictionary of input parameters for control.in.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span>
+
+    <span class="nd">@parameters</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset a control.in inputs from a parameters dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameters (dict[str, Any]): The new set of parameters to use</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span> <span class="o">=</span> <span class="n">parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;output&quot;</span><span class="p">,</span> <span class="p">[])</span>
+
+<div class="viewcode-block" id="AimsControlIn.get_aims_control_parameter_str">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsControlIn.get_aims_control_parameter_str">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_aims_control_parameter_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the string needed to add a parameter to the control.in file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The name of the input flag</span>
+<span class="sd">            value (Any): The value to be set for the flag</span>
+<span class="sd">            fmt (str): The format string to apply to the value</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: The line to add to the control.in file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">:</span><span class="s2">35s</span><span class="si">}{</span><span class="n">fmt</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">value</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span></div>
+
+
+<div class="viewcode-block" id="AimsControlIn.get_content">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsControlIn.get_content">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_content</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
+        <span class="n">verbose_header</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the content of the file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure | Molecule): The structure to write the input</span>
+<span class="sd">                file for</span>
+<span class="sd">            verbose_header (bool): If True print the input option dictionary</span>
+<span class="sd">            directory: str | Path | None = The directory for the calculation,</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: The content of the file for a given structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">directory</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">directory</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+        <span class="n">lim</span> <span class="o">=</span> <span class="s2">&quot;#&quot;</span> <span class="o">+</span> <span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">79</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;xc&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;LDA&quot;</span><span class="p">:</span>
+            <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;xc&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;pw-lda&quot;</span>
+
+        <span class="n">spins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">getattr</span><span class="p">(</span><span class="n">sp</span><span class="p">,</span> <span class="s2">&quot;spin&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">sp</span> <span class="ow">in</span> <span class="n">structure</span><span class="o">.</span><span class="n">species</span><span class="p">])</span>
+        <span class="n">magmom</span> <span class="o">=</span> <span class="n">structure</span><span class="o">.</span><span class="n">site_properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;magmom&quot;</span><span class="p">,</span> <span class="n">spins</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;spin&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;collinear&quot;</span>
+            <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">magmom</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;default_initial_moment&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Removing spin from parameters since no spin information is in the structure&quot;</span><span class="p">,</span>
+                <span class="ne">RuntimeWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">parameters</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;spin&quot;</span><span class="p">)</span>
+
+        <span class="n">cubes</span> <span class="o">=</span> <span class="n">parameters</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;cubes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">verbose_header</span><span class="p">:</span>
+            <span class="n">content</span> <span class="o">+=</span> <span class="s2">&quot;# </span><span class="se">\n</span><span class="s2"># List of parameters used to initialize the calculator:&quot;</span>
+            <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">content</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;#     </span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">content</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lim</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">if</span> <span class="s2">&quot;smearing&quot;</span> <span class="ow">in</span> <span class="n">parameters</span> <span class="ow">and</span> <span class="s2">&quot;occupation_type&quot;</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;both &quot;smearing&quot; and &quot;occupation_type&quot; in </span><span class="si">{</span><span class="n">parameters</span><span class="si">=}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;species_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;plus_u&quot;</span><span class="p">]:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;smearing&quot;</span><span class="p">:</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;smearing&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;fermi-dirac&quot;</span><span class="p">:</span>
+                    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;fermi&quot;</span>
+                <span class="n">width</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;smearing&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;methfessel-paxton&quot;</span><span class="p">:</span>
+                    <span class="n">order</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;smearing&quot;</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="n">order</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">order</span><span class="si">:</span><span class="s2">d</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">order</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+                <span class="n">content</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aims_control_parameter_str</span><span class="p">(</span><span class="s2">&quot;occupation_type&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">order</span><span class="p">),</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> </span><span class="si">%f%s</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;output&quot;</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">output_type</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
+                    <span class="n">content</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aims_control_parameter_str</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">output_type</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;vdw_correction_hirshfeld&quot;</span> <span class="ow">and</span> <span class="n">value</span><span class="p">:</span>
+                <span class="n">content</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aims_control_parameter_str</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;xc&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s2">&quot;libxc&quot;</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
+                    <span class="n">content</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aims_control_parameter_str</span><span class="p">(</span><span class="s2">&quot;override_warning_libxc&quot;</span><span class="p">,</span> <span class="s2">&quot;.true.&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">content</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aims_control_parameter_str</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+                <span class="n">content</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aims_control_parameter_str</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="s2">&quot;.</span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">tuple</span> <span class="o">|</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">content</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aims_control_parameter_str</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">)),</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">content</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aims_control_parameter_str</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">content</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aims_control_parameter_str</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">cubes</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">cube</span> <span class="ow">in</span> <span class="n">cubes</span><span class="p">:</span>
+                <span class="n">content</span> <span class="o">+=</span> <span class="n">cube</span><span class="o">.</span><span class="n">control_block</span>
+
+        <span class="n">content</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lim</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+        <span class="n">species_defaults</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;species_dir&quot;</span><span class="p">,</span> <span class="n">SETTINGS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;AIMS_SPECIES_DIR&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">species_defaults</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;Species&#39; defaults not specified in the parameters&quot;</span><span class="p">)</span>
+
+        <span class="n">species_dir</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">species_defaults</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">species_defaults</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">species_defaults</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">species_defaults</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">():</span>
+                <span class="n">species_dir</span> <span class="o">=</span> <span class="n">species_defaults</span><span class="o">.</span><span class="n">parent</span>
+                <span class="n">basis_set</span> <span class="o">=</span> <span class="n">species_defaults</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">basis_set</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">species_defaults</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">basis_set</span> <span class="o">=</span> <span class="n">species_defaults</span>
+        <span class="n">content</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_species_block</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">basis_set</span><span class="p">,</span> <span class="n">species_dir</span><span class="o">=</span><span class="n">species_dir</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">content</span></div>
+
+
+<div class="viewcode-block" id="AimsControlIn.write_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsControlIn.write_file">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_file</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
+        <span class="n">directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">verbose_header</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write the control.in file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Structure | Molecule): The structure to write the input</span>
+<span class="sd">                file for</span>
+<span class="sd">            directory (str or Path): The directory to write the control.in file.</span>
+<span class="sd">                If None use cwd</span>
+<span class="sd">            verbose_header (bool): If True print the input option dictionary</span>
+<span class="sd">            overwrite (bool): If True allow to overwrite existing files</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If a file must be overwritten and overwrite is False</span>
+<span class="sd">            ValueError: If k-grid is not provided for the periodic structures</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">directory</span> <span class="o">=</span> <span class="n">directory</span> <span class="ow">or</span> <span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">directory</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;control.in&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">overwrite</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;control.in file already in </span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">Structure</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="s2">&quot;k_grid&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span> <span class="ow">and</span> <span class="s2">&quot;k_grid_density&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;k-grid must be defined for periodic systems&quot;</span><span class="p">)</span>
+
+        <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_content</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">verbose_header</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s2">/control.in&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;#</span><span class="si">{</span><span class="s1">&#39;=&#39;</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">72</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;# FHI-aims geometry file: </span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s2">/geometry.in</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;# File generated from pymatgen</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;# </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">asctime</span><span class="p">()</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;#</span><span class="si">{</span><span class="s1">&#39;=&#39;</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">72</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">content</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsControlIn.get_species_block">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsControlIn.get_species_block">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_species_block</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">structure</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
+        <span class="n">basis_set</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+        <span class="n">species_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the basis set information for a structure</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            structure (Molecule or Structure): The structure to get the basis set information for</span>
+<span class="sd">            basis_set (str | dict[str, str]):</span>
+<span class="sd">                a name of a basis set (`light`, `tight`...) or a mapping from site labels to basis set names.</span>
+<span class="sd">                The name of a basis set can either correspond to the subfolder in `defaults_2020` folder</span>
+<span class="sd">                or be a full path from the `FHI-aims/species_defaults` directory.</span>
+<span class="sd">            species_dir (str | Path | None): The base species directory</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The block to add to the control.in file for the species</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If a file for the species is not found</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">species_defaults</span> <span class="o">=</span> <span class="n">SpeciesDefaults</span><span class="o">.</span><span class="n">from_structure</span><span class="p">(</span><span class="n">structure</span><span class="p">,</span> <span class="n">basis_set</span><span class="p">,</span> <span class="n">species_dir</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">species_defaults</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsControlIn.as_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsControlIn.as_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a dictionary representation of the geometry.in file.&quot;&quot;&quot;</span>
+        <span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;@module&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;@class&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;parameters&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="k">return</span> <span class="n">dct</span></div>
+
+
+<div class="viewcode-block" id="AimsControlIn.from_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsControlIn.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize from dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dct (dict[str, Any]): The MontyEncoded dictionary</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The AimsControlIn for dct</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">decoded</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">MontyDecoder</span><span class="p">()</span><span class="o">.</span><span class="n">process_decoded</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">dct</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)}</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_parameters</span><span class="o">=</span><span class="n">decoded</span><span class="p">[</span><span class="s2">&quot;parameters&quot;</span><span class="p">])</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="AimsSpeciesFile">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsSpeciesFile">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AimsSpeciesFile</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;An FHI-aims single species&#39; defaults file.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        data (str): A string of the complete species defaults file</span>
+<span class="sd">        label (str): A string representing the name of species</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">data</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set default label&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
+                <span class="k">if</span> <span class="s2">&quot;species&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+
+<div class="viewcode-block" id="AimsSpeciesFile.from_file">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsSpeciesFile.from_file">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize from file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename (str): The filename of the species&#39; defaults file</span>
+<span class="sd">            label (str): A string representing the name of species</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            AimsSpeciesFile</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">zopen</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AimsSpeciesFile.from_element_and_basis_name">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsSpeciesFile.from_element_and_basis_name">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_element_and_basis_name</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">element</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">basis</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">species_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize from element and basis names.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            element (str): the element name (not to confuse with the species)</span>
+<span class="sd">            basis (str): the directory in which the species&#39; defaults file is located relative to the</span>
+<span class="sd">                root `species_defaults` (or `species_defaults/defaults_2020`) directory.`.</span>
+<span class="sd">            label (str): A string representing the name of species. If not specified,</span>
+<span class="sd">                then equal to element</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            AimsSpeciesFile</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># check if element is in the Periodic Table (+ Emptium)</span>
+        <span class="k">if</span> <span class="n">element</span> <span class="o">!=</span> <span class="s2">&quot;Emptium&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">Element</span><span class="p">,</span> <span class="n">element</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">element</span><span class="si">}</span><span class="s2"> is not a valid element name.&quot;</span><span class="p">)</span>
+            <span class="n">el_obj</span> <span class="o">=</span> <span class="n">Element</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
+            <span class="n">species_file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">el_obj</span><span class="o">.</span><span class="n">Z</span><span class="si">:</span><span class="s2">02</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">element</span><span class="si">}</span><span class="s2">_default&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">species_file_name</span> <span class="o">=</span> <span class="s2">&quot;00_Emptium_default&quot;</span>
+
+        <span class="n">aims_species_dir</span> <span class="o">=</span> <span class="n">species_dir</span> <span class="ow">or</span> <span class="n">SETTINGS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;AIMS_SPECIES_DIR&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">aims_species_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;No AIMS_SPECIES_DIR variable found in the config file. &quot;</span>
+                <span class="s2">&quot;Please set the variable in ~/.config/.pmgrc.yaml to the root of `species_defaults` &quot;</span>
+                <span class="s2">&quot;folder in FHIaims/ directory.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">paths_to_try</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">aims_species_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">basis</span> <span class="o">/</span> <span class="n">species_file_name</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">as_posix</span><span class="p">(),</span>
+            <span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">aims_species_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;defaults_2020&quot;</span> <span class="o">/</span> <span class="n">basis</span> <span class="o">/</span> <span class="n">species_file_name</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">as_posix</span><span class="p">(),</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths_to_try</span><span class="p">:</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">zpath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+                <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span>
+
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Can&#39;t find the species&#39; defaults file for </span><span class="si">{</span><span class="n">element</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">basis</span><span class="si">}</span><span class="s2"> basis set. Paths tried: </span><span class="si">{</span><span class="n">paths_to_try</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;String representation of the species&#39; defaults file&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span>
+            <span class="sa">r</span><span class="s2">&quot;^ *species +\w+&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;  species        </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">flags</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">MULTILINE</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">element</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">match</span> <span class="o">:=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^ *species +(\w+)&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">MULTILINE</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">match</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Can&#39;t find element in species&#39; defaults file&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AimsSpeciesFile.as_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsSpeciesFile.as_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dictionary representation of the species&#39; defaults file.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+            <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="AimsSpeciesFile.from_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.AimsSpeciesFile.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Deserialization of the AimsSpeciesFile object&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">dct</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SpeciesDefaults">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.SpeciesDefaults">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SpeciesDefaults</span><span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="n">MSONable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A list containing a set of species&#39; defaults objects with</span>
+<span class="sd">    methods to read and write them to files</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">labels</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">basis_set</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">species_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">elements</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            labels (list[str]): a list of labels, for which to build species&#39; defaults</span>
+<span class="sd">            basis_set (str | dict[str, str]):</span>
+<span class="sd">                a name of a basis set (`light`, `tight`...) or a mapping from site labels to basis set names.</span>
+<span class="sd">                The name of a basis set can either correspond to the subfolder in `defaults_2020` folder</span>
+<span class="sd">                or be a full path from the `FHI-aims/species_defaults` directory.</span>
+<span class="sd">            species_dir (str | Path | None): The base species directory</span>
+<span class="sd">            elements (dict[str, str] | None):</span>
+<span class="sd">                a mapping from site labels to elements. If some label is not in this mapping,</span>
+<span class="sd">                it coincides with an element.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">labels</span> <span class="o">=</span> <span class="n">labels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">basis_set</span> <span class="o">=</span> <span class="n">basis_set</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">species_dir</span> <span class="o">=</span> <span class="n">species_dir</span>
+
+        <span class="k">if</span> <span class="n">elements</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">elements</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">elements</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">:</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;,\s*spin\s*=\s*[+-]?([0-9]*[.])?[0-9]+&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_species</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_species</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize species defaults from the instance data&quot;&quot;&quot;</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="p">[:]</span>
+
+        <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">el</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">basis_set</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">basis_set</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_set</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">basis_set</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Basis set not found for specie </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> (represented by element </span><span class="si">{</span><span class="n">el</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">basis_set</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_set</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">AimsSpeciesFile</span><span class="o">.</span><span class="n">from_element_and_basis_name</span><span class="p">(</span><span class="n">el</span><span class="p">,</span> <span class="n">basis_set</span><span class="p">,</span> <span class="n">species_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">species_dir</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;String representation of the species&#39; defaults&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">])</span>
+
+<div class="viewcode-block" id="SpeciesDefaults.from_structure">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.SpeciesDefaults.from_structure">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_structure</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">struct</span><span class="p">:</span> <span class="n">Structure</span> <span class="o">|</span> <span class="n">Molecule</span><span class="p">,</span>
+        <span class="n">basis_set</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+        <span class="n">species_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize species defaults from a structure.&quot;&quot;&quot;</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">elements</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="n">struct</span><span class="p">:</span>
+            <span class="n">el</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">specie</span>
+            <span class="k">if</span> <span class="n">site</span><span class="o">.</span><span class="n">species_string</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">:</span>
+                <span class="n">labels</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">site</span><span class="o">.</span><span class="n">species_string</span><span class="p">)</span>
+                <span class="n">elements</span><span class="p">[</span><span class="n">site</span><span class="o">.</span><span class="n">species_string</span><span class="p">]</span> <span class="o">=</span> <span class="n">el</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">return</span> <span class="n">SpeciesDefaults</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">labels</span><span class="p">),</span> <span class="n">basis_set</span><span class="p">,</span> <span class="n">species_dir</span><span class="o">=</span><span class="n">species_dir</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="n">elements</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpeciesDefaults.to_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.SpeciesDefaults.to_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dictionary representation of the species&#39; defaults&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;labels&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span>
+            <span class="s2">&quot;elements&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="p">,</span>
+            <span class="s2">&quot;basis_set&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_set</span><span class="p">,</span>
+            <span class="s2">&quot;@module&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+            <span class="s2">&quot;@class&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="SpeciesDefaults.from_dict">
+<a class="viewcode-back" href="../../../../pymatgen.io.aims.html#pymatgen.io.aims.inputs.SpeciesDefaults.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">SpeciesDefaults</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Deserialization of the SpeciesDefaults object&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">SpeciesDefaults</span><span class="p">(</span><span class="n">dct</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">],</span> <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;basis_set&quot;</span><span class="p">],</span> <span class="n">elements</span><span class="o">=</span><span class="n">dct</span><span class="p">[</span><span class="s2">&quot;elements&quot;</span><span class="p">])</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.io.aims.inputs</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

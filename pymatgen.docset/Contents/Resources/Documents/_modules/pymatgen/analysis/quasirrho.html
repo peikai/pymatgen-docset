@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pymatgen.analysis.quasirrho &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.quasirrho</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pymatgen.analysis.quasirrho</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
+<span class="c1"># Distributed under the terms of the MIT License.</span>
+
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">A module to calculate free energies using the Quasi-Rigid Rotor Harmonic</span>
+<span class="sd">Oscillator approximation. Modified from a script by Steven Wheeler.</span>
+<span class="sd">See: Grimme, S. Chem. Eur. J. 2012, 18, 9955.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.constants</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">const</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core.units</span><span class="w"> </span><span class="kn">import</span> <span class="n">kb</span> <span class="k">as</span> <span class="n">kb_ev</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.due</span><span class="w"> </span><span class="kn">import</span> <span class="n">Doi</span><span class="p">,</span> <span class="n">due</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Molecule</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.gaussian</span><span class="w"> </span><span class="kn">import</span> <span class="n">GaussianOutput</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.io.qchem.outputs</span><span class="w"> </span><span class="kn">import</span> <span class="n">QCOutput</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Alex Epstein&quot;</span>
+<span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Copyright 2020, The Materials Project&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.1&quot;</span>
+<span class="n">__maintainer__</span> <span class="o">=</span> <span class="s2">&quot;Alex Epstein&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;aepstein@lbl.gov&quot;</span>
+<span class="n">__date__</span> <span class="o">=</span> <span class="s2">&quot;August 1, 2023&quot;</span>
+<span class="n">__credits__</span> <span class="o">=</span> <span class="s2">&quot;Ryan Kingsbury, Steven Wheeler, Trevor Seguin, Evan Spotte-Smith&quot;</span>
+
+<span class="c1"># Define useful constants</span>
+<span class="n">kb</span> <span class="o">=</span> <span class="n">kb_ev</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">eV</span>  <span class="c1"># Pymatgen kb [J/K]</span>
+<span class="n">light_speed</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">speed_of_light</span> <span class="o">*</span> <span class="mi">100</span>  <span class="c1"># [cm/s]</span>
+<span class="n">h_plank</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">h</span>  <span class="c1"># Planck&#39;s constant [J.s]</span>
+<span class="n">ideal_gas_const</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">R</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">calorie</span>  <span class="c1"># Ideal gas constant [cal/mol/K]</span>
+<span class="n">R_ha</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">R</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Hartree energy&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">Avogadro</span>  <span class="c1"># Ideal gas</span>
+
+<span class="c1"># Define useful conversion factors</span>
+<span class="n">amu_to_kg</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;atomic mass unit-kilogram relationship&quot;</span><span class="p">)</span>  <span class="c1"># AMU to kg</span>
+<span class="c1"># kcal2hartree = 0.0015936  # kcal/mol to hartree/mol</span>
+<span class="n">kcal_to_hartree</span> <span class="o">=</span> <span class="mi">1000</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">calorie</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="s2">&quot;Hartree energy&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">Avogadro</span>
+
+
+<div class="viewcode-block" id="get_avg_mom_inertia">
+<a class="viewcode-back" href="../../../pymatgen.analysis.html#pymatgen.analysis.quasirrho.get_avg_mom_inertia">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_avg_mom_inertia</span><span class="p">(</span><span class="n">mol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate the average moment of inertia of a molecule.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        mol (Molecule): Pymatgen Molecule</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        int, list: average moment of inertia, eigenvalues of the inertia tensor</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">centered_mol</span> <span class="o">=</span> <span class="n">mol</span><span class="o">.</span><span class="n">get_centered_molecule</span><span class="p">()</span>
+    <span class="n">inertia_tensor</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="n">centered_mol</span><span class="p">:</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">coords</span>
+        <span class="n">wt</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">atomic_mass</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="n">inertia_tensor</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">]</span> <span class="o">+=</span> <span class="n">wt</span> <span class="o">*</span> <span class="p">(</span><span class="n">c</span><span class="p">[(</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">3</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">c</span><span class="p">[(</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="o">%</span> <span class="mi">3</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ii</span><span class="p">,</span> <span class="n">jj</span> <span class="ow">in</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]:</span>
+            <span class="n">inertia_tensor</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="n">jj</span><span class="p">]</span> <span class="o">+=</span> <span class="o">-</span><span class="n">wt</span> <span class="o">*</span> <span class="n">c</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="o">*</span> <span class="n">c</span><span class="p">[</span><span class="n">jj</span><span class="p">]</span>
+            <span class="n">inertia_tensor</span><span class="p">[</span><span class="n">jj</span><span class="p">,</span> <span class="n">ii</span><span class="p">]</span> <span class="o">+=</span> <span class="o">-</span><span class="n">wt</span> <span class="o">*</span> <span class="n">c</span><span class="p">[</span><span class="n">jj</span><span class="p">]</span> <span class="o">*</span> <span class="n">c</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span>
+
+    <span class="c1"># atomic mass unit * angstrom^2 to kg m^2</span>
+    <span class="n">inertia_eigen_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">inertia_tensor</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">amu_to_kg</span> <span class="o">*</span> <span class="mf">1e-20</span>
+
+    <span class="n">iav</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">inertia_eigen_vals</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">iav</span><span class="p">,</span> <span class="n">inertia_eigen_vals</span></div>
+
+
+
+<div class="viewcode-block" id="QuasiRRHO">
+<a class="viewcode-back" href="../../../pymatgen.analysis.html#pymatgen.analysis.quasirrho.QuasiRRHO">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">QuasiRRHO</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate thermochemistry using Grimme&#39;s Quasi-RRHO approximation.</span>
+<span class="sd">    All outputs are in atomic units, e.g. energy outputs are in Hartrees.</span>
+<span class="sd">    Citation: Grimme, S. Chemistry - A European Journal 18, 9955-9964 (2012).</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        temp (float): Temperature [K]</span>
+<span class="sd">        press (float): Pressure [Pa]</span>
+<span class="sd">        v0 (float): Cutoff frequency for Quasi-RRHO method [1/cm]</span>
+<span class="sd">        entropy_quasiRRHO (float): Quasi-RRHO entropy [Ha/K]</span>
+<span class="sd">        entropy_ho (float): Total entropy calculated with a harmonic</span>
+<span class="sd">            oscillator approximation for the vibrational entropy [Ha/K]</span>
+<span class="sd">        h_corrected (float): Thermal correction to the enthalpy [Ha]</span>
+<span class="sd">        free_energy_quasiRRHO (float): Quasi-RRHO free energy [Ha]</span>
+<span class="sd">        free_energy_ho (float): Free energy calculated without the Quasi-RRHO</span>
+<span class="sd">            method, i.e. with a harmonic oscillator approximation for the</span>
+<span class="sd">            vibrational entropy [Ha]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mol</span><span class="p">:</span> <span class="n">Molecule</span><span class="p">,</span>
+        <span class="n">frequencies</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">energy</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">mult</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">sigma_r</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">temp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">298.15</span><span class="p">,</span>
+        <span class="n">press</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">101_317</span><span class="p">,</span>
+        <span class="n">v0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            mol (Molecule): Pymatgen molecule</span>
+<span class="sd">            frequencies (list): List of frequencies (float) [cm^-1]</span>
+<span class="sd">            energy (float): Electronic energy [Ha]</span>
+<span class="sd">            mult (int): Spin multiplicity</span>
+<span class="sd">            sigma_r (int): Rotational symmetry number. Defaults to 1.</span>
+<span class="sd">            temp (float): Temperature [K]. Defaults to 298.15.</span>
+<span class="sd">            press (float): Pressure [Pa]. Defaults to 101_317.</span>
+<span class="sd">            v0 (float): Cutoff frequency for Quasi-RRHO method [cm^-1]. Defaults to 100.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># TO-DO: calculate sigma_r with PointGroupAnalyzer</span>
+        <span class="c1"># and/or edit Gaussian and QChem io to parse for sigma_r</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">=</span> <span class="n">temp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">press</span> <span class="o">=</span> <span class="n">press</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v0</span> <span class="o">=</span> <span class="n">v0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">entropy_quasiRRHO</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Ha/K</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">free_energy_quasiRRHO</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Ha</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h_corrected</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Ha</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">entropy_ho</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Ha/K</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">free_energy_ho</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Ha</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_get_quasirrho_thermo</span><span class="p">(</span>
+            <span class="n">mol</span><span class="o">=</span><span class="n">mol</span><span class="p">,</span>
+            <span class="n">mult</span><span class="o">=</span><span class="n">mult</span><span class="p">,</span>
+            <span class="n">frequencies</span><span class="o">=</span><span class="n">frequencies</span><span class="p">,</span>
+            <span class="n">elec_energy</span><span class="o">=</span><span class="n">energy</span><span class="p">,</span>
+            <span class="n">sigma_r</span><span class="o">=</span><span class="n">sigma_r</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="QuasiRRHO.from_gaussian_output">
+<a class="viewcode-back" href="../../../pymatgen.analysis.html#pymatgen.analysis.quasirrho.QuasiRRHO.from_gaussian_output">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_gaussian_output</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">GaussianOutput</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            output (GaussianOutput): Pymatgen GaussianOutput object.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            QuasiRRHO: QuasiRRHO class instantiated from a Gaussian Output</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mult</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">spin_multiplicity</span>
+        <span class="n">elec_e</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">final_energy</span>
+        <span class="n">mol</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">final_structure</span>
+        <span class="n">vib_freqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">freq</span><span class="p">[</span><span class="s2">&quot;frequency&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">freq</span> <span class="ow">in</span> <span class="n">output</span><span class="o">.</span><span class="n">frequencies</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">mol</span><span class="o">=</span><span class="n">mol</span><span class="p">,</span> <span class="n">frequencies</span><span class="o">=</span><span class="n">vib_freqs</span><span class="p">,</span> <span class="n">energy</span><span class="o">=</span><span class="n">elec_e</span><span class="p">,</span> <span class="n">mult</span><span class="o">=</span><span class="n">mult</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="QuasiRRHO.from_qc_output">
+<a class="viewcode-back" href="../../../pymatgen.analysis.html#pymatgen.analysis.quasirrho.QuasiRRHO.from_qc_output">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_qc_output</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">QCOutput</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            output (QCOutput): Pymatgen QCOutput object.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            QuasiRRHO: QuasiRRHO class instantiated from a QChem Output</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mult</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;multiplicity&quot;</span><span class="p">]</span>
+        <span class="n">elec_e</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;SCF_energy_in_the_final_basis_set&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">output</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;optimization&quot;</span><span class="p">]:</span>
+            <span class="n">mol</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;molecule_from_last_geometry&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mol</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;initial_molecule&quot;</span><span class="p">]</span>
+        <span class="n">frequencies</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;frequencies&quot;</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">mol</span><span class="o">=</span><span class="n">mol</span><span class="p">,</span> <span class="n">frequencies</span><span class="o">=</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">energy</span><span class="o">=</span><span class="n">elec_e</span><span class="p">,</span> <span class="n">mult</span><span class="o">=</span><span class="n">mult</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+    <span class="nd">@due</span><span class="o">.</span><span class="n">dcite</span><span class="p">(</span>
+        <span class="n">Doi</span><span class="p">(</span><span class="s2">&quot;10.1002/chem.201200497&quot;</span><span class="p">),</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Supramolecular Binding Thermodynamics by Dispersion-Corrected Density Functional Theory&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_quasirrho_thermo</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mol</span><span class="p">:</span> <span class="n">Molecule</span><span class="p">,</span>
+        <span class="n">mult</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">sigma_r</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">frequencies</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">elec_energy</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate Quasi-RRHO thermochemistry.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mol (Molecule): Pymatgen molecule</span>
+<span class="sd">            mult (int): Spin multiplicity</span>
+<span class="sd">            sigma_r (int): Rotational symmetry number</span>
+<span class="sd">            frequencies (list): List of frequencies [cm^-1]</span>
+<span class="sd">            elec_energy (float): Electronic energy [Ha]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Calculate mass in kg</span>
+        <span class="n">mass</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="n">mol</span><span class="p">:</span>
+            <span class="n">mass</span> <span class="o">+=</span> <span class="n">site</span><span class="o">.</span><span class="n">specie</span><span class="o">.</span><span class="n">atomic_mass</span>
+        <span class="n">mass</span> <span class="o">*=</span> <span class="n">amu_to_kg</span>
+
+        <span class="c1"># Calculate vibrational temperatures</span>
+        <span class="n">vib_temps</span> <span class="o">=</span> <span class="p">[</span><span class="n">freq</span> <span class="o">*</span> <span class="n">light_speed</span> <span class="o">*</span> <span class="n">h_plank</span> <span class="o">/</span> <span class="n">kb</span> <span class="k">for</span> <span class="n">freq</span> <span class="ow">in</span> <span class="n">frequencies</span> <span class="k">if</span> <span class="n">freq</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Translational component of entropy and energy</span>
+        <span class="n">qt</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">mass</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">/</span> <span class="p">(</span><span class="n">h_plank</span> <span class="o">*</span> <span class="n">h_plank</span><span class="p">))</span> <span class="o">**</span> <span class="p">(</span><span class="mi">3</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">press</span>
+        <span class="n">st</span> <span class="o">=</span> <span class="n">ideal_gas_const</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">qt</span><span class="p">)</span> <span class="o">+</span> <span class="mi">5</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">et</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">ideal_gas_const</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">/</span> <span class="mi">2</span>
+
+        <span class="c1"># Electronic component of Entropy</span>
+        <span class="n">se</span> <span class="o">=</span> <span class="n">ideal_gas_const</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">mult</span><span class="p">)</span>
+
+        <span class="c1"># Get properties related to rotational symmetry. Bav is average moment of inertia</span>
+        <span class="n">Bav</span><span class="p">,</span> <span class="n">i_eigen</span> <span class="o">=</span> <span class="n">get_avg_mom_inertia</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+
+        <span class="c1"># Check if linear</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">mol</span><span class="o">.</span><span class="n">cart_coords</span>
+        <span class="n">v0</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">linear</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="n">theta</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">coord</span> <span class="o">-</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v0</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">coord</span> <span class="o">-</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">v0</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">abs_tol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">):</span>
+                <span class="n">linear</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># Rotational component of Entropy and Energy</span>
+        <span class="k">if</span> <span class="n">linear</span><span class="p">:</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">i_eigen</span><span class="p">)</span>
+            <span class="n">qr</span> <span class="o">=</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">/</span> <span class="p">(</span><span class="n">sigma_r</span> <span class="o">*</span> <span class="p">(</span><span class="n">h_plank</span> <span class="o">*</span> <span class="n">h_plank</span><span class="p">))</span>
+            <span class="n">sr</span> <span class="o">=</span> <span class="n">ideal_gas_const</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">qr</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">er</span> <span class="o">=</span> <span class="n">ideal_gas_const</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rot_temps</span> <span class="o">=</span> <span class="p">[</span><span class="n">h_plank</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">i_eigen</span><span class="p">]</span>
+            <span class="n">qr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma_r</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">**</span> <span class="p">(</span><span class="mi">3</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">rot_temps</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">rot_temps</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">rot_temps</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">sr</span> <span class="o">=</span> <span class="n">ideal_gas_const</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">qr</span><span class="p">)</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">er</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">ideal_gas_const</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">/</span> <span class="mi">2</span>
+
+        <span class="c1"># Vibrational component of Entropy and Energy</span>
+        <span class="n">ev</span> <span class="o">=</span> <span class="n">sv_quasiRRHO</span> <span class="o">=</span> <span class="n">sv</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">vt</span> <span class="ow">in</span> <span class="n">vib_temps</span><span class="p">:</span>
+            <span class="n">ev</span> <span class="o">+=</span> <span class="n">vt</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">vt</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">sv_temp</span> <span class="o">=</span> <span class="n">vt</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">vt</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">vt</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span><span class="p">))</span>
+            <span class="n">sv</span> <span class="o">+=</span> <span class="n">sv_temp</span>
+
+            <span class="n">mu</span> <span class="o">=</span> <span class="n">h_plank</span> <span class="o">/</span> <span class="p">(</span><span class="mi">8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">vt</span> <span class="o">*</span> <span class="n">light_speed</span><span class="p">)</span>
+            <span class="n">mu_prime</span> <span class="o">=</span> <span class="n">mu</span> <span class="o">*</span> <span class="n">Bav</span> <span class="o">/</span> <span class="p">(</span><span class="n">mu</span> <span class="o">+</span> <span class="n">Bav</span><span class="p">)</span>
+            <span class="n">s_rotor</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">mu_prime</span> <span class="o">*</span> <span class="n">kb</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">/</span> <span class="n">h_plank</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">v0</span> <span class="o">/</span> <span class="n">vt</span><span class="p">)</span> <span class="o">**</span> <span class="mi">4</span><span class="p">)</span>
+            <span class="n">sv_quasiRRHO</span> <span class="o">+=</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">sv_temp</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">weight</span><span class="p">)</span> <span class="o">*</span> <span class="n">s_rotor</span>
+
+        <span class="n">sv_quasiRRHO</span> <span class="o">*=</span> <span class="n">ideal_gas_const</span>
+        <span class="n">sv</span> <span class="o">*=</span> <span class="n">ideal_gas_const</span>
+        <span class="n">ev</span> <span class="o">*=</span> <span class="n">ideal_gas_const</span>
+        <span class="n">e_tot</span> <span class="o">=</span> <span class="p">(</span><span class="n">et</span> <span class="o">+</span> <span class="n">er</span> <span class="o">+</span> <span class="n">ev</span><span class="p">)</span> <span class="o">*</span> <span class="n">kcal_to_hartree</span> <span class="o">/</span> <span class="mi">1000</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h_corrected</span> <span class="o">=</span> <span class="n">e_tot</span> <span class="o">+</span> <span class="n">ideal_gas_const</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">*</span> <span class="n">kcal_to_hartree</span> <span class="o">/</span> <span class="mi">1000</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">entropy_ho</span> <span class="o">=</span> <span class="n">st</span> <span class="o">+</span> <span class="n">sr</span> <span class="o">+</span> <span class="n">sv</span> <span class="o">+</span> <span class="n">se</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">free_energy_ho</span> <span class="o">=</span> <span class="n">elec_energy</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">h_corrected</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">entropy_ho</span> <span class="o">*</span> <span class="n">kcal_to_hartree</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">entropy_quasiRRHO</span> <span class="o">=</span> <span class="n">st</span> <span class="o">+</span> <span class="n">sr</span> <span class="o">+</span> <span class="n">sv_quasiRRHO</span> <span class="o">+</span> <span class="n">se</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">free_energy_quasiRRHO</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">elec_energy</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">h_corrected</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temp</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">entropy_quasiRRHO</span> <span class="o">*</span> <span class="n">kcal_to_hartree</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
+        <span class="p">)</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pymatgen.analysis.quasirrho</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    </div>
+  </body>
+</html>

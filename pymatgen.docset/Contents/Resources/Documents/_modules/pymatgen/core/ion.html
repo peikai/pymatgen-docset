@@ -1,27 +1,19 @@
-
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../../../">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.core.ion &#8212; pymatgen 2023.1.30 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
-    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-    <script src="../../../_static/doctools.js"></script>
-    <script src="../../../_static/sphinx_highlight.js"></script>
+    <title>pymatgen.core.ion &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../search.html" />
- 
-<script type="text/javascript">
-  var _gaq = _gaq || [];
-  _gaq.push(['_setAccount', 'UA-33990148-1']);
-  _gaq.push(['_trackPageview']);
-</script>
-
+    <link rel="search" title="Search" href="../../../search.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -30,7 +22,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.core.ion</a></li> 
       </ul>
@@ -41,110 +33,144 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.core.ion</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (c) Pymatgen Development Team.</span>
-<span class="c1"># Distributed under the terms of the MIT License.</span>
+<span></span><span class="sd">&quot;&quot;&quot;Module containing class to create an ion.&quot;&quot;&quot;</span>
 
-<span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Module containing class to create an ion</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
 
-<span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.json</span><span class="w"> </span><span class="kn">import</span> <span class="n">MSONable</span>
 
-<span class="kn">from</span> <span class="nn">monty.json</span> <span class="kn">import</span> <span class="n">MSONable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core.composition</span><span class="w"> </span><span class="kn">import</span> <span class="n">Composition</span><span class="p">,</span> <span class="n">reduce_formula</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.util.string</span><span class="w"> </span><span class="kn">import</span> <span class="n">Stringify</span><span class="p">,</span> <span class="n">charge_string</span><span class="p">,</span> <span class="n">formula_double_format</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.core.composition</span> <span class="kn">import</span> <span class="n">Composition</span><span class="p">,</span> <span class="n">reduce_formula</span>
-<span class="kn">from</span> <span class="nn">pymatgen.util.string</span> <span class="kn">import</span> <span class="n">Stringify</span><span class="p">,</span> <span class="n">charge_string</span><span class="p">,</span> <span class="n">formula_double_format</span>
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
 
 
-<div class="viewcode-block" id="Ion"><a class="viewcode-back" href="../../../pymatgen.core.ion.html#pymatgen.core.ion.Ion">[docs]</a><span class="k">class</span> <span class="nc">Ion</span><span class="p">(</span><span class="n">Composition</span><span class="p">,</span> <span class="n">MSONable</span><span class="p">,</span> <span class="n">Stringify</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Ion object. Just a Composition object with an additional variable to store</span>
-<span class="sd">    charge.</span>
+<div class="viewcode-block" id="Ion">
+<a class="viewcode-back" href="../../../pymatgen.core.html#pymatgen.core.ion.Ion">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Ion</span><span class="p">(</span><span class="n">Composition</span><span class="p">,</span> <span class="n">MSONable</span><span class="p">,</span> <span class="n">Stringify</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Just a Composition object with an additional variable to store charge.</span>
 
 <span class="sd">    The net charge can either be represented as Mn++, Mn+2, Mn[2+], Mn[++], or</span>
 <span class="sd">    Mn[+2]. Note the order of the sign and magnitude in each representation.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">composition</span><span class="p">,</span> <span class="n">charge</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">properties</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Flexible Ion construction, similar to Composition.</span>
-<span class="sd">        For more information, please see pymatgen.core.Composition</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">composition</span><span class="p">:</span> <span class="n">Composition</span><span class="p">,</span> <span class="n">charge</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Flexible Ion construction, similar to Composition.</span>
+<span class="sd">        For more information, please see pymatgen.core.Composition.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">composition</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">composition</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_charge</span> <span class="o">=</span> <span class="n">charge</span>
 
-<div class="viewcode-block" id="Ion.from_formula"><a class="viewcode-back" href="../../../pymatgen.core.ion.html#pymatgen.core.ion.Ion.from_formula">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_formula</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">formula</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ion</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Creates Ion from formula. The net charge can either be represented as</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">composition</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">charge</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Addition of two ions.&quot;&quot;&quot;</span>
+        <span class="n">new_composition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span> <span class="o">+</span> <span class="n">other</span><span class="o">.</span><span class="n">composition</span>
+        <span class="n">new_charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">+</span> <span class="n">other</span><span class="o">.</span><span class="n">charge</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">new_composition</span><span class="p">,</span> <span class="n">new_charge</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subtraction of two ions.&quot;&quot;&quot;</span>
+        <span class="n">new_composition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span> <span class="o">-</span> <span class="n">other</span><span class="o">.</span><span class="n">composition</span>
+        <span class="n">new_charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">-</span> <span class="n">other</span><span class="o">.</span><span class="n">charge</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">new_composition</span><span class="p">,</span> <span class="n">new_charge</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Multiplication of an Ion with a factor.&quot;&quot;&quot;</span>
+        <span class="n">new_composition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span> <span class="o">*</span> <span class="n">other</span>
+        <span class="n">new_charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">*</span> <span class="n">other</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">new_composition</span><span class="p">,</span> <span class="n">new_charge</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">formula</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Ion: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">formula</span><span class="si">}</span><span class="s2">&quot;</span>
+
+<div class="viewcode-block" id="Ion.from_formula">
+<a class="viewcode-back" href="../../../pymatgen.core.html#pymatgen.core.ion.Ion.from_formula">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_formula</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">formula</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create Ion from formula. The net charge can either be represented as</span>
 <span class="sd">        Mn++, Mn+2, Mn[2+], Mn[++], or Mn[+2]. Note the order of the sign and</span>
 <span class="sd">        magnitude in each representation.</span>
 
 <span class="sd">        Also note that (aq) can be included in the formula, e.g. &quot;NaOH (aq)&quot;.</span>
 
-<span class="sd">        :param formula:</span>
-<span class="sd">        :return: Ion</span>
+<span class="sd">        Args:</span>
+<span class="sd">            formula (str): The formula to create ion from.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Ion</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Strip (aq), if present</span>
+        <span class="k">if</span> <span class="n">match</span> <span class="o">:=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\(aq\)&quot;</span><span class="p">,</span> <span class="n">formula</span><span class="p">):</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="n">formula</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(),</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Check for charge in brackets</span>
         <span class="n">charge</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="n">f</span> <span class="o">=</span> <span class="n">formula</span>
-        <span class="c1"># strip (aq), if present</span>
-        <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\(aq\)&quot;</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
-            <span class="n">f</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(),</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="c1"># check for charge in brackets</span>
-        <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[([^\[\]]+)\]&quot;</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
-            <span class="n">m_chg</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;([\.\d]*)([+-]*)([\.\d]*)&quot;</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
-            <span class="k">if</span> <span class="n">m_chg</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">match</span> <span class="o">:=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[([^\[\]]+)\]&quot;</span><span class="p">,</span> <span class="n">formula</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">m_chg</span> <span class="o">:=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;([\.\d]*)([+-]*)([\.\d]*)&quot;</span><span class="p">,</span> <span class="n">match</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="k">if</span> <span class="n">m_chg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">m_chg</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
                         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid formula&quot;</span><span class="p">)</span>
-                    <span class="n">charge</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;1&quot;</span><span class="p">))</span>
-                <span class="k">elif</span> <span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
-                    <span class="n">charge</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;1&quot;</span><span class="p">))</span>
+                    <span class="n">charge</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m_chg</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">m_chg</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">1&quot;</span><span class="p">))</span>
+                <span class="k">elif</span> <span class="n">m_chg</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+                    <span class="n">charge</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m_chg</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">m_chg</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">1&quot;</span><span class="p">))</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">&quot;[+-]&quot;</span><span class="p">,</span> <span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)):</span>
-                        <span class="n">charge</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="s2">&quot;1&quot;</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">&quot;[+-]&quot;</span><span class="p">,</span> <span class="n">m_chg</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+                        <span class="n">charge</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">1&quot;</span><span class="p">)</span>
 
-            <span class="n">f</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(),</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="n">formula</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(),</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
-        <span class="c1"># if no brackets, parse trailing +/-</span>
-        <span class="k">for</span> <span class="n">m_chg</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">finditer</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;([+-])([\.\d]*)&quot;</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
-            <span class="n">sign</span> <span class="o">=</span> <span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">sgn</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">sign</span> <span class="o">+</span> <span class="s2">&quot;1&quot;</span><span class="p">))</span>
-            <span class="k">if</span> <span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
-                <span class="n">charge</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="o">*</span> <span class="n">sgn</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">charge</span> <span class="o">+=</span> <span class="n">sgn</span>
-            <span class="n">f</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(),</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">composition</span> <span class="o">=</span> <span class="n">Composition</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">composition</span><span class="p">,</span> <span class="n">charge</span><span class="p">)</span></div>
+        <span class="c1"># If no brackets, parse trailing +/-</span>
+        <span class="k">for</span> <span class="n">m_chg</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">finditer</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;([+-])([\.\d]*)&quot;</span><span class="p">,</span> <span class="n">formula</span><span class="p">):</span>
+            <span class="n">sgn</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">m_chg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">1&quot;</span><span class="p">)</span>
+            <span class="n">charge</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m_chg</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">*</span> <span class="n">sgn</span> <span class="k">if</span> <span class="n">m_chg</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span> <span class="k">else</span> <span class="n">sgn</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="n">formula</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">m_chg</span><span class="o">.</span><span class="n">group</span><span class="p">(),</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">Composition</span><span class="p">(</span><span class="n">formula</span><span class="p">),</span> <span class="n">charge</span><span class="p">)</span></div>
+
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">formula</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns a formula string, with elements sorted by electronegativity,</span>
-<span class="sd">        e.g., Li4 Fe4 P4 O16.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">formula</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A formula string with appended charge. The</span>
+<span class="sd">        charge is written with the sign preceding the magnitude, e.g.</span>
+<span class="sd">        &#39;Ca1 +2&#39;. Uncharged species have &quot;(aq)&quot; appended, e.g. &quot;O2 (aq)&quot;.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">formula</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">formula</span>
-        <span class="k">return</span> <span class="n">formula</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">charge_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span> <span class="n">brackets</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">formula</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">charge_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span><span class="w"> </span><span class="n">brackets</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">anonymized_formula</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        An anonymized formula. Appends charge to the end</span>
-<span class="sd">        of anonymized composition</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">anonymized_formula</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;An anonymized formula. Appends charge to the end</span>
+<span class="sd">        of anonymized composition.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">anon_formula</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">anonymized_formula</span>
         <span class="n">chg_str</span> <span class="o">=</span> <span class="n">charge_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_charge</span><span class="p">,</span> <span class="n">brackets</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">anon_formula</span> <span class="o">+</span> <span class="n">chg_str</span>
 
-<div class="viewcode-block" id="Ion.get_reduced_formula_and_factor"><a class="viewcode-back" href="../../../pymatgen.core.ion.html#pymatgen.core.ion.Ion.get_reduced_formula_and_factor">[docs]</a>    <span class="k">def</span> <span class="nf">get_reduced_formula_and_factor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iupac_ordering</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">hydrates</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Calculates a reduced formula and factor.</span>
+<div class="viewcode-block" id="Ion.get_reduced_formula_and_factor">
+<a class="viewcode-back" href="../../../pymatgen.core.html#pymatgen.core.ion.Ion.get_reduced_formula_and_factor">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_reduced_formula_and_factor</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">iupac_ordering</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">hydrates</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate a reduced formula and factor.</span>
 
 <span class="sd">        Similar to Composition.get_reduced_formula_and_factor except that O-H formulas</span>
 <span class="sd">        receive special handling to differentiate between hydrogen peroxide and OH-.</span>
@@ -170,33 +196,34 @@
 <span class="sd">                Ions containing metals.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A pretty normalized formula and a multiplicative factor, i.e.,</span>
-<span class="sd">            H4O4 returns (&#39;H2O2&#39;, 2.0).</span>
+<span class="sd">            tuple[str, float]: A pretty normalized formula and a multiplicative factor, i.e.,</span>
+<span class="sd">                H4O4 returns (&#39;H2O2&#39;, 2.0).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">all_int</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="nb">round</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">Composition</span><span class="o">.</span><span class="n">amount_tolerance</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">all_int</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">val</span> <span class="o">-</span> <span class="nb">round</span><span class="p">(</span><span class="n">val</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">Composition</span><span class="o">.</span><span class="n">amount_tolerance</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">all_int</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">formula</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="mi">1</span>
 
         <span class="n">comp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span>
         <span class="n">nH2O</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">if</span> <span class="n">hydrates</span><span class="p">:</span>
-            <span class="c1"># detect hydrated metal complexes</span>
+            <span class="c1"># Detect hydrated metal complexes</span>
             <span class="n">nH</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
             <span class="n">nO</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;O&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">nO</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">is_metal</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">comp</span><span class="p">):</span>
                 <span class="n">nH2O</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">nO</span><span class="p">)</span> <span class="k">if</span> <span class="n">nH</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">nO</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">nH</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
                 <span class="n">comp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span> <span class="o">-</span> <span class="n">nH2O</span> <span class="o">*</span> <span class="n">Composition</span><span class="p">(</span><span class="s2">&quot;H2O&quot;</span><span class="p">)</span>
 
-        <span class="n">d</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">comp</span><span class="o">.</span><span class="n">get_el_amt_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-        <span class="p">(</span><span class="n">formula</span><span class="p">,</span> <span class="n">factor</span><span class="p">)</span> <span class="o">=</span> <span class="n">reduce_formula</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">iupac_ordering</span><span class="o">=</span><span class="n">iupac_ordering</span><span class="p">)</span>
+        <span class="n">el_amt_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">comp</span><span class="o">.</span><span class="n">get_el_amt_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">formula</span><span class="p">,</span> <span class="n">factor</span> <span class="o">=</span> <span class="n">reduce_formula</span><span class="p">(</span><span class="n">el_amt_dict</span><span class="p">,</span> <span class="n">iupac_ordering</span><span class="o">=</span><span class="n">iupac_ordering</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="s2">&quot;HO&quot;</span> <span class="ow">in</span> <span class="n">formula</span><span class="p">:</span>
+        <span class="c1"># This line checks specifically that the contains an equal amount of O and H. When that is the case,</span>
+        <span class="c1"># they should be displayed as &quot;OH&quot; rather than &quot;HO&quot;.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;H&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;O&quot;</span><span class="p">):</span>
             <span class="n">formula</span> <span class="o">=</span> <span class="n">formula</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;HO&quot;</span><span class="p">,</span> <span class="s2">&quot;OH&quot;</span><span class="p">)</span>
-
         <span class="k">if</span> <span class="n">nH2O</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">formula</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;.</span><span class="si">{</span><span class="n">nH2O</span><span class="si">}</span><span class="s2">H2O&quot;</span>
 
-        <span class="c1"># special handling of peroxide, acetic acid / acetate, and small alcohols</span>
+        <span class="c1"># Special handling of peroxide, acetic acid / acetate, and small alcohols</span>
         <span class="k">if</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;OH&quot;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;H2O2&quot;</span>
             <span class="n">factor</span> <span class="o">/=</span> <span class="mi">2</span>
@@ -204,6 +231,13 @@
         <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;H2CO&quot;</span><span class="p">:</span>
             <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;CH3COOH&quot;</span>
             <span class="n">factor</span> <span class="o">/=</span> <span class="mi">2</span>
+        <span class="c1"># phosphoric acid system</span>
+        <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;PH3O4&quot;</span><span class="p">:</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;H3PO4&quot;</span>
+        <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;PHO4&quot;</span><span class="p">:</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;HPO4&quot;</span>
+        <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;P(HO2)2&quot;</span><span class="p">:</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;H2PO4&quot;</span>
         <span class="c1"># acetate</span>
         <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;H3(CO)2&quot;</span><span class="p">:</span>
             <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;CH3COO&quot;</span>
@@ -219,86 +253,118 @@
         <span class="c1"># butanol</span>
         <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;H10C4O&quot;</span><span class="p">:</span>
             <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;C4H9OH&quot;</span>
+        <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;O&quot;</span> <span class="ow">and</span> <span class="n">factor</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;O3&quot;</span>
+            <span class="n">factor</span> <span class="o">/=</span> <span class="mi">3</span>
+        <span class="c1"># ammonia</span>
+        <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;H4N&quot;</span><span class="p">:</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;NH4&quot;</span>
+        <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;H3N&quot;</span><span class="p">:</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;NH3&quot;</span>
+        <span class="c1"># methane</span>
+        <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;H4C&quot;</span><span class="p">:</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;CH4&quot;</span>
+        <span class="c1"># thiocyanate</span>
+        <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;CSN&quot;</span><span class="p">:</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;SCN&quot;</span>
+        <span class="c1"># triiodide, nitride, an phosphide</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="n">formula</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;N&quot;</span><span class="p">,</span> <span class="s2">&quot;P&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;I&quot;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">3</span><span class="p">):</span>
+            <span class="n">formula</span> <span class="o">+=</span> <span class="s2">&quot;3&quot;</span>
+            <span class="n">factor</span> <span class="o">/=</span> <span class="mi">3</span>
+        <span class="c1"># formate # codespell:ignore</span>
+        <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;HCOO&quot;</span><span class="p">:</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;HCO2&quot;</span>
+        <span class="c1"># oxalate</span>
+        <span class="k">elif</span> <span class="n">formula</span> <span class="o">==</span> <span class="s2">&quot;CO2&quot;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">==</span> <span class="o">-</span><span class="mi">2</span><span class="p">:</span>
+            <span class="n">formula</span> <span class="o">=</span> <span class="s2">&quot;C2O4&quot;</span>
+            <span class="n">factor</span> <span class="o">/=</span> <span class="mi">2</span>
+        <span class="c1"># diatomic gases</span>
+        <span class="k">elif</span> <span class="n">formula</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;O&quot;</span><span class="p">,</span> <span class="s2">&quot;N&quot;</span><span class="p">,</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="s2">&quot;Cl&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">}</span> <span class="ow">and</span> <span class="n">factor</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">formula</span> <span class="o">+=</span> <span class="s2">&quot;2&quot;</span>
+            <span class="n">factor</span> <span class="o">/=</span> <span class="mi">2</span>
 
         <span class="k">return</span> <span class="n">formula</span><span class="p">,</span> <span class="n">factor</span></div>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">reduced_formula</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns a reduced formula string with appended charge. The</span>
-<span class="sd">        charge is placed in brackets with the sign preceding the magnitude, e.g.,</span>
-<span class="sd">        &#39;Ca[+2]&#39;.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">reduced_formula</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reduced_formula</span>
-        <span class="n">charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_charge</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_reduced_composition_and_factor</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">chg_str</span> <span class="o">=</span> <span class="n">charge_string</span><span class="p">(</span><span class="n">charge</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">reduced_formula</span> <span class="o">+</span> <span class="n">chg_str</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">alphabetical_formula</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns a formula string, with elements sorted by alphabetically and</span>
-<span class="sd">        appended charge</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reduced_formula</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A reduced formula string with appended charge. The</span>
+<span class="sd">        charge is placed in brackets with the sign preceding the magnitude, e.g.</span>
+<span class="sd">        &#39;Ca[+2]&#39;. Uncharged species have &quot;(aq)&quot; appended, e.g. &quot;O2(aq)&quot;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">formula</span><span class="p">,</span> <span class="n">factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_reduced_formula_and_factor</span><span class="p">()</span>
+        <span class="n">charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_charge</span> <span class="o">/</span> <span class="n">factor</span>
+        <span class="n">chg_str</span> <span class="o">=</span> <span class="n">charge_string</span><span class="p">(</span><span class="n">charge</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">formula</span> <span class="o">+</span> <span class="n">chg_str</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">alphabetical_formula</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A formula string, with elements sorted by alphabetically and</span>
+<span class="sd">        appended charge.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">alph_formula</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">alphabetical_formula</span>
-        <span class="k">return</span> <span class="n">alph_formula</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">charge_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span> <span class="n">brackets</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">alph_formula</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">charge_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span><span class="w"> </span><span class="n">brackets</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">charge</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Charge of the ion</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">charge</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Charge of the ion.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_charge</span>
 
-<div class="viewcode-block" id="Ion.as_dict"><a class="viewcode-back" href="../../../pymatgen.core.ion.html#pymatgen.core.ion.Ion.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<div class="viewcode-block" id="Ion.as_dict">
+<a class="viewcode-back" href="../../../pymatgen.core.html#pymatgen.core.ion.Ion.as_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
-<span class="sd">            dict with composition, as well as charge</span>
+<span class="sd">            dict with composition, as well as charge.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">d</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
-        <span class="n">d</span><span class="p">[</span><span class="s2">&quot;charge&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span>
-        <span class="k">return</span> <span class="n">d</span></div>
+        <span class="n">dct</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;charge&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span>
+        <span class="k">return</span> <span class="n">dct</span></div>
 
-<div class="viewcode-block" id="Ion.from_dict"><a class="viewcode-back" href="../../../pymatgen.core.ion.html#pymatgen.core.ion.Ion.from_dict">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ion</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Generates an ion object from a dict created by as_dict().</span>
+
+<div class="viewcode-block" id="Ion.from_dict">
+<a class="viewcode-back" href="../../../pymatgen.core.html#pymatgen.core.ion.Ion.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dct</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate an ion object from a dict created by as_dict().</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            d: {symbol: amount} dict.</span>
+<span class="sd">            dct: {symbol: amount} dict.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">input</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
-        <span class="n">charge</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;charge&quot;</span><span class="p">)</span>
-        <span class="n">composition</span> <span class="o">=</span> <span class="n">Composition</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">Ion</span><span class="p">(</span><span class="n">composition</span><span class="p">,</span> <span class="n">charge</span><span class="p">)</span></div>
+        <span class="n">dct_copy</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">dct</span><span class="p">)</span>
+        <span class="n">charge</span> <span class="o">=</span> <span class="n">dct_copy</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;charge&quot;</span><span class="p">)</span>
+        <span class="n">composition</span> <span class="o">=</span> <span class="n">Composition</span><span class="p">(</span><span class="n">dct_copy</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">composition</span><span class="p">,</span> <span class="n">charge</span><span class="p">)</span></div>
+
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">to_reduced_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_reduced_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
-<span class="sd">            dict with element symbol and reduced amount e.g.,</span>
-<span class="sd">            {&quot;Fe&quot;: 2.0, &quot;O&quot;:3.0}.</span>
+<span class="sd">            dict with element symbol and reduced amount e.g.</span>
+<span class="sd">                {&quot;Fe&quot;: 2.0, &quot;O&quot;:3.0}.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">to_reduced_dict</span>
-        <span class="n">d</span><span class="p">[</span><span class="s2">&quot;charge&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span>
-        <span class="k">return</span> <span class="n">d</span>
+        <span class="n">dct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="o">.</span><span class="n">to_reduced_dict</span>
+        <span class="n">dct</span><span class="p">[</span><span class="s2">&quot;charge&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span>
+        <span class="k">return</span> <span class="n">dct</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">composition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Composition</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">composition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Composition</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Composition of ion.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Composition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Ion.oxi_state_guesses"><a class="viewcode-back" href="../../../pymatgen.core.ion.html#pymatgen.core.ion.Ion.oxi_state_guesses">[docs]</a>    <span class="k">def</span> <span class="nf">oxi_state_guesses</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+<div class="viewcode-block" id="Ion.oxi_state_guesses">
+<a class="viewcode-back" href="../../../pymatgen.core.html#pymatgen.core.ion.Ion.oxi_state_guesses">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">oxi_state_guesses</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">oxi_states_override</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">all_oxi_states</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">max_sites</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Checks if the composition is charge-balanced and returns back all</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the composition is charge-balanced and returns all</span>
 <span class="sd">        charge-balanced oxidation state combinations. Composition must have</span>
 <span class="sd">        integer values. Note that more num_atoms in the composition gives</span>
-<span class="sd">        more degrees of freedom. e.g., if possible oxidation states of</span>
+<span class="sd">        more degrees of freedom. e.g. if possible oxidation states of</span>
 <span class="sd">        element X are [2,4] and Y are [-3], then XY is not charge balanced</span>
 <span class="sd">        but X2Y2 is. Results are returned from most to least probable based</span>
 <span class="sd">        on ICSD statistics. Use max_sites to improve performance if needed.</span>
@@ -324,60 +390,19 @@
 <span class="sd">                oxidation state across all sites in that composition. If the</span>
 <span class="sd">                composition is not charge balanced, an empty list is returned.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_oxid_state_guesses</span><span class="p">(</span><span class="n">all_oxi_states</span><span class="p">,</span> <span class="n">max_sites</span><span class="p">,</span> <span class="n">oxi_states_override</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_oxi_state_guesses</span><span class="p">(</span><span class="n">all_oxi_states</span><span class="p">,</span> <span class="n">max_sites</span><span class="p">,</span> <span class="n">oxi_states_override</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># type: ignore[return-value]</span></div>
 
-    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Ion</span><span class="p">):</span>
-            <span class="k">return</span> <span class="bp">NotImplemented</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">composition</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">charge</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">return</span> <span class="kc">True</span>
 
-    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Addition of two ions.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">new_composition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span> <span class="o">+</span> <span class="n">other</span><span class="o">.</span><span class="n">composition</span>
-        <span class="n">new_charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">+</span> <span class="n">other</span><span class="o">.</span><span class="n">charge</span>
-        <span class="k">return</span> <span class="n">Ion</span><span class="p">(</span><span class="n">new_composition</span><span class="p">,</span> <span class="n">new_charge</span><span class="p">)</span>
+<div class="viewcode-block" id="Ion.to_pretty_string">
+<a class="viewcode-back" href="../../../pymatgen.core.html#pymatgen.core.ion.Ion.to_pretty_string">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_pretty_string</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pretty string with proper superscripts.&quot;&quot;&quot;</span>
+        <span class="n">_str</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reduced_formula</span>
+        <span class="k">if</span> <span class="n">val</span> <span class="o">:=</span> <span class="n">formula_double_format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span> <span class="n">ignore_ones</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="n">_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;^</span><span class="si">{</span><span class="n">val</span><span class="si">:</span><span class="s2">+</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="n">_str</span></div>
+</div>
 
-    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Subtraction of two ions</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">new_composition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span> <span class="o">-</span> <span class="n">other</span><span class="o">.</span><span class="n">composition</span>
-        <span class="n">new_charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">-</span> <span class="n">other</span><span class="o">.</span><span class="n">charge</span>
-        <span class="k">return</span> <span class="n">Ion</span><span class="p">(</span><span class="n">new_composition</span><span class="p">,</span> <span class="n">new_charge</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Multiplication of an Ion with a factor</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">new_composition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">composition</span> <span class="o">*</span> <span class="n">other</span>
-        <span class="n">new_charge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">*</span> <span class="n">other</span>
-        <span class="k">return</span> <span class="n">Ion</span><span class="p">(</span><span class="n">new_composition</span><span class="p">,</span> <span class="n">new_charge</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">hash</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">composition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span><span class="p">))</span>
-
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">formula</span>
-
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="s2">&quot;Ion: &quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">formula</span>
-
-<div class="viewcode-block" id="Ion.to_pretty_string"><a class="viewcode-back" href="../../../pymatgen.core.ion.html#pymatgen.core.ion.Ion.to_pretty_string">[docs]</a>    <span class="k">def</span> <span class="nf">to_pretty_string</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :return: Pretty string with proper superscripts.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">str_</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reduced_formula</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">charge</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">str_</span> <span class="o">+=</span> <span class="s2">&quot;^+&quot;</span> <span class="o">+</span> <span class="n">formula_double_format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_charge</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">str_</span> <span class="o">+=</span> <span class="s2">&quot;^&quot;</span> <span class="o">+</span> <span class="n">formula_double_format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">charge</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">str_</span></div></div>
 </pre></div>
 
             <div class="clearer"></div>
@@ -385,7 +410,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -394,29 +419,14 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.core.ion</a></li> 
       </ul>
     </div>
-
     <div class="footer" role="contentinfo">
-        &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
     </div>
-<div class="footer">This page uses <a href="http://analytics.google.com/">
-Google Analytics</a> to collect statistics. You can disable it by blocking
-the JavaScript coming from www.google-analytics.com.
-<script type="text/javascript">
-  (function() {
-    var ga = document.createElement('script');
-    ga.src = ('https:' == document.location.protocol ?
-              'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-    ga.setAttribute('async', 'true');
-    document.documentElement.firstChild.appendChild(ga);
-  })();
-</script>
-</div>
-
   </body>
 </html>

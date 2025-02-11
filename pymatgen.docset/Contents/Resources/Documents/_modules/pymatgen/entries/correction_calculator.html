@@ -1,27 +1,19 @@
-
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-content_root="../../../">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pymatgen.entries.correction_calculator &#8212; pymatgen 2023.1.30 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
-    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-    <script src="../../../_static/doctools.js"></script>
-    <script src="../../../_static/sphinx_highlight.js"></script>
+    <title>pymatgen.entries.correction_calculator &#8212; pymatgen 2025.1.24 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=5c69cfe2" />
+    <script src="../../../_static/documentation_options.js?v=d2bc030c"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../search.html" />
- 
-<script type="text/javascript">
-  var _gaq = _gaq || [];
-  _gaq.push(['_setAccount', 'UA-33990148-1']);
-  _gaq.push(['_trackPageview']);
-</script>
-
+    <link rel="search" title="Search" href="../../../search.html" /> 
   </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -30,7 +22,7 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="../entries.html" accesskey="U">pymatgen.entries</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.entries.correction_calculator</a></li> 
@@ -42,31 +34,30 @@
           <div class="body" role="main">
             
   <h1>Source code for pymatgen.entries.correction_calculator</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">This module calculates corrections for the species listed below, fitted to the experimental and computed</span>
+<span></span><span class="sd">&quot;&quot;&quot;This module calculates corrections for the species listed below, fitted to the experimental and computed</span>
 <span class="sd">entries given to the CorrectionCalculator constructor.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">plotly.graph_objects</span> <span class="k">as</span> <span class="nn">go</span>
-<span class="kn">from</span> <span class="nn">monty.serialization</span> <span class="kn">import</span> <span class="n">loadfn</span>
-<span class="kn">from</span> <span class="nn">ruamel</span> <span class="kn">import</span> <span class="n">yaml</span>
-<span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="kn">import</span> <span class="n">curve_fit</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">plotly.graph_objects</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">go</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">monty.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">loadfn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ruamel</span><span class="w"> </span><span class="kn">import</span> <span class="n">yaml</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">curve_fit</span>
 
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.reaction_calculator</span> <span class="kn">import</span> <span class="n">ComputedReaction</span>
-<span class="kn">from</span> <span class="nn">pymatgen.analysis.structure_analyzer</span> <span class="kn">import</span> <span class="n">sulfide_type</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.composition</span> <span class="kn">import</span> <span class="n">Composition</span>
-<span class="kn">from</span> <span class="nn">pymatgen.core.periodic_table</span> <span class="kn">import</span> <span class="n">Element</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.analysis.reaction_calculator</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComputedReaction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.analysis.structure_analyzer</span><span class="w"> </span><span class="kn">import</span> <span class="n">sulfide_type</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Composition</span><span class="p">,</span> <span class="n">Element</span>
 
 
-<div class="viewcode-block" id="CorrectionCalculator"><a class="viewcode-back" href="../../../pymatgen.entries.correction_calculator.html#pymatgen.entries.correction_calculator.CorrectionCalculator">[docs]</a><span class="k">class</span> <span class="nc">CorrectionCalculator</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A CorrectionCalculator contains experimental and computed entries which it uses to compute corrections.</span>
+<div class="viewcode-block" id="CorrectionCalculator">
+<a class="viewcode-back" href="../../../pymatgen.entries.html#pymatgen.entries.correction_calculator.CorrectionCalculator">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CorrectionCalculator</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A CorrectionCalculator contains experimental and computed entries which it uses to compute corrections.</span>
 
 <span class="sd">    It graphs residual errors after applying the computed corrections and creates the MPCompatibility.yaml</span>
 <span class="sd">    file the Correction classes use.</span>
@@ -80,15 +71,14 @@
 <span class="sd">        corrections_dict: dictionary of format {&#39;species&#39;: (value, uncertainty)} for easier correction lookup</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">species</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">max_error</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
         <span class="n">allow_unstable</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">bool</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
         <span class="n">exclude_polyanions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Initializes a CorrectionCalculator.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize a CorrectionCalculator.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            species: list of species to calculate corrections for</span>
@@ -129,7 +119,9 @@
         <span class="k">if</span> <span class="s2">&quot;S&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">sulfides</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
-<div class="viewcode-block" id="CorrectionCalculator.compute_from_files"><a class="viewcode-back" href="../../../pymatgen.entries.correction_calculator.html#pymatgen.entries.correction_calculator.CorrectionCalculator.compute_from_files">[docs]</a>    <span class="k">def</span> <span class="nf">compute_from_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exp_gz</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">comp_gz</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<div class="viewcode-block" id="CorrectionCalculator.compute_from_files">
+<a class="viewcode-back" href="../../../pymatgen.entries.html#pymatgen.entries.correction_calculator.CorrectionCalculator.compute_from_files">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_from_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exp_gz</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">comp_gz</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
 <span class="sd">            exp_gz: name of .json.gz file that contains experimental data</span>
@@ -137,21 +129,25 @@
 <span class="sd">                    {&quot;formula&quot;: chemical formula, &quot;exp energy&quot;: formation energy in eV/formula unit,</span>
 <span class="sd">                    &quot;uncertainty&quot;: uncertainty in formation energy}</span>
 <span class="sd">            comp_gz: name of .json.gz file that contains computed entries</span>
-<span class="sd">                    data in .json.gz file should be a dictionary of {chemical formula: ComputedEntry}</span>
+<span class="sd">                    data in .json.gz file should be a dictionary of {chemical formula: ComputedEntry}.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">exp_entries</span> <span class="o">=</span> <span class="n">loadfn</span><span class="p">(</span><span class="n">exp_gz</span><span class="p">)</span>
         <span class="n">calc_entries</span> <span class="o">=</span> <span class="n">loadfn</span><span class="p">(</span><span class="n">comp_gz</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_corrections</span><span class="p">(</span><span class="n">exp_entries</span><span class="p">,</span> <span class="n">calc_entries</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="CorrectionCalculator.compute_corrections"><a class="viewcode-back" href="../../../pymatgen.entries.correction_calculator.html#pymatgen.entries.correction_calculator.CorrectionCalculator.compute_corrections">[docs]</a>    <span class="k">def</span> <span class="nf">compute_corrections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exp_entries</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">calc_entries</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Computes the corrections and fills in correction, corrections_std_error, and corrections_dict.</span>
+
+<div class="viewcode-block" id="CorrectionCalculator.compute_corrections">
+<a class="viewcode-back" href="../../../pymatgen.entries.html#pymatgen.entries.correction_calculator.CorrectionCalculator.compute_corrections">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_corrections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exp_entries</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">calc_entries</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the corrections and fills in correction, corrections_std_error, and corrections_dict.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            exp_entries: list of dictionary objects with the following keys/values:</span>
-<span class="sd">                    {&quot;formula&quot;: chemical formula, &quot;exp energy&quot;: formation energy in eV/formula unit,</span>
-<span class="sd">                    &quot;uncertainty&quot;: uncertainty in formation energy}</span>
+<span class="sd">            exp_entries: list of dictionary objects with the following keys/values: {</span>
+<span class="sd">                    &quot;formula&quot;: chemical formula,</span>
+<span class="sd">                    &quot;exp energy&quot;: formation energy in eV/formula unit,</span>
+<span class="sd">                    &quot;uncertainty&quot;: uncertainty in formation energy</span>
+<span class="sd">                }</span>
 <span class="sd">            calc_entries: dictionary of computed entries, of the form {chemical formula: ComputedEntry}</span>
 
 <span class="sd">        Raises:</span>
@@ -170,15 +166,17 @@
             <span class="n">entry</span><span class="o">.</span><span class="n">correction</span> <span class="o">=</span> <span class="mi">0</span>
 
         <span class="k">for</span> <span class="n">cmpd_info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">exp_compounds</span><span class="p">:</span>
-
             <span class="c1"># to get consistent element ordering in formula</span>
             <span class="n">name</span> <span class="o">=</span> <span class="n">Composition</span><span class="p">(</span><span class="n">cmpd_info</span><span class="p">[</span><span class="s2">&quot;formula&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">reduced_formula</span>
 
             <span class="n">allow</span> <span class="o">=</span> <span class="kc">True</span>
 
-            <span class="n">compound</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_compounds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">compound</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_compounds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">compound</span><span class="p">:</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compound </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not found in provided computed entries and is excluded from the fit&quot;</span><span class="p">)</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Compound </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not found in provided computed entries and is excluded from the fit&quot;</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
                 <span class="k">continue</span>
 
             <span class="c1"># filter out compounds with large uncertainties</span>
@@ -187,14 +185,17 @@
                 <span class="n">allow</span> <span class="o">=</span> <span class="kc">False</span>
                 <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Compound </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is excluded from the fit due to high experimental &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;uncertainty (</span><span class="si">{</span><span class="n">relative_uncertainty</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">)&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;uncertainty (</span><span class="si">{</span><span class="n">relative_uncertainty</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
                 <span class="p">)</span>
 
             <span class="c1"># filter out compounds containing certain polyanions</span>
             <span class="k">for</span> <span class="n">anion</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclude_polyanions</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">anion</span> <span class="ow">in</span> <span class="n">name</span> <span class="ow">or</span> <span class="n">anion</span> <span class="ow">in</span> <span class="n">cmpd_info</span><span class="p">[</span><span class="s2">&quot;formula&quot;</span><span class="p">]:</span>
                     <span class="n">allow</span> <span class="o">=</span> <span class="kc">False</span>
-                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compound </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> contains the polyanion </span><span class="si">{</span><span class="n">anion</span><span class="si">}</span><span class="s2"> and is excluded from the fit&quot;</span><span class="p">)</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Compound </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> contains the poly</span><span class="si">{</span><span class="n">anion</span><span class="si">=}</span><span class="s2"> and is excluded from the fit&quot;</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span>
+                    <span class="p">)</span>
                     <span class="k">break</span>
 
             <span class="c1"># filter out compounds that are unstable</span>
@@ -205,7 +206,9 @@
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Missing e above hull data&quot;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">eah</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">allow_unstable</span><span class="p">:</span>
                     <span class="n">allow</span> <span class="o">=</span> <span class="kc">False</span>
-                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compound </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is unstable and excluded from the fit (e_above_hull = </span><span class="si">{</span><span class="n">eah</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Compound </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is unstable and excluded from the fit (e_above_hull = </span><span class="si">{</span><span class="n">eah</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span>
+                    <span class="p">)</span>
 
             <span class="k">if</span> <span class="n">allow</span><span class="p">:</span>
                 <span class="n">comp</span> <span class="o">=</span> <span class="n">Composition</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
@@ -261,7 +264,7 @@
                         <span class="k">try</span><span class="p">:</span>
                             <span class="n">coeff</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">comp</span><span class="p">[</span><span class="n">specie</span><span class="p">])</span>
                         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;We can&#39;t detect this specie: </span><span class="si">{</span><span class="n">specie</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;We can&#39;t detect this </span><span class="si">{</span><span class="n">specie</span><span class="si">=}</span><span class="s2"> in </span><span class="si">{</span><span class="n">name</span><span class="si">=}</span><span class="s2">&quot;</span><span class="p">)</span>
 
                 <span class="bp">self</span><span class="o">.</span><span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">cmpd_info</span><span class="p">[</span><span class="s2">&quot;exp energy&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">energy</span><span class="p">)</span> <span class="o">/</span> <span class="n">comp</span><span class="o">.</span><span class="n">num_atoms</span><span class="p">)</span>
@@ -273,20 +276,22 @@
         <span class="n">sigma</span><span class="p">[</span><span class="n">sigma</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
 
         <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span>
-                <span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">RuntimeWarning</span>
-            <span class="p">)</span>  <span class="c1"># numpy raises warning if the entire array is nan values</span>
-            <span class="n">mean_uncer</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>
+            <span class="c1"># numpy raises warning if the entire array is nan values</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">RuntimeWarning</span><span class="p">)</span>
+            <span class="n">mean_uncert</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>
 
-        <span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">sigma</span><span class="p">),</span> <span class="n">mean_uncer</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
+        <span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">sigma</span><span class="p">),</span> <span class="n">mean_uncert</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mean_uncer</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mean_uncert</span><span class="p">):</span>
             <span class="c1"># no uncertainty values for any compounds, don&#39;t try to weight</span>
-            <span class="n">popt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pcov</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span>
-                <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">m</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">m</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">coeff_mat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="p">,</span> <span class="n">p0</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">))</span>
+            <span class="n">p_opt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pcov</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span>
+                <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">m</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">m</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">coeff_mat</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="p">,</span>
+                <span class="n">p0</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">)),</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">popt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pcov</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span>
+            <span class="n">p_opt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pcov</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span>
                 <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">m</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">m</span><span class="p">),</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">coeff_mat</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="p">,</span>
@@ -294,12 +299,12 @@
                 <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span>
                 <span class="n">absolute_sigma</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">corrections</span> <span class="o">=</span> <span class="n">popt</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">corrections</span> <span class="o">=</span> <span class="n">p_opt</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">corrections_std_error</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pcov</span><span class="p">))</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">corrections_dict</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">corrections</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span>
-                <span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">corrections_std_error</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">4</span><span class="p">),</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">specie</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">corrections_dict</span><span class="p">[</span><span class="n">specie</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">corrections</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span>
+                <span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">corrections_std_error</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="mi">4</span><span class="p">),</span>
             <span class="p">)</span>
 
         <span class="c1"># set ozonide correction to 0 so that this species does not receive a correction</span>
@@ -308,45 +313,47 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">corrections_dict</span></div>
 
-<div class="viewcode-block" id="CorrectionCalculator.graph_residual_error"><a class="viewcode-back" href="../../../pymatgen.entries.correction_calculator.html#pymatgen.entries.correction_calculator.CorrectionCalculator.graph_residual_error">[docs]</a>    <span class="k">def</span> <span class="nf">graph_residual_error</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Graphs the residual errors for all compounds after applying computed corrections.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="CorrectionCalculator.graph_residual_error">
+<a class="viewcode-back" href="../../../pymatgen.entries.html#pymatgen.entries.correction_calculator.CorrectionCalculator.graph_residual_error">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">graph_residual_error</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Graphs the residual errors for all compounds after applying computed corrections.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">corrections</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Please call compute_corrections or compute_from_files to calculate corrections first&quot;</span><span class="p">)</span>
 
         <span class="n">abs_errors</span> <span class="o">=</span> <span class="p">[</span><span class="nb">abs</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffs</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coeff_mat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">corrections</span><span class="p">)]</span>
         <span class="n">labels_graph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">names</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">abs_errors</span><span class="p">,</span> <span class="n">labels_graph</span> <span class="o">=</span> <span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">,</span> <span class="n">labels_graph</span><span class="p">))))</span>  <span class="c1"># sort by error</span>
+        <span class="n">abs_errors</span><span class="p">,</span> <span class="n">labels_graph</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">,</span> <span class="n">labels_graph</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">)</span>  <span class="c1"># sort by error</span>
 
-        <span class="n">num</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">)</span>
+        <span class="n">n_err</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">)</span>
         <span class="n">fig</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
-                <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">num</span><span class="p">),</span>
+                <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_err</span><span class="p">,</span> <span class="n">n_err</span><span class="p">),</span>
                 <span class="n">y</span><span class="o">=</span><span class="n">abs_errors</span><span class="p">,</span>
                 <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;markers&quot;</span><span class="p">,</span>
                 <span class="n">text</span><span class="o">=</span><span class="n">labels_graph</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="n">layout</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">Layout</span><span class="p">(</span>
-                <span class="n">title</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">Title</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s2">&quot;Residual Errors&quot;</span><span class="p">),</span>
-                <span class="n">yaxis</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">YAxis</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">Title</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s2">&quot;Residual Error (eV/atom)&quot;</span><span class="p">)),</span>
-            <span class="p">),</span>
+            <span class="n">layout</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Residual Errors&quot;</span><span class="p">,</span> <span class="n">yaxis</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Residual Error (eV/atom)&quot;</span><span class="p">)),</span>
         <span class="p">)</span>
 
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Residual Error:&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Median = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">))))</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Mean = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">))))</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Std Dev = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">))))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Median = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mean = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Std Dev = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Original Error:&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Median = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="p">)))))</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Mean = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="p">)))))</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Std Dev = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="p">))))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Median = </span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mean = </span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Std Dev = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">fig</span></div>
 
-<div class="viewcode-block" id="CorrectionCalculator.graph_residual_error_per_species"><a class="viewcode-back" href="../../../pymatgen.entries.correction_calculator.html#pymatgen.entries.correction_calculator.CorrectionCalculator.graph_residual_error_per_species">[docs]</a>    <span class="k">def</span> <span class="nf">graph_residual_error_per_species</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">specie</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Graphs the residual errors for each compound that contains specie after applying computed corrections.</span>
+
+<div class="viewcode-block" id="CorrectionCalculator.graph_residual_error_per_species">
+<a class="viewcode-back" href="../../../pymatgen.entries.html#pymatgen.entries.correction_calculator.CorrectionCalculator.graph_residual_error_per_species">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">graph_residual_error_per_species</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">specie</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Graphs the residual errors for each compound that contains specie after applying computed corrections.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            specie: the specie/group that residual errors are being plotted for</span>
@@ -363,7 +370,7 @@
         <span class="n">abs_errors</span> <span class="o">=</span> <span class="p">[</span><span class="nb">abs</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffs</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coeff_mat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">corrections</span><span class="p">)]</span>
         <span class="n">labels_species</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">names</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">diffs_cpy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diffs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">num</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels_species</span><span class="p">)</span>
+        <span class="n">n_species</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels_species</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">specie</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;oxide&quot;</span><span class="p">,</span> <span class="s2">&quot;peroxide&quot;</span><span class="p">,</span> <span class="s2">&quot;superoxide&quot;</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">specie</span> <span class="o">==</span> <span class="s2">&quot;oxide&quot;</span><span class="p">:</span>
@@ -374,47 +381,51 @@
                 <span class="n">compounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">superoxides</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">compounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sulfides</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
-                <span class="k">if</span> <span class="n">labels_species</span><span class="p">[</span><span class="n">num</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">compounds</span><span class="p">:</span>
-                    <span class="k">del</span> <span class="n">labels_species</span><span class="p">[</span><span class="n">num</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
-                    <span class="k">del</span> <span class="n">abs_errors</span><span class="p">[</span><span class="n">num</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
-                    <span class="k">del</span> <span class="n">diffs_cpy</span><span class="p">[</span><span class="n">num</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_species</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">labels_species</span><span class="p">[</span><span class="n">n_species</span> <span class="o">-</span> <span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">compounds</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="n">labels_species</span><span class="p">[</span><span class="n">n_species</span> <span class="o">-</span> <span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+                    <span class="k">del</span> <span class="n">abs_errors</span><span class="p">[</span><span class="n">n_species</span> <span class="o">-</span> <span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+                    <span class="k">del</span> <span class="n">diffs_cpy</span><span class="p">[</span><span class="n">n_species</span> <span class="o">-</span> <span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">Composition</span><span class="p">(</span><span class="n">labels_species</span><span class="p">[</span><span class="n">num</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])[</span><span class="n">specie</span><span class="p">]:</span>
-                    <span class="k">del</span> <span class="n">labels_species</span><span class="p">[</span><span class="n">num</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
-                    <span class="k">del</span> <span class="n">abs_errors</span><span class="p">[</span><span class="n">num</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
-                    <span class="k">del</span> <span class="n">diffs_cpy</span><span class="p">[</span><span class="n">num</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
-        <span class="n">abs_errors</span><span class="p">,</span> <span class="n">labels_species</span> <span class="o">=</span> <span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">,</span> <span class="n">labels_species</span><span class="p">))))</span>  <span class="c1"># sort by error</span>
+            <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_species</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">Composition</span><span class="p">(</span><span class="n">labels_species</span><span class="p">[</span><span class="n">n_species</span> <span class="o">-</span> <span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])[</span><span class="n">specie</span><span class="p">]:</span>
+                    <span class="k">del</span> <span class="n">labels_species</span><span class="p">[</span><span class="n">n_species</span> <span class="o">-</span> <span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+                    <span class="k">del</span> <span class="n">abs_errors</span><span class="p">[</span><span class="n">n_species</span> <span class="o">-</span> <span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+                    <span class="k">del</span> <span class="n">diffs_cpy</span><span class="p">[</span><span class="n">n_species</span> <span class="o">-</span> <span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">abs_errors</span><span class="p">,</span> <span class="n">labels_species</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">list</span><span class="p">(</span><span class="n">tup</span><span class="p">)</span> <span class="k">for</span> <span class="n">tup</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">,</span> <span class="n">labels_species</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">)</span>  <span class="c1"># sort by error</span>
 
-        <span class="n">num</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">)</span>
+        <span class="n">n_err</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">)</span>
         <span class="n">fig</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">Scatter</span><span class="p">(</span>
-                <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">num</span><span class="p">),</span>
+                <span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_err</span><span class="p">,</span> <span class="n">n_err</span><span class="p">),</span>
                 <span class="n">y</span><span class="o">=</span><span class="n">abs_errors</span><span class="p">,</span>
                 <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;markers&quot;</span><span class="p">,</span>
                 <span class="n">text</span><span class="o">=</span><span class="n">labels_species</span><span class="p">,</span>
             <span class="p">),</span>
-            <span class="n">layout</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">Layout</span><span class="p">(</span>
-                <span class="n">title</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">Title</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s2">&quot;Residual Errors for &quot;</span> <span class="o">+</span> <span class="n">specie</span><span class="p">),</span>
-                <span class="n">yaxis</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">YAxis</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">go</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">Title</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s2">&quot;Residual Error (eV/atom)&quot;</span><span class="p">)),</span>
+            <span class="n">layout</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">title</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Residual Errors for </span><span class="si">{</span><span class="n">specie</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                <span class="n">yaxis</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Residual Error (eV/atom)&quot;</span><span class="p">),</span>
             <span class="p">),</span>
         <span class="p">)</span>
 
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Residual Error:&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Median = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">))))</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Mean = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">))))</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Std Dev = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">))))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Median = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mean = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Std Dev = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">abs_errors</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Original Error:&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Median = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">diffs_cpy</span><span class="p">)))))</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Mean = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">diffs_cpy</span><span class="p">)))))</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Std Dev = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">diffs_cpy</span><span class="p">))))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Median = </span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">diffs_cpy</span><span class="p">)))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mean = </span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">diffs_cpy</span><span class="p">)))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Std Dev = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">diffs_cpy</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">fig</span></div>
 
-<div class="viewcode-block" id="CorrectionCalculator.make_yaml"><a class="viewcode-back" href="../../../pymatgen.entries.correction_calculator.html#pymatgen.entries.correction_calculator.CorrectionCalculator.make_yaml">[docs]</a>    <span class="k">def</span> <span class="nf">make_yaml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MP2020&quot;</span><span class="p">,</span> <span class="nb">dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Creates the _name_Compatibility.yaml that stores corrections as well as _name_CompatibilityUncertainties.yaml</span>
+
+<div class="viewcode-block" id="CorrectionCalculator.make_yaml">
+<a class="viewcode-back" href="../../../pymatgen.entries.html#pymatgen.entries.correction_calculator.CorrectionCalculator.make_yaml">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_yaml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MP2020&quot;</span><span class="p">,</span> <span class="nb">dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># noqa: A002</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create the _name_Compatibility.yaml that stores corrections as well as _name_CompatibilityUncertainties.yaml</span>
 <span class="sd">        for correction uncertainties.</span>
 
 <span class="sd">        Args:</span>
@@ -437,7 +448,7 @@
         <span class="n">o_error</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">f_error</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
-        <span class="k">for</span> <span class="n">specie</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">)</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;ozonide&quot;</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">specie</span> <span class="ow">in</span> <span class="p">[</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">,</span> <span class="s2">&quot;ozonide&quot;</span><span class="p">]:</span>
             <span class="k">if</span> <span class="n">specie</span> <span class="ow">in</span> <span class="n">ggau_correction_species</span><span class="p">:</span>
                 <span class="n">o</span><span class="p">[</span><span class="n">specie</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">corrections_dict</span><span class="p">[</span><span class="n">specie</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
                 <span class="n">f</span><span class="p">[</span><span class="n">specie</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">corrections_dict</span><span class="p">[</span><span class="n">specie</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
@@ -462,11 +473,8 @@
 <span class="s2">                F:</span>
 <span class="s2">            CompositionCorrections:</span>
 <span class="s2">        &quot;&quot;&quot;</span>
-        <span class="n">fn</span> <span class="o">=</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;Compatibility.yaml&quot;</span>
-        <span class="k">if</span> <span class="nb">dir</span><span class="p">:</span>
-            <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">fn</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">path</span> <span class="o">=</span> <span class="n">fn</span>
+        <span class="n">fn</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">Compatibility.yaml&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="n">fn</span><span class="p">)</span> <span class="k">if</span> <span class="nb">dir</span> <span class="k">else</span> <span class="n">fn</span>
 
         <span class="n">yml</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">YAML</span><span class="p">()</span>
         <span class="n">yml</span><span class="o">.</span><span class="n">default_flow_style</span> <span class="o">=</span> <span class="kc">False</span>
@@ -485,7 +493,7 @@
         <span class="n">contents</span><span class="p">[</span><span class="s2">&quot;Corrections&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">yaml_set_start_comment</span><span class="p">(</span><span class="s2">&quot;Energy corrections in eV/atom&quot;</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
         <span class="n">contents</span><span class="p">[</span><span class="s2">&quot;Corrections&quot;</span><span class="p">][</span><span class="s2">&quot;GGAUMixingCorrections&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">yaml_set_start_comment</span><span class="p">(</span>
             <span class="s2">&quot;Composition-based corrections applied to transition metal oxides</span><span class="se">\n</span><span class="s2">and fluorides to &quot;</span>
-            <span class="o">+</span> <span class="s1">&#39;make GGA and GGA+U energies compatible</span><span class="se">\n</span><span class="s1">when compat_type = &quot;Advanced&quot; (default)&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;make GGA and GGA+U energies compatible</span><span class="se">\n</span><span class="s1">when compat_type = &quot;Advanced&quot; (default)&#39;</span><span class="p">,</span>
             <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">contents</span><span class="p">[</span><span class="s2">&quot;Corrections&quot;</span><span class="p">][</span><span class="s2">&quot;CompositionCorrections&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">yaml_set_start_comment</span><span class="p">(</span>
@@ -495,8 +503,10 @@
         <span class="n">contents</span><span class="p">[</span><span class="s2">&quot;Uncertainties&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">yaml_set_start_comment</span><span class="p">(</span>
             <span class="s2">&quot;Uncertainties corresponding to each energy correction (eV/atom)&quot;</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span>
         <span class="p">)</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
-            <span class="n">yml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">contents</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span></div></div>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">yml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">contents</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span></div>
+</div>
+
 </pre></div>
 
             <div class="clearer"></div>
@@ -504,7 +514,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related" role="navigation" aria-label="related navigation">
+    <div class="related" role="navigation" aria-label="Related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -513,30 +523,15 @@
         <li class="right" >
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2023.1.30 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">pymatgen 2025.1.24 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
           <li class="nav-item nav-item-2"><a href="../entries.html" >pymatgen.entries</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">pymatgen.entries.correction_calculator</a></li> 
       </ul>
     </div>
-
     <div class="footer" role="contentinfo">
-        &#169; Copyright 2011, Pymatgen Development Team.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    &#169; Copyright 2011, Pymatgen Development Team.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
     </div>
-<div class="footer">This page uses <a href="http://analytics.google.com/">
-Google Analytics</a> to collect statistics. You can disable it by blocking
-the JavaScript coming from www.google-analytics.com.
-<script type="text/javascript">
-  (function() {
-    var ga = document.createElement('script');
-    ga.src = ('https:' == document.location.protocol ?
-              'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-    ga.setAttribute('async', 'true');
-    document.documentElement.firstChild.appendChild(ga);
-  })();
-</script>
-</div>
-
   </body>
 </html>
