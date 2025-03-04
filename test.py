@@ -326,10 +326,11 @@ for working_ion in working_ion_list:
         # which is merged in pymatgen v2023.1.30.
         phase_diagram = PhaseDiagram(entry_list)
         # remove entries that have a tieline with work_ion phase, which are not qualified as conversion electrodes
-        tielined_entries_list = Tielined_entries(phase_diagram, working_ion)
-        entries_without_tieline_list = [entry for entry in entry_list if entry.entry_id not in tielined_entries_list]
+        tied_entries = Tielined_entries(phase_diagram, working_ion)
+        # Filter out entries that are either tied to working ion or are the working ion itself
+        valid_entries = [entry for entry in entry_list if entry.entry_id not in tied_entries and entry.reduced_formula != working_ion]
 
-        for entry in entries_without_tieline_list:
+        for entry in valid_entries:
 
             initial_comp = entry.composition
             electrode_material_id = entry.data['material_id']
