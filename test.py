@@ -62,7 +62,7 @@ def LocalDB(PD_database, chemsys):
     return (entryList)
 
 
-def find_tied_entries(phaseDiagram, working_ion):
+def Tielined_entries(phaseDiagram, working_ion):
     # find its coordinate in phase diagram.
     comp = Composition(working_ion)
     c = phaseDiagram.pd_coords(comp)
@@ -326,7 +326,7 @@ for working_ion in working_ion_list:
         # which is merged in pymatgen v2023.1.30.
         phase_diagram = PhaseDiagram(entry_list)
         # remove entries that have a tieline with work_ion phase, which are not qualified as conversion electrodes
-        tied_entries = find_tied_entries(phase_diagram, working_ion)
+        tied_entries = Tied_entries(phase_diagram, working_ion)
         # Filter out entries that are either tied to working ion or are the working ion itself
         # Filter entries: exclude those tied to working ion and the working ion itself
         valid_entries = [entry for entry in entry_list 
