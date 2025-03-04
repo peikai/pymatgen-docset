@@ -329,21 +329,21 @@ for working_ion in working_ion_list:
         tielined_entries_list = Tielined_entries(phase_diagram, working_ion)
         entries_without_tieline_list = [entry for entry in entry_list if entry.entry_id not in tielined_entries_list]
 
-        for entry in entry_list:
+        for entry in entries_without_tieline_list:
 
-            initial_comp = initial_entry.composition
-            electrode_material_id = initial_entry.data['material_id']
+            initial_comp = entry.composition
+            electrode_material_id = entry.data['material_id']
             initial_formula = initial_comp.reduced_formula
-            theoretical_boolean = initial_entry.data['theoretical']
+            theoretical_boolean = entry.data['theoretical']
             fromZero_boolean = Element(working_ion) not in initial_comp.elements
-            e_above_hull = initial_entry.data['e_above_hull']
+            e_above_hull = entry.data['e_above_hull']
             conversion_electrode = CE(initial_comp, working_ion, phase_diagram)
             framework_formula = conversion_electrode.framework.reduced_formula if not isinstance(conversion_electrode, type(None)) else None
             # FOM calculations with a volume expansion threshold, i.e. volume of (Lithiated) electrode / volume of initial electrode in [0.7,1.3].
             [grav_capacity, average_voltage, figure_of_merit, toEnd_boolean, conductive_boolean] = FoMs_within_expansion_threshold(
-                initial_entry, conversion_electrode, vol_threshold=vol_threshold, band_gap_threshold=band_gap_threshold) if not isinstance(conversion_electrode, type(None)) else [None, None, None, None, None]
+                entry, conversion_electrode, vol_threshold=vol_threshold, band_gap_threshold=band_gap_threshold) if not isinstance(conversion_electrode, type(None)) else [None, None, None, None, None]
 
-            profile_dict = {'material_id': initial_material_id,
+            profile_dict = {'material_id': electrode_material_id,
                             'formula': initial_formula,
                             'framework': framework_formula,
                             'grav_capacity_mAh/g': grav_capacity,
