@@ -9,23 +9,10 @@ from emmet.core.thermo import ThermoType
 from pymatgen.analysis.phase_diagram import PhaseDiagram
 from pymatgen.apps.battery.conversion_battery import (ConversionElectrode,
                                                       ConversionVoltagePair)
-from pymatgen.core import Composition, Element
-from pymatgen.entries.computed_entries import ComputedStructureEntry
-from tqdm import tqdm
-
-
-import json
-import sqlite3
-
-import numpy as np
-import pandas as pd
-from pymatgen.analysis.phase_diagram import PhaseDiagram
-from pymatgen.apps.battery.conversion_battery import (ConversionElectrode,
-                                                      ConversionVoltagePair)
 from pymatgen.core import Composition, Element, get_el_sp
 from pymatgen.entries.computed_entries import ComputedStructureEntry
+from tqdm import tqdm
 from pymatgen.analysis.reaction_calculator import Reaction
-from mp_api.client import MPRester
 from scipy.constants import N_A
 from pymatgen.core.units import Charge, Time
 
@@ -39,7 +26,7 @@ def Json2entry(entryJson):
 
 
 # fetch entries from local database via chemical system
-def LocalDB(PD_database, chemsys):
+def Local_PD(PD_database, chemsys):
     # use sqlite database that is built in python
     dbConnection_REST = sqlite3.connect(PD_database)
     # select entries via chemical system from local database
@@ -62,7 +49,7 @@ def LocalDB(PD_database, chemsys):
     return (entryList)
 
 
-def Tielined_entries(phaseDiagram, working_ion):
+def Tied_entries(phaseDiagram, working_ion):
     # find its coordinate in phase diagram.
     comp = Composition(working_ion)
     c = phaseDiagram.pd_coords(comp)
@@ -76,10 +63,10 @@ def Tielined_entries(phaseDiagram, working_ion):
     qhull_entries = phaseDiagram.qhull_entries
     # find other phases in those facets.
     vertice_array = np.array(facet_index_list).flatten()
-    tielined_entry_id_list = [
+    tied_entry_id_list = [
         qhull_entries[each].entry_id for each in vertice_array]
 
-    return (tielined_entry_id_list)
+    return (tied_entry_id_list)
 
 
 # Source codes revise
@@ -320,34 +307,34 @@ for working_ion in working_ion_list:
     chemsys_list = pd.read_csv(f'Tables/{thermo_type}/{working_ion}/chemsys.csv').chemsys.to_list()
     for chemsys in tqdm(chemsys_list, total=len(chemsys_list)):
         # fetch entries from local database via chemical systems
-        entry_list = LocalDB(PD_database, chemsys)
+        entry_list = Local_PD(PD_database, chemsys)
         # if no entry found in local database, the new PhaseDiagram method will raise an error and stop the program
         # see my PR to pymatgen for more details: https://github.com/materialsproject/pymatgen/pull/2819,
         # which is merged in pymatgen v2023.1.30.
         phase_diagram = PhaseDiagram(entry_list)
-        # remove entries that have a tieline with work_ion phase, which are not qualified as conversion electrodes
-        tied_entries = Tied_entries(phase_diagram, working_ion)
-        # Filter out entries that are either tied to working ion or are the working ion itself
-        # Filter entries: exclude those tied to working ion and the working ion itself
-        valid_entries = [entry for entry in entry_list 
-                         if (entry.entry_id not in tied_entries and 
-                             entry.reduced_formula != working_ion)]
-
-        for entry in valid_entries:
-
-            initial_comp = entry.composition
-            electrode_material_id = entry.data['material_id']
-            initial_formula = initial_comp.reduced_formula
+        # entries that have a tieline connected to reference electrode are not qualified as conversion electrodes
+        # working ion entries are not qualified as conversion electrodes
+        tied_entries_list = Tied_entries(phase_diagram, working_ion)
+        valid_entries_list = [entry for entry in entry_list 
+                              if (entry.entry_id not in tied_entries_list and entry.reduced_formula != working_ion)]
+        for entry in valid_entries_list:
+            # Note: it is not required to use reduced formula for ConversionElectrode construction, even though considering for normalization correction
+            # especially in case of unstable entries as input comp in from_composition_and_pd(),
+            # which may affect some properties of electrode, like volume inconsistency.
+            # This maybe a bug in pymatgen that target entry some different entries having the same reduce formula have e_above_hull != 0
+            # On the contrary, using entry.composition as input would always be correct, when a proper scale for rxn is applied.
+            # for stable entries, from_composition_and_pd() would always assign for electrode from PD if it is existed,
+            material_id = entry.data['material_id']
             theoretical_boolean = entry.data['theoretical']
-            fromZero_boolean = Element(working_ion) not in initial_comp.elements
             e_above_hull = entry.data['e_above_hull']
-            conversion_electrode = CE(initial_comp, working_ion, phase_diagram)
+            fromZero_boolean = Element(working_ion) not in entry.elements
+            conversion_electrode = CE(entry.composition, working_ion, phase_diagram)
             framework_formula = conversion_electrode.framework.reduced_formula if not isinstance(conversion_electrode, type(None)) else None
             # FOM calculations with a volume expansion threshold, i.e. volume of (Lithiated) electrode / volume of initial electrode in [0.7,1.3].
             [grav_capacity, average_voltage, figure_of_merit, toEnd_boolean, conductive_boolean] = FoMs_within_expansion_threshold(
-                entry, conversion_electrode, vol_threshold=vol_threshold, band_gap_threshold=band_gap_threshold) if not isinstance(conversion_electrode, type(None)) else [None, None, None, None, None]
+                initial_entry, conversion_electrode, vol_threshold=vol_threshold, band_gap_threshold=band_gap_threshold) if not isinstance(conversion_electrode, type(None)) else [None, None, None, None, None]
 
-            profile_dict = {'material_id': electrode_material_id,
+            profile_dict = {'material_id': initial_material_id,
                             'formula': initial_formula,
                             'framework': framework_formula,
                             'grav_capacity_mAh/g': grav_capacity,
