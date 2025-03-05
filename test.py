@@ -284,6 +284,27 @@ def FoMs_within_expansion_threshold(CE, vol_threshold=0.3, band_gap_threshold=1)
     return ([gravimetric_capacity, average_voltage, figure_of_merit, toEnd_boolean, conductive_boolean])
 
 
+
+def Init_CR_DB(CR_database):
+    try:
+        # create a sqlite database to store figure of merits for the entries that are able to take conversion reactions
+        dbConnection_init = sqlite3.connect(CR_database)
+        cursor_init = dbConnection_init.cursor()
+        # database schema, store figure of merits for entry objects
+        cursor_init.execute("""CREATE TABLE IF NOT EXISTS FoMs_table (chemsys TEXT NOT NULL,
+                                                                    entry_id TEXT NOT NULL,
+                                                                    name TEXT NOT NULL,
+                                                                    e_above_hull TEXT NOT NULL,
+                                                                    FoMs TEXT NOT NULL,
+                                                                    PRIMARY KEY entry_id,
+                                                                    UNIQUE (chemsys, entry_id)
+                                                                    ) WITHOUT ROWID""")
+        dbConnection_init.commit()
+
+    finally:
+        dbConnection_init.close()
+
+
 working_ion_list = ['Li', 'Na', 'K', 'Mg', 'Ca', 'H']
 # thermo types: GGA_GGA_U_R2SCAN, GGA_GGA_U or R2SCAN
 thermo_type = 'GGA_GGA_U'
@@ -299,8 +320,9 @@ for working_ion in working_ion_list:
     start_time = time.time()
     # path of phase diagram database
     PD_database = f'DB/{thermo_type}/PD_{working_ion}.sqlite'
-    # set up a conversion reaction database
+    # set up a conversion reaction database, in which every phase is able to take conversion reaction with working ion
     CR_database = f'DB/{thermo_type}/CE_{working_ion}.sqlite'
+    Init_CR_DB(CR_database)
     # retrieve and store entries based on chemical systems
     chemsys_list = pd.read_csv(f'Tables/{thermo_type}/{working_ion}/chemsys.csv').chemsys.to_list()
     for chemsys in tqdm(chemsys_list, total=len(chemsys_list)):
@@ -327,7 +349,7 @@ for working_ion in working_ion_list:
                 # This maybe a bug in pymatgen that target entry some different entries having the same reduce formula have e_above_hull != 0
                 # On the contrary, using entry.composition as input would always be correct, when a proper scale for rxn is applied.
                 # for stable entries, from_composition_and_pd() would always assign for electrode from PD if it is existed,
-                material_id = entry.data['material_id']
+                entry_id = entry.entry_id
                 theoretical_boolean = entry.data['theoretical']
                 e_above_hull = entry.data['e_above_hull']
                 fromZero_boolean = Element(working_ion) not in entry.elements
@@ -337,7 +359,7 @@ for working_ion in working_ion_list:
                 [grav_capacity, average_voltage, figure_of_merit, toEnd_boolean, conductive_boolean] = FoMs_within_expansion_threshold(
                     initial_entry, conversion_electrode, vol_threshold=vol_threshold, band_gap_threshold=band_gap_threshold) if not isinstance(conversion_electrode, type(None)) else [None, None, None, None, None]
 
-                profile_dict = {'material_id': material_id,
+                FoMs_dict = {'entry_id': entry_id,
                                 'framework': framework_formula,
                                 'grav_capacity_mAh/g': grav_capacity,
                                 'average_voltage_V': average_voltage,
@@ -349,7 +371,9 @@ for working_ion in working_ion_list:
                                 'conductive_boolean': conductive_boolean
                                 }
 
-                CE_dataframe.loc[index, profile_dict.keys()] = profile_dict.values()
+                CE_dataframe.loc[index, FoMs_dict.keys()] = FoMs_dict.values()
+
+        Online_to_SQLite(CR_database, chemsys, thermo_type, FoMs_dict)
 
     CE_stable_dataframe = CE_dataframe.loc[CE_dataframe['stability(e_above_hull)'] == 0]
     CE_metastable_dataframe = CE_dataframe.loc[CE_dataframe['stability(e_above_hull)'] > 0]
