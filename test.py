@@ -300,7 +300,7 @@ for working_ion in working_ion_list:
     # path of phase diagram database
     PD_database = f'DB/{thermo_type}/PD_{working_ion}.sqlite'
     # set up conversion electrode database
-    # CE_database = f'DB/{thermo_type}/CE_{working_ion}.sqlite'
+    CE_database = f'DB/{thermo_type}/CE_{working_ion}.sqlite'
     # prepare to calculate figure_of_merit for conversion electrodes
     CE_dataframe = pd.DataFrame([])
     # get entries from local database for each chemical system
