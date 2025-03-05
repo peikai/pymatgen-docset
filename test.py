@@ -299,65 +299,67 @@ for working_ion in working_ion_list:
     start_time = time.time()
     # path of phase diagram database
     PD_database = f'DB/{thermo_type}/PD_{working_ion}.sqlite'
-    # set up conversion electrode database
-    CE_database = f'DB/{thermo_type}/CE_{working_ion}.sqlite'
-    # prepare to calculate figure_of_merit for conversion electrodes
-    CE_dataframe = pd.DataFrame([])
-    # get entries from local database for each chemical system
+    # set up a conversion reaction database
+    CR_database = f'DB/{thermo_type}/CE_{working_ion}.sqlite'
+    # retrieve and store entries based on chemical systems
     chemsys_list = pd.read_csv(f'Tables/{thermo_type}/{working_ion}/chemsys.csv').chemsys.to_list()
     for chemsys in tqdm(chemsys_list, total=len(chemsys_list)):
-        # fetch entries from local database via chemical systems
-        entry_list = Local_PD(PD_database, chemsys)
-        # if no entry found in local database, the new PhaseDiagram method will raise an error and stop the program
-        # see my PR to pymatgen for more details: https://github.com/materialsproject/pymatgen/pull/2819,
-        # which is merged in pymatgen v2023.1.30.
-        phase_diagram = PhaseDiagram(entry_list)
-        # entries that have a tieline connected to reference electrode are not qualified as conversion electrodes
-        # working ion entries are not qualified as conversion electrodes
-        tied_entries_list = Tied_entries(phase_diagram, working_ion)
-        valid_entries_list = [entry for entry in entry_list 
-                              if (entry.entry_id not in tied_entries_list and entry.reduced_formula != working_ion)]
-        for entry in valid_entries_list:
-            # Note: it is not required to use reduced formula for ConversionElectrode construction, even though considering for normalization correction
-            # especially in case of unstable entries as input comp in from_composition_and_pd(),
-            # which may affect some properties of electrode, like volume inconsistency.
-            # This maybe a bug in pymatgen that target entry some different entries having the same reduce formula have e_above_hull != 0
-            # On the contrary, using entry.composition as input would always be correct, when a proper scale for rxn is applied.
-            # for stable entries, from_composition_and_pd() would always assign for electrode from PD if it is existed,
-            material_id = entry.data['material_id']
-            theoretical_boolean = entry.data['theoretical']
-            e_above_hull = entry.data['e_above_hull']
-            fromZero_boolean = Element(working_ion) not in entry.elements
-            conversion_electrode = CE(entry.composition, working_ion, phase_diagram)
-            framework_formula = conversion_electrode.framework.reduced_formula if not isinstance(conversion_electrode, type(None)) else None
-            # FOM calculations with a volume expansion threshold, i.e. volume of (Lithiated) electrode / volume of initial electrode in [0.7,1.3].
-            [grav_capacity, average_voltage, figure_of_merit, toEnd_boolean, conductive_boolean] = FoMs_within_expansion_threshold(
-                initial_entry, conversion_electrode, vol_threshold=vol_threshold, band_gap_threshold=band_gap_threshold) if not isinstance(conversion_electrode, type(None)) else [None, None, None, None, None]
+        # prepare to calculate figure_of_merit for conversion electrodes
+        CE_dataframe = pd.DataFrame([])
+        # get entries from local database for each chemical system
+        chemsys_list = pd.read_csv(f'Tables/{thermo_type}/{working_ion}/chemsys.csv').chemsys.to_list()
+        for chemsys in tqdm(chemsys_list, total=len(chemsys_list)):
+            # fetch entries from local database via chemical systems
+            entry_list = Local_PD(PD_database, chemsys)
+            # if no entry found in local database, the new PhaseDiagram method will raise an error and stop the program
+            # see my PR to pymatgen for more details: https://github.com/materialsproject/pymatgen/pull/2819,
+            # which is merged in pymatgen v2023.1.30.
+            phase_diagram = PhaseDiagram(entry_list)
+            # entries that have a tieline connected to reference electrode are not qualified as conversion electrodes
+            # working ion entries are not qualified as conversion electrodes
+            tied_entries_list = Tied_entries(phase_diagram, working_ion)
+            valid_entries_list = [entry for entry in entry_list 
+                                if (entry.entry_id not in tied_entries_list and entry.reduced_formula != working_ion)]
+            for entry in valid_entries_list:
+                # Note: it is not required to use reduced formula for ConversionElectrode construction, even though considering for normalization correction
+                # especially in case of unstable entries as input comp in from_composition_and_pd(),
+                # which may affect some properties of electrode, like volume inconsistency.
+                # This maybe a bug in pymatgen that target entry some different entries having the same reduce formula have e_above_hull != 0
+                # On the contrary, using entry.composition as input would always be correct, when a proper scale for rxn is applied.
+                # for stable entries, from_composition_and_pd() would always assign for electrode from PD if it is existed,
+                material_id = entry.data['material_id']
+                theoretical_boolean = entry.data['theoretical']
+                e_above_hull = entry.data['e_above_hull']
+                fromZero_boolean = Element(working_ion) not in entry.elements
+                conversion_electrode = CE(entry.composition, working_ion, phase_diagram)
+                framework_formula = conversion_electrode.framework.reduced_formula if not isinstance(conversion_electrode, type(None)) else None
+                # FOM calculations with a volume expansion threshold, i.e. volume of (Lithiated) electrode / volume of initial electrode in [0.7,1.3].
+                [grav_capacity, average_voltage, figure_of_merit, toEnd_boolean, conductive_boolean] = FoMs_within_expansion_threshold(
+                    initial_entry, conversion_electrode, vol_threshold=vol_threshold, band_gap_threshold=band_gap_threshold) if not isinstance(conversion_electrode, type(None)) else [None, None, None, None, None]
 
-            profile_dict = {'material_id': initial_material_id,
-                            'formula': initial_formula,
-                            'framework': framework_formula,
-                            'grav_capacity_mAh/g': grav_capacity,
-                            'average_voltage_V': average_voltage,
-                            'figure_of_merit': figure_of_merit,
-                            'stability(e_above_hull)': e_above_hull,
-                            'theoretical': theoretical_boolean,
-                            'fromZero_boolean': fromZero_boolean,
-                            'toEnd_boolean': toEnd_boolean,
-                            'conductive_boolean': conductive_boolean
-                            }
+                profile_dict = {'material_id': material_id,
+                                'framework': framework_formula,
+                                'grav_capacity_mAh/g': grav_capacity,
+                                'average_voltage_V': average_voltage,
+                                'figure_of_merit': figure_of_merit,
+                                'stability(e_above_hull)': e_above_hull,
+                                'theoretical': theoretical_boolean,
+                                'fromZero_boolean': fromZero_boolean,
+                                'toEnd_boolean': toEnd_boolean,
+                                'conductive_boolean': conductive_boolean
+                                }
 
-            CE_dataframe.loc[index, profile_dict.keys()] = profile_dict.values()
+                CE_dataframe.loc[index, profile_dict.keys()] = profile_dict.values()
 
-CE_stable_dataframe = CE_dataframe.loc[CE_dataframe['stability(e_above_hull)'] == 0]
-CE_metastable_dataframe = CE_dataframe.loc[CE_dataframe['stability(e_above_hull)'] > 0]
+    CE_stable_dataframe = CE_dataframe.loc[CE_dataframe['stability(e_above_hull)'] == 0]
+    CE_metastable_dataframe = CE_dataframe.loc[CE_dataframe['stability(e_above_hull)'] > 0]
 
-CE_stable_dataframe.to_csv(f'Tables/{thermo_type}/{working_ion}/FOM_stable.csv', float_format='%.5f', index=False)
-CE_metastable_dataframe.to_csv(f'Tables/{thermo_type}/{working_ion}/FOM_metastable.csv', float_format='%.5f', index=False)
-CE_dataframe.to_csv(f'Tables/{thermo_type}/{working_ion}/FOM_all.csv', float_format='%.5f', index=False)
+    CE_stable_dataframe.to_csv(f'Tables/{thermo_type}/{working_ion}/FOM_stable.csv', float_format='%.5f', index=False)
+    CE_metastable_dataframe.to_csv(f'Tables/{thermo_type}/{working_ion}/FOM_metastable.csv', float_format='%.5f', index=False)
+    CE_dataframe.to_csv(f'Tables/{thermo_type}/{working_ion}/FOM_all.csv', float_format='%.5f', index=False)
 
-    # record time usage for FOMs calculations for conversion electrodes in terms of working ions
-    end_time = time.time()
-    runtime = end_time - start_time
-    with open('runtime.txt', 'a') as t:
-        print(f'FOM, thermo type: {thermo_type}, working ion: {working_ion}: , runtime: {(runtime/3600):.2f} h', file=t)
+        # record time usage for FOMs calculations for conversion electrodes in terms of working ions
+        end_time = time.time()
+        runtime = end_time - start_time
+        with open('runtime.txt', 'a') as t:
+            print(f'FOM, thermo type: {thermo_type}, working ion: {working_ion}: , runtime: {(runtime/3600):.2f} h', file=t)
