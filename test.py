@@ -291,16 +291,18 @@ def Init_CR_DB(CR_database):
         dbConnection_init = sqlite3.connect(CR_database)
         cursor_init = dbConnection_init.cursor()
         # database schema, store figure of merits for entry objects
-        cursor_init.execute("""CREATE TABLE IF NOT EXISTS FoMs_table (chemsys TEXT NOT NULL,
-                                                                    entry_id TEXT NOT NULL,
-                                                                    name TEXT NOT NULL,
-                                                                    e_above_hull TEXT NOT NULL,
-                                                                    FoMs TEXT NOT NULL,
-                                                                    PRIMARY KEY entry_id,
-                                                                    UNIQUE (chemsys, entry_id)
-                                                                    ) WITHOUT ROWID""")
+        cursor_init.execute("""
+            CREATE TABLE IF NOT EXISTS FoMs_table (
+                chemsys TEXT NOT NULL,
+                entry_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                e_above_hull TEXT NOT NULL,
+                FoMs TEXT NOT NULL,
+                PRIMARY KEY entry_id,
+                UNIQUE (chemsys, entry_id)
+            ) WITHOUT ROWID
+        """)
         dbConnection_init.commit()
-
     finally:
         dbConnection_init.close()
 
