@@ -5,7 +5,6 @@ import time
 
 import numpy as np
 import pandas as pd
-from emmet.core.thermo import ThermoType
 from pymatgen.analysis.phase_diagram import PhaseDiagram
 from pymatgen.apps.battery.conversion_battery import (ConversionElectrode,
                                                       ConversionVoltagePair)
@@ -206,12 +205,12 @@ def Line_integral(point_1, point_2):
     return (integral_value)
 
 
-def FoM_calculation(x_discharged_series, normalized_volume_series):
+def FoM_calculation(x_discharged_series, volume_ratio_series):
     # a figure of merit (FoM), which is proportional to strain energy density is defined as 
     # the integral of |ln_y|^2, from zero to x_end
     # y is the volume_of_products / volume_of_reactants
     # x is the insertion number of working ions per formula unit of electrode
-    y_series = np.power(np.log(normalized_volume_series), 2)
+    y_series = np.power(np.log(volume_ratio_series), 2)
     # list of points (x, y)
     point_list = [p for p in zip(x_discharged_series, y_series)]
     # list of endpoint pair of A-B segment
@@ -239,7 +238,7 @@ def FoMs_within_expansion_threshold(CE, vol_threshold=0.3, band_gap_threshold=1)
     x_discharged_series = pd.Series([], dtype='float64')
     volume_ratio_series = pd.Series([], dtype='float64')
     average_voltage_series = pd.Series([], dtype='float64')
-    gravimetric_capacity_series = pd.Series([], dtype='float64')
+    grav_capacity_series = pd.Series([], dtype='float64')
     FoM_series = pd.Series([], dtype='float64')
     conductive_boolean_series = pd.Series([], dtype='object')
 
@@ -252,37 +251,100 @@ def FoMs_within_expansion_threshold(CE, vol_threshold=0.3, band_gap_threshold=1)
     voltage_pairs_list = CE.voltage_pairs
     n_steps = len(voltage_pairs_list)
     for step, voltage_pair in zip(range(1, n_steps+1), voltage_pairs_list):
-        # calculate the relative volume expansion between endpoint compositions in a given voltage plateau
-        volume_ratio = voltage_pair.vol_discharge / voltage_pair.vol_charge
+        # calculate the relative volume expansion between endpoint compositions for a given voltage plateau
+        volume_ratio_series[step] = voltage_pair.vol_discharge / voltage_pair.vol_charge
+        x_discharged_series[step] = x_discharge_calculation(voltage_pair) + x_discharged_series[step-1]
+        average_voltage_series[step] = CE.get_average_voltage(min_voltage=voltage_pair.voltage)
+        grav_capacity_series[step] = CE.get_capacity_grav(min_voltage=voltage_pair.voltage, use_overall_normalization=True)
+        FoM_series[step] = FoM_calculation(x_discharged_series, volume_ratio_series)
+        # it is required that at least one of mixed phases is conductive to conduct electrons as electrode
+        # here, a bug in pymatgen codes was fixed to ensure overall naming consistency, see my PR in https://github.com/materialsproject/pymatgen/pull/2483,
+        conductive_boolean_series[step] = True in [entry.data['band_gap'] < band_gap_threshold for entry in voltage_pair.entries_discharge]
+
         # if volume_ratio exceed the limits at certain step, not all voltage plateaus are qualified, which is to end
+        volume_ratio = voltage_pair.vol_discharge / entry.structure.vol_charge
         if not (1-vol_threshold <= volume_ratio <= 1+vol_threshold):
             toEnd_boolean = False
-            break
         else:
-            volume_ratio_series[step] = volume_ratio
-            x_discharged_series[step] = x_discharge_calculation(voltage_pair) + x_discharged_series[step-1]
-            average_voltage_series[step] = CE.get_average_voltage(min_voltage=voltage_pair.voltage)
-            gravimetric_capacity_series[step] = CE.get_capacity_grav(min_voltage=voltage_pair.voltage, use_overall_normalization=True)
-            FoM_series[step] = FoM_calculation(x_discharged_series, volume_ratio_series)
-            # it is required that at least one of mixed phases is conductive to conduct electrons as electrode
-            # here, a bug in pymatgen codes was fixed to ensure overall naming consistency, see my PR in https://github.com/materialsproject/pymatgen/pull/2483,
-            conductive_boolean_series[step] = True in [entry.data['band_gap'] < band_gap_threshold for entry in voltage_pair.entries_discharge]
-
     # In the case of volume_ratio exceeds the criterion at the first step, tags will not get value from the loop above.
     if step == 1 and toEnd_boolean == False:
-        gravimetric_capacity = None
+        grav_capacity = None
         average_voltage = None
         figure_of_merit = None
         conductive_boolean = None
     else:
-        gravimetric_capacity = gravimetric_capacity_series.iloc[-1]
+        grav_capacity = grav_capacity_series.iloc[-1]
         average_voltage = average_voltage_series.iloc[-1]
         figure_of_merit = FoM_series.iloc[-1]
         # always be conductive along the path or not.
         conductive_boolean = all(conductive_boolean_series.values)
 
-    return ([gravimetric_capacity, average_voltage, figure_of_merit, toEnd_boolean, conductive_boolean])
+    return ([grav_capacity, average_voltage, figure_of_merit, toEnd_boolean, conductive_boolean])
 
+        # if volume_ratio exceed the limits at certain step, not all voltage plateaus are qualified, which is to end
+        if not (1-vol_threshold <= volume_ratio <= 1+vol_threshold):
+            toEnd_boolean = False
+            break
+        else:
+        
+def FoMs_calculation(CE, initial_entry, vol_threshold=0.3, band_gap_threshold=1):
+    x_discharged_series = pd.Series([], dtype='float64')
+    normalized_volume_series = pd.Series([], dtype='float64')
+    volume_ratio_series = pd.Series([], dtype='float64')
+    average_voltage_series = pd.Series([], dtype='float64')
+    grav_capacity_series = pd.Series([], dtype='float64')
+    FoM_series = pd.Series([], dtype='float64')
+    conductive_boolean_series = pd.Series([], dtype='object')
+
+    # set a starting point for FoM calculation
+    x_discharged_series[0] = 0
+    volume_ratio_series[0] = 1
+
+    # acquire voltage plateaus
+    voltage_pairs_list = CE.voltage_pairs
+    n_steps = len(voltage_pairs_list)
+    for step, voltage_pair in zip(range(1, n_steps+1), voltage_pairs_list):
+        # it is required that at least one of mixed phases is conductive to conduct electrons as electrode
+        # here, a bug in pymatgen codes was fixed to ensure overall naming consistency, see my PR in https://github.com/materialsproject/pymatgen/pull/2483,
+        conductive_boolean_series[step] = True in [entry.data['band_gap'] < band_gap_threshold for entry in voltage_pair.entries_discharge]
+        x_discharged_series[step] = x_discharge_calculation(voltage_pair) + x_discharged_series[step-1]
+        grav_capacity_series[step] = CE.get_capacity_grav(min_voltage=voltage_pair.voltage, use_overall_normalization=True)
+        average_voltage_series[step] = CE.get_average_voltage(min_voltage=voltage_pair.voltage)
+        # calculate a relative volume expansion between starting phase with the endpoint composite at current voltage plateau
+        # if the input entry is stable, there is only one entry in entries_charge, but for unstable composition, its entry may not exit in entries_charge.
+        normalized_volume_series[step] = voltage_pair.vol_discharge / initial_entry.structure.volume
+        # calculate a relative volume expansion between endpoint compositions in a given voltage plateau, which would be input of FoM calculation below.
+        volume_ratio_series[step] = voltage_pair.vol_discharge / voltage_pair.vol_charge
+        FoM_series[step] = FoM_calculation(x_discharged_series, volume_ratio_series)
+    
+    # only record the entries that are qualified for an electrode having conversion reactions with working ion.
+    for normalized_volume_series:
+    
+    # make the entire path as default
+    toEnd_boolean = True
+
+    # In the case of volume_ratio exceeds the criterion at the first step, tags will not get value from the loop above.
+    if step == 1 and toEnd_boolean == False:
+        grav_capacity = None
+        average_voltage = None
+        figure_of_merit = None
+        conductive_boolean = None
+    else:
+        grav_capacity = grav_capacity_series.iloc[-1]
+        average_voltage = average_voltage_series.iloc[-1]
+        figure_of_merit = FoM_series.iloc[-1]
+        # whether always be conductive along voltage plateaus or not
+        conductive_boolean = all(conductive_boolean_series.values)
+
+        FoMs_dict = {'grav_capacity': grav_capacity,
+                     'average_voltage': average_voltage,
+                     'figure_of_merit': figure_of_merit,
+                     'conductive': conductive_boolean,
+                     'fromZero': fromZero_boolean,
+                     'toEnd': toEnd_boolean
+                    }
+    
+    return (FoMs_dict)
 
 
 def Init_CR_DB(CR_database):
@@ -291,18 +353,17 @@ def Init_CR_DB(CR_database):
         dbConnection_init = sqlite3.connect(CR_database)
         cursor_init = dbConnection_init.cursor()
         # database schema, store figure of merits for entry objects
-        cursor_init.execute("""
-            CREATE TABLE IF NOT EXISTS FoMs_table (
-                chemsys TEXT NOT NULL,
-                entry_id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                e_above_hull TEXT NOT NULL,
-                FoMs TEXT NOT NULL,
-                PRIMARY KEY entry_id,
-                UNIQUE (chemsys, entry_id)
-            ) WITHOUT ROWID
-        """)
+        cursor_init.execute("""CREATE TABLE IF NOT EXISTS FoMs_table (
+                                    chemsys TEXT NOT NULL,
+                                    entry_id TEXT NOT NULL,
+                                    name TEXT NOT NULL,
+                                    e_above_hull TEXT NOT NULL,
+                                    theoretical TEXT NOT NULL,
+                                    FoMs TEXT NOT NULL,
+                                    PRIMARY KEY (chemsys, entry_id)
+                                ) WITHOUT ROWID""")
         dbConnection_init.commit()
+
     finally:
         dbConnection_init.close()
 
