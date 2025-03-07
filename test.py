@@ -281,12 +281,7 @@ def FoMs_within_expansion_threshold(CE, vol_threshold=0.3, band_gap_threshold=1)
 
     return ([grav_capacity, average_voltage, figure_of_merit, toEnd_boolean, conductive_boolean])
 
-        # if volume_ratio exceed the limits at certain step, not all voltage plateaus are qualified, which is to end
-        if not (1-vol_threshold <= volume_ratio <= 1+vol_threshold):
-            toEnd_boolean = False
-            break
-        else:
-        
+
 def FoMs_calculation(CE, initial_entry, vol_threshold=0.3, band_gap_threshold=1):
     x_discharged_series = pd.Series([], dtype='float64')
     normalized_volume_series = pd.Series([], dtype='float64')
