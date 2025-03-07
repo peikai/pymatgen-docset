@@ -244,13 +244,8 @@ def FoMs_within_expansion_threshold(CE, vol_threshold=0.3, band_gap_threshold=1)
 
     # set the first item as a reference, to get relative values afterwards
     x_discharged_series[0] = 0
-    # iterate through normalized_volume_series to check volume threshold
-    for normalized_volume in normalized_volume_series:
-        if abs(normalized_volume - 1) > vol_threshold:
-            toEnd_boolean = False
-            break
-    else:
-        toEnd_boolean = True
+    # make the entire path as default
+    toEnd_boolean = True
 
     # acquire voltage plateaus
     voltage_pairs_list = CE.voltage_pairs
@@ -286,15 +281,18 @@ def FoMs_within_expansion_threshold(CE, vol_threshold=0.3, band_gap_threshold=1)
 
     return ([grav_capacity, average_voltage, figure_of_merit, toEnd_boolean, conductive_boolean])
 
-
+        # if volume_ratio exceed the limits at certain step, not all voltage plateaus are qualified, which is to end
+        if not (1-vol_threshold <= volume_ratio <= 1+vol_threshold):
+            toEnd_boolean = False
+            break
+        else:
+        
 def FoMs_calculation(CE, initial_entry, vol_threshold=0.3, band_gap_threshold=1):
     x_discharged_series = pd.Series([], dtype='float64')
     normalized_volume_series = pd.Series([], dtype='float64')
     volume_ratio_series = pd.Series([], dtype='float64')
-    average_voltage_series = pd.Series([], dtype='float64')
-    grav_capacity_series = pd.Series([], dtype='float64')
-    FoM_series = pd.Series([], dtype='float64')
     conductive_boolean_series = pd.Series([], dtype='object')
+    FoMs_dict = dict()
 
     # set a starting point for FoM calculation
     x_discharged_series[0] = 0
@@ -307,46 +305,28 @@ def FoMs_calculation(CE, initial_entry, vol_threshold=0.3, band_gap_threshold=1)
         # it is required that at least one of mixed phases is conductive to conduct electrons as electrode
         # here, a bug in pymatgen codes was fixed to ensure overall naming consistency, see my PR in https://github.com/materialsproject/pymatgen/pull/2483,
         conductive_boolean_series[step] = True in [entry.data['band_gap'] < band_gap_threshold for entry in voltage_pair.entries_discharge]
-        x_discharged_series[step] = x_discharge_calculation(voltage_pair) + x_discharged_series[step-1]
-        grav_capacity_series[step] = CE.get_capacity_grav(min_voltage=voltage_pair.voltage, use_overall_normalization=True)
-        average_voltage_series[step] = CE.get_average_voltage(min_voltage=voltage_pair.voltage)
         # calculate a relative volume expansion between starting phase with the endpoint composite at current voltage plateau
         # if the input entry is stable, there is only one entry in entries_charge, but for unstable composition, its entry may not exit in entries_charge.
         normalized_volume_series[step] = voltage_pair.vol_discharge / initial_entry.structure.volume
+        x_discharged_series[step] = x_discharge_calculation(voltage_pair) + x_discharged_series[step-1]
         # calculate a relative volume expansion between endpoint compositions in a given voltage plateau, which would be input of FoM calculation below.
         volume_ratio_series[step] = voltage_pair.vol_discharge / voltage_pair.vol_charge
-        FoM_series[step] = FoM_calculation(x_discharged_series, volume_ratio_series)
     
-    # only record the entries that are qualified for an electrode having conversion reactions with working ion.
-    for normalized_volume_series:
-    
-    # iterate through normalized_volume_series to check volume threshold
-    for normalized_volume in normalized_volume_series:
-        if abs(normalized_volume - 1) > vol_threshold:
-            toEnd_boolean = False
-            break
-    else:
-        toEnd_boolean = True
+    # full-path criteria
+    # whether be conductive along all voltage plateaus or not
+    conductive_boolean = all(conductive_boolean_series.values)
+    # whether be low expansion along all voltage plateaus or not
+    low_expansion_boolean = all([abs(normalized_volume - 1) < vol_threshold for normalized_volume in normalized_volume_series])
 
-    # In the case of volume_ratio exceeds the criterion at the first step, tags will not get value from the loop above.
-    if step == 1 and toEnd_boolean == False:
-        grav_capacity = None
-        average_voltage = None
-        figure_of_merit = None
-        conductive_boolean = None
-    else:
-        grav_capacity = grav_capacity_series.iloc[-1]
-        average_voltage = average_voltage_series.iloc[-1]
-        figure_of_merit = FoM_series.iloc[-1]
-        # whether always be conductive along voltage plateaus or not
-        conductive_boolean = all(conductive_boolean_series.values)
-
+    if conductive_boolean and low_expansion_boolean:
+        # accumulative quantities
+        grav_capacity = CE.get_capacity_grav(min_voltage=voltage_pair.voltage, use_overall_normalization=True)
+        average_voltage = CE.get_average_voltage(min_voltage=voltage_pair.voltage)
+        FoM = FoM_calculation(x_discharged_series, volume_ratio_series)
+        
         FoMs_dict = {'grav_capacity': grav_capacity,
-                     'average_voltage': average_voltage,
-                     'figure_of_merit': figure_of_merit,
-                     'conductive': conductive_boolean,
-                     'fromZero': fromZero_boolean,
-                     'toEnd': toEnd_boolean
+                    'average_voltage': average_voltage,
+                    'figure_of_merit': FoM
                     }
     
     return (FoMs_dict)
