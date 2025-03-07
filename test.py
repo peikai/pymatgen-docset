@@ -292,8 +292,7 @@ def FoMs_calculation(CE, initial_entry, vol_threshold=0.3, band_gap_threshold=1)
     normalized_volume_series = pd.Series([], dtype='float64')
     volume_ratio_series = pd.Series([], dtype='float64')
     conductive_boolean_series = pd.Series([], dtype='object')
-    FoMs_dict = dict()
-
+    
     # set a starting point for FoM calculation
     x_discharged_series[0] = 0
     volume_ratio_series[0] = 1
@@ -318,18 +317,25 @@ def FoMs_calculation(CE, initial_entry, vol_threshold=0.3, band_gap_threshold=1)
     # whether be low expansion along all voltage plateaus or not
     low_expansion_boolean = all([abs(normalized_volume - 1) < vol_threshold for normalized_volume in normalized_volume_series])
 
+    # Initialize with empty dictionary
+    figure_of_merit = None
+    grav_capacity = None
+    average_voltage = None
+    FoMs_result = {}
+    
     if conductive_boolean and low_expansion_boolean:
         # accumulative quantities
         grav_capacity = CE.get_capacity_grav(min_voltage=voltage_pair.voltage, use_overall_normalization=True)
         average_voltage = CE.get_average_voltage(min_voltage=voltage_pair.voltage)
-        FoM = FoM_calculation(x_discharged_series, volume_ratio_series)
+        figure_of_merit = FoM_calculation(x_discharged_series, volume_ratio_series)
         
-        FoMs_dict = {'grav_capacity': grav_capacity,
-                    'average_voltage': average_voltage,
-                    'figure_of_merit': FoM
-                    }
+        FoMs_result = {
+            'grav_capacity': grav_capacity,
+            'average_voltage': average_voltage,
+            'figure_of_merit': figure_of_merit
+        }
     
-    return (FoMs_dict)
+    return FoMs_result
 
 
 def Init_CR_DB(CR_database):
