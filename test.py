@@ -244,8 +244,13 @@ def FoMs_within_expansion_threshold(CE, vol_threshold=0.3, band_gap_threshold=1)
 
     # set the first item as a reference, to get relative values afterwards
     x_discharged_series[0] = 0
-    # make the entire path as default
-    toEnd_boolean = True
+    # iterate through normalized_volume_series to check volume threshold
+    for normalized_volume in normalized_volume_series:
+        if abs(normalized_volume - 1) > vol_threshold:
+            toEnd_boolean = False
+            break
+    else:
+        toEnd_boolean = True
 
     # acquire voltage plateaus
     voltage_pairs_list = CE.voltage_pairs
@@ -315,8 +320,13 @@ def FoMs_calculation(CE, initial_entry, vol_threshold=0.3, band_gap_threshold=1)
     # only record the entries that are qualified for an electrode having conversion reactions with working ion.
     for normalized_volume_series:
     
-    # make the entire path as default
-    toEnd_boolean = True
+    # iterate through normalized_volume_series to check volume threshold
+    for normalized_volume in normalized_volume_series:
+        if abs(normalized_volume - 1) > vol_threshold:
+            toEnd_boolean = False
+            break
+    else:
+        toEnd_boolean = True
 
     # In the case of volume_ratio exceeds the criterion at the first step, tags will not get value from the loop above.
     if step == 1 and toEnd_boolean == False:
