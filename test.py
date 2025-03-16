@@ -56,7 +56,9 @@ candidate_dataframe = CE_dataframe.loc[(CE_dataframe['grav_capacity'] >= capacit
 # experiment-reported phases are listed on the upper part of the table, then are listed by the *figure_of_merit* field in ascending sort.
 # Using inplace=True to avoid SettingWithCopyWarning
 candidate_dataframe.sort_values(by=['theoretical', 'figure_of_merit'], ascending=[True, True], inplace=True)
-candidate_dataframe.round({'grav_capacity': 3, 'average_voltage': 3, 'figure_of_merit': 3}, inplace=True)
+# Round the values in the DataFrame
+for col in ['grav_capacity', 'average_voltage', 'figure_of_merit']:
+    candidate_dataframe[col] = candidate_dataframe[col].round(3)
 
 candidate_dataframe.to_csv(f'Tables/{thermo_type}/{working_ion}/candidates_{stable_or_not}.csv', float_format='%.3f', index=False)
 
