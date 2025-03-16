@@ -5,9 +5,14 @@ import sqlite3
 
 
 def contain_unavailable_elements(formula, unavailable_element_list):
-    boolean_list = [e.symbol in unavailable_element_list for e in Composition(formula).elements]
-
-    return (True in boolean_list)
+    # Check if any element in the formula is in the unavailable_element_list
+    try:
+        comp = Composition(formula)
+        boolean_list = [e.symbol in unavailable_element_list for e in comp.elements]
+        return any(boolean_list)  # More pythonic than (True in boolean_list)
+    except:
+        # Return True if formula can't be parsed (to exclude it)
+        return True
 
 
 working_ion = 'Mg'
@@ -49,8 +54,9 @@ candidate_dataframe = CE_dataframe.loc[(CE_dataframe['grav_capacity'] >= capacit
 # candidate_dataframe = candidate_dataframe.loc[CE_dataframe['average_voltage'] >= 1]
 
 # experiment-reported phases are listed on the upper part of the table, then are listed by the *figure_of_merit* field in ascending sort.
-candidate_dataframe = candidate_dataframe.sort_values(by=['theoretical', 'figure_of_merit'], ascending=[True, True])
-candidate_dataframe = candidate_dataframe.round({'grav_capacity': 3, 'average_voltage': 3, 'figure_of_merit': 3})
+# Using inplace=True to avoid SettingWithCopyWarning
+candidate_dataframe.sort_values(by=['theoretical', 'figure_of_merit'], ascending=[True, True], inplace=True)
+candidate_dataframe.round({'grav_capacity': 3, 'average_voltage': 3, 'figure_of_merit': 3}, inplace=True)
 
 candidate_dataframe.to_csv(f'Tables/{thermo_type}/{working_ion}/candidates_{stable_or_not}.csv', float_format='%.3f', index=False)
 
